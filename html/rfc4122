@@ -419,165 +419,239 @@ Category: Standards Track                                    M. Mealling
    我们将在以下各节中依次讨论它们。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
+ 4.2.1.1. 读取稳定存储
  
-4.2.1.1.  Reading Stable Storage
+   如果状态读取到系统范围的共享易失性存储(并在稳定存储更新时更新),则只需在启动时从稳定
+   存储读取一次状态。
  
-   The state only needs to be read from stable storage once at boot   time, if it is read into a system-wide shared volatile store (and   updated whenever the stable store is updated).
+   如果实现没有任何可用的稳定存储,则始终可以说值不可用。 这是最不理想的实现,因为它会
+   增加创建新时钟序列号的频率,从而增加重复的可能性。
  
-   If an implementation does not have any stable store available, then   it can always say that the values were unavailable.  This is the   least desirable implementation because it will increase the frequency   of creation of new clock sequence numbers, which increases the   probability of duplicates.
+   如果节点 ID 永远无法更改(例如,网卡与系统密不可分),或者如果任何更改也重新初始化时钟
+   序列到随机值,则不将其保持在稳定的存储中,则可以返回当前节点 ID。
  
-   If the node ID can never change (e.g., the net card is inseparable   from the system), or if any change also reinitializes the clock   sequence to a random value, then instead of keeping it in stable   store, the current node ID may be returned.
+4.2.1.2. 系统时钟分辨率
  
-4.2.1.2.  System Clock Resolution
+   时间戳由系统时间生成,其分辨率可能小于 UUID 时间戳的分辨率。
  
-   The timestamp is generated from the system time, whose resolution may   be less than the resolution of the UUID timestamp.
+   如果不需要频繁生成 UUID,则时间戳可以简单地将系统时间乘以每个系统时间间隔 100 纳秒
+   间隔数。
  
-   If UUIDs do not need to be frequently generated, the timestamp can   simply be the system time multiplied by the number of 100-nanosecond   intervals per system time interval.
+   如果系统在单个系统时间间隔内请求太多 UUID 而使生成器溢出,则 UUID 服务必须返回
+   错误,或使 UUID 生成器停止,直到系统时钟赶上。
  
-   If a system overruns the generator by requesting too many UUIDs   within a single system time interval, the UUID service MUST either   return an error, or stall the UUID generator until the system clock   catches up.
+   高分辨率时间戳可以通过保留具有相同系统时间值生成的 UUID 数的计数,并使用它构造时间戳
+   的低阶位来模拟。 计数范围为 0 和每个系统时间间隔的 100 纳秒间隔数。
  
-   A high resolution timestamp can be simulated by keeping a count of   the number of UUIDs that have been generated with the same value of   the system time, and using it to construct the low order bits of the   timestamp.  The count will range between zero and the number of   100-nanosecond intervals per system time interval.
+   注意: 如果处理器频繁超过 UUID 生成,则可以向系统分配其他节点标识符,这将允许通过为
+   每个时间戳值提供多个 UUID 来实现更高的分配速度。
  
-   Note: If the processors overrun the UUID generation frequently,   additional node identifiers can be allocated to the system, which   will permit higher speed allocation by making multiple UUIDs   potentially available for each time stamp value.
+4.2.1.3. 写入稳定存储
  
-4.2.1.3.  Writing Stable Storage
- 
-   The state does not always need to be written to stable store every   time a UUID is generated.  The timestamp in the stable store can be   periodically set to a value larger than any yet used in a UUID.  As   long as the generated UUIDs have timestamps less than that value, and</pre>
+   每次生成 UUID 时,状态并不总是需要写入稳定存储。 稳定存储中的时间戳可以定期设置为
+   大于 UUID 中尚未使用的任何值的值。 只要生成的 UUID 的时间戳小于该值,并且时钟序列
+   和节点 ID 保持不变,则只需要更新状态的共享可变副本。 此外,如果稳定存储中的时间戳值
+   在将来小于重新启动系统的典型时间,则崩溃不会导致时钟序列的重新初始化。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   the clock sequence and node ID remain unchanged, only the shared   volatile copy of the state needs to be updated.  Furthermore, if the   timestamp value in stable store is in the future by less than the   typical time it takes the system to reboot, a crash will not cause a   reinitialization of the clock sequence.
+   
+
+
+
+
  
-4.2.1.4.  Sharing State Across Processes
+4.2.1.4. 跨进程共享状态
  
-   If it is too expensive to access shared state each time a UUID is   generated, then the system-wide generator can be implemented to   allocate a block of time stamps each time it is called; a per-   process generator can allocate from that block until it is exhausted.
+   如果每次生成 UUID 时访问共享状态的成本太高,则可以实现系统范围的生成器,以在每次调用
+   时分配时间戳块;如果每次生成共享状态,则可以实现该开销。每个进程生成器可以从该模块
+   分配,直到它耗尽。
  
-4.2.2.  Generation Details
+4.2.2. 生成器详细信息
  
-   Version 1 UUIDs are generated according to the following algorithm:
+   版本 1 UUID 根据以下算法生成:
  
-   o  Determine the values for the UTC-based timestamp and clock      sequence to be used in the UUID, as described in Section 4.2.1.
+   o 确定 UUID 中使用的基于 UTC 的时间戳和时钟序列的值,如第 4.2.1 节所述。
  
-   o  For the purposes of this algorithm, consider the timestamp to be a      60-bit unsigned integer and the clock sequence to be a 14-bit      unsigned integer.  Sequentially number the bits in a field,      starting with zero for the least significant bit.
+   o 出于此算法的目的,将时间戳视为 60 位无符号整数,将时钟序列视为 14 位无符号整数。
+     按顺序对字段中的位进行编号,以零开头表示最低显著性位。
  
-   o  Set the time_low field equal to the least significant 32 bits      (bits zero through 31) of the timestamp in the same order of      significance.
+   o 以相同的显著性顺序将 time_low 设置为时间戳的最小显著性 32 位(位为零到 31)。
  
-   o  Set the time_mid field equal to bits 32 through 47 from the      timestamp in the same order of significance.
+   o 以相同的显著性顺序将 time_mid 字段设置为时间戳中等于位 32 到 47 的位。
  
-   o  Set the 12 least significant bits (bits zero through 11) of the      time_hi_and_version field equal to bits 48 through 59 from the      timestamp in the same order of significance.
+   o 以相同的显著性顺序将时间戳中等于位 48 到 59 的 time_hi_and_version 字段的
+     12 个最低显著位(位零到 11)设置为 48 到 59。
  
-   o  Set the four most significant bits (bits 12 through 15) of the      time_hi_and_version field to the 4-bit version number      corresponding to the UUID version being created, as shown in the      table above.
+   o 将 time_hi_and_version 字段的四个版本位(位 12 到 15)设置为与正在创建的
+     UUID 版本对应的 4 位版本号,如上表所示。
  
-   o  Set the clock_seq_low field to the eight least significant bits      (bits zero through 7) of the clock sequence in the same order of      significance.</pre>
+   o 以相同的显著性顺序将 clock_seq_low 字段设置为时钟序列的八个最低显著位
+     (位为零到 7)。
+
+   o 以相同的显著性顺序将 clock_seq_hi_and_reserved 的 0 到 5 设置为时钟序列
+     的 8 到 13 。
+ 
+   o 将 clock_seq_hi_and_reserved 的 6 和 7 位分别设置为零和一。
+ 
+   o 以与地址相同的显著性顺序将 node 字段设置为 48 位 IEEE 地址。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   o  Set the 6 least significant bits (bits zero through 5) of the      clock_seq_hi_and_reserved field to the 6 most significant bits      (bits 8 through 13) of the clock sequence in the same order of      significance.
+   
+
+
+
+
+
+
+
+
+
+
  
-   o  Set the two most significant bits (bits 6 and 7) of the      clock_seq_hi_and_reserved to zero and one, respectively.
+4.3. 创建基于名称的 UUID 的算法
  
-   o  Set the node field to the 48-bit IEEE address in the same order of      significance as the address.
+   版本 3 或 5 UUID 用于从某些"名称空间"中绘制且唯一的"名称"生成 UUD。 名称和名称
+   空间的概念应广义地解释,而不应仅限于文本名称。 例如,某些名称空间是域名系统、URL、
+   ISO 对象 ID (OID)、X.500 可分辨名称 (DN) 和编程语言中的保留字。 用于分配名称
+   并确保其在其名称空间内的唯一性的机制或约定超出了此规范的范围。
  
-4.3.  Algorithm for Creating a Name-Based UUID
+   这些类型的 UUD 的要求如下:
  
-   The version 3 or 5 UUID is meant for generating UUIDs from "names"   that are drawn from, and unique within, some "name space".  The   concept of name and name space should be broadly construed, and not   limited to textual names.  For example, some name spaces are the   domain name system, URLs, ISO Object IDs (OIDs), X.500 Distinguished   Names (DNs), and reserved words in a programming language.  The   mechanisms or conventions used for allocating names and ensuring   their uniqueness within their name spaces are beyond the scope of   this specification.
+   o 同一命名空间中同一名称在不同时间生成的 UUID 必须相等。
  
-   The requirements for these types of UUIDs are as follows:
+   o 在同一命名空间中由两个不同的名称生成的 UUID 应该不同(概率非常高)。
  
-   o  The UUIDs generated at different times from the same name in the      same namespace MUST be equal.
+   o 两个不同命名空间中从同一名称生成的 UUID 应该与 (非常高的概率) 不同。
  
-   o  The UUIDs generated from two different names in the same namespace      should be different (with very high probability).
+   o 如果从名称生成的两个 UUID 相等,则它们从同一命名空间中的同一名称生成(概率非常高)。
  
-   o  The UUIDs generated from the same name in two different namespaces      should be different with (very high probability).
+   从名称和名称空间生成 UUID 的算法如下所示:
  
-   o  If two UUIDs that were generated from names are equal, then they      were generated from the same name in the same namespace (with very      high probability).
+   o 分配 UUID 以用作从该名称空间中的名称生成的所有 UUID 的"名称空间 ID";有关一些
+     预定义的值,请参阅附录 C。
  
-   The algorithm for generating a UUID from a name and a name space are   as follows:
- 
-   o  Allocate a UUID to use as a "name space ID" for all UUIDs      generated from names in that name space; see Appendix C for some      pre-defined values.
- 
-   o  Choose either MD5 [4] or SHA-1 [8] as the hash algorithm; If      backward compatibility is not an issue, SHA-1 is preferred.</pre>
+   o 选择 MD5 [4] 或 SHA-1 [8] 作为哈希算法;如果向后兼容性不是问题,则首选 SHA-1。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   o  Convert the name to a canonical sequence of octets (as defined by      the standards or conventions of its name space); put the name      space ID in network byte order.
+   o 将名称转换为八位字节的规范序列(由其名称空间的标准或约定定义);将名称空间 ID 按
+     网络字节顺序排列。
  
-   o  Compute the hash of the name space ID concatenated with the name.
+   o 计算与名称连接的名称空间 ID 的哈希。
  
-   o  Set octets zero through 3 of the time_low field to octets zero      through 3 of the hash.
+   o 将零到 3 的 time_low 设置为哈希的 0 到 3 的八位字节。
  
-   o  Set octets zero and one of the time_mid field to octets 4 and 5 of      the hash.
+   o 将八位字节设置为零,并将一个 time_mid field 字段设置为哈希的第 4 和 5 位。
  
-   o  Set octets zero and one of the time_hi_and_version field to octets      6 and 7 of the hash.
+   o 将八位字节零和一个 time_hi_and_version 字段设置为哈希的第 6 和 7 位。
  
-   o  Set the four most significant bits (bits 12 through 15) of the      time_hi_and_version field to the appropriate 4-bit version number      from Section 4.1.3.
+   o 将 time_hi_and_version 字段的四个位(位 12 到 15)设置为第 4.1.3 节中相应
+     的 4 位版本号。
  
-   o  Set the clock_seq_hi_and_reserved field to octet 8 of the hash.
+   o 将 clock_seq_hi_and_reserved 字段设置为哈希的第 8 位。
  
-   o  Set the two most significant bits (bits 6 and 7) of the      clock_seq_hi_and_reserved to zero and one, respectively.
+   o 将 clock_seq_hi_and_reserved 的位(位 6 和 7)分别设置为零和一。
  
-   o  Set the clock_seq_low field to octet 9 of the hash.
+   o 将 clock_seq_low 字段设置为哈希的第 9 位。
  
-   o  Set octets zero through five of the node field to octets 10      through 15 of the hash.
+   o 将 node 字段的0-5设置为哈希的 10-15 位。
  
-   o  Convert the resulting UUID to local byte order.
+   o 将生成的 UUID 转换为本地字节顺序。
+
+
+
+
  
-4.4.  Algorithms for Creating a UUID from Truly Random or
-      Pseudo-Random Numbers
+4.4. 从真正随机或伪随机数创建 UUID 的算法
  
-   The version 4 UUID is meant for generating UUIDs from truly-random or   pseudo-random numbers.
+   版本 4 UUID 用于从真正随机或伪随机数生成 UUD。
  
-   The algorithm is as follows:
+   算法如下:
  
-   o  Set the two most significant bits (bits 6 and 7) of the      clock_seq_hi_and_reserved to zero and one, respectively.
+   o 将 clock_seq_hi_and_reserved 的位 6 和 7 分别设置为零和一。
  
-   o  Set the four most significant bits (bits 12 through 15) of the      time_hi_and_version field to the 4-bit version number from      Section 4.1.3.
+   o 将 time_hi_and_version 的位 12 到 15 设置为第 4.1.3 节中的 4 位版本号。
  
-   o  Set all the other bits to randomly (or pseudo-randomly) chosen      values.</pre>
+   o 将所有其他位设置为随机(或伪随机)选择的值。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   See Section 4.5 for a discussion on random numbers.
+   有关随机数的讨论,请参阅第 4.5 节。
  
-4.5.  Node IDs that Do Not Identify the Host
+4.5. 未认证主机的节点标识
  
-   This section describes how to generate a version 1 UUID if an IEEE   802 address is not available, or its use is not desired.
+   本节介绍,如果 IEEE 802 地址不可用,或者不需要使用,如何生成版本 1 的 UUID。
  
-   One approach is to contact the IEEE and get a separate block of   addresses.  At the time of writing, the application could be found at   <http: standards.ieee.org="" regauth="" oui="" pilot-ind.html="">, and the cost   was US$550.
+   一种方法是联系 IEEE 并获取单独的地址块。 在撰写本文时,可以在
+   <a href="http://standards.ieee.org/regauth/oui/pilot-ind.html">http://standards.ieee.org/regauth/oui/pilot-ind.html</a>找到申请,
+   费用为 550 美元。
  
-   A better solution is to obtain a 47-bit cryptographic quality random   number and use it as the low 47 bits of the node ID, with the least   significant bit of the first octet of the node ID set to one.  This   bit is the unicast/multicast bit, which will never be set in IEEE 802   addresses obtained from network cards.  Hence, there can never be a   conflict between UUIDs generated by machines with and without network   cards.  (Recall that the IEEE 802 spec talks about transmission   order, which is the opposite of the in-memory representation that is   discussed in this document.)
+   更好的解决方案是获取 47 位加密质量随机数,并将其用作 node ID 的低 47 位, 
+   node ID 的第一个八位字节中最低位设置为 1。 此位是单播/多播位,永远不会在从网卡
+   获取的 IEEE 802 地址中设置。 因此,由有网卡和无网卡的计算机生成的 UUID 之间永远
+   不会发生冲突。 (回想一下,IEEE 802 规范讨论传输顺序,这与本文档中讨论的内存表示
+   相反。
  
-   For compatibility with earlier specifications, note that this   document uses the unicast/multicast bit, instead of the arguably more   correct local/global bit.
+   为了与早期规范兼容,请注意,本文档使用单播/多播位,而不是可能更正确的局部/全局位。
  
-   Advice on generating cryptographic-quality random numbers can be   found in RFC1750 [5].
+   有关生成加密质量随机数的建议,请参阅 RFC1750 [5]。
  
-   In addition, items such as the computer's name and the name of the   operating system, while not strictly speaking random, will help   differentiate the results from those obtained by other systems.
+   此外,诸如计算机名称和操作系统名称等项目虽然严格地说不是随机的,但将有助于将结果与
+   其他系统获得的结果区分开来。
  
-   The exact algorithm to generate a node ID using these data is system   specific, because both the data available and the functions to obtain   them are often very system specific.  A generic approach, however, is   to accumulate as many sources as possible into a buffer, use a   message digest such as MD5 [4] or SHA-1 [8], take an arbitrary 6   bytes from the hash value, and set the multicast bit as described   above.
+   使用这些数据生成节点 ID 的确切算法是特定于系统的,因为可用的数据和获取它们的函数
+   通常都是特定于系统的。 但是,一个通用方法是将尽可能多的源累积到缓冲区中,使用消息
+   摘要(如 MD5 [4] 或 SHA-1 [8]),从哈希值获取任意的 6 个字节,并设置如上所述的
+   多播位。
  
-5.  Community Considerations
+
+
+
+
+
+
+
+
+
+5. 社区考虑
  
-   The use of UUIDs is extremely pervasive in computing.  They comprise   the core identifier infrastructure for many operating systems   (Microsoft Windows) and applications (the Mozilla browser) and in   many cases, become exposed to the Web in many non-standard ways.</http:></pre>
+   UUD 的使用在计算中极为普遍。 它们构成了许多操作系统(微软 Windows)和应用程序
+   (Mozilla 浏览器)的核心标识符基础结构,在许多情况下,它们以许多非标准方式向 
+   Web 公开。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   This specification attempts to standardize that practice as openly as   possible and in a way that attempts to benefit the entire Internet.
+   此规范试图尽可能公开地标准化该做法,并尝试以有利于整个 Internet 的方式。
  
-6.  Security Considerations
+6. 安全注意事项
  
-   Do not assume that UUIDs are hard to guess; they should not be used   as security capabilities (identifiers whose mere possession grants   access), for example.  A predictable random number source will   exacerbate the situation.
+   不要假定 UUD 很难猜到;例如,它们不应用作安全功能(仅拥有授予访问权限的标识符)。可
+   预测的随机数源将加剧这种情况。
  
-   Do not assume that it is easy to determine if a UUID has been   slightly transposed in order to redirect a reference to another   object.  Humans do not have the ability to easily check the integrity   of a UUID by simply glancing at it.
+   不要假定很容易确定 UUID 是否稍微转置,以便将引用重定向到另一个对象。人类无法简单地
+   通过扫视UUID的完整性来轻松检查它的完整性。
  
-   Distributed applications generating UUIDs at a variety of hosts must   be willing to rely on the random number source at all hosts.  If this   is not feasible, the namespace variant should be used.
+   在各种主机上生成 UUD 的分布式应用程序必须愿意依赖所有主机的随机数源。如果这不可行,
+   则应使用命名空间变体。
  
-7.  Acknowledgments
+7.  感谢
  
-   This document draws heavily on the OSF DCE specification for UUIDs.   Ted Ts'o provided helpful comments, especially on the byte ordering   section which we mostly plagiarized from a proposed wording he   supplied (all errors in that section are our responsibility,   however).
+   本文档大量借鉴了 UUID 的 OSF DCE 规范。  Ted Ts'o 提供了有用的评论,特别是在
+   字节排序部分,我们主要从他提供的拟议措辞中借鉴(但是,该部分中的所有错误都是我们的
+   责任)。
  
-   We are also grateful to the careful reading and bit-twiddling of Ralf   S. Engelschall, John Larmouth, and Paul Thorpe.  Professor Larmouth   was also invaluable in achieving coordination with ISO/IEC.
+   我们也感谢拉尔夫·恩格尔沙尔、约翰·拉茅斯和保罗·索普的认真阅读和细读。 拉茅斯教授在
+   与ISO/IEC的协调方面也是非常宝贵的。
  
-8.  Normative References
+
+
+
+
+
+
+8.  参考规范
  
    [1]  Zahn, L., Dineen, T., and P. Leach, "Network Computing        Architecture", ISBN 0-13-611674-4, January 1990.
  
@@ -600,11 +674,14 @@ Category: Standards Track                                    M. Mealling
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-Appendix A.  Appendix A - Sample Implementation
+附录 A.  附录 A - 示例实现
  
-   This implementation consists of 5 files: uuid.h, uuid.c, sysdep.h,   sysdep.c and utest.c.  The uuid.* files are the system independent   implementation of the UUID generation algorithms described above,   with all the optimizations described above except efficient state   sharing across processes included.  The code has been tested on Linux   (Red Hat 4.0) with GCC (2.7.2), and Windows NT 4.0 with VC++ 5.0.   The code assumes 64-bit integer support, which makes it much clearer.
+   此实现由 5 个文件组成:uuid.h、uuid.c、sysdep.h、sysdep.c 和 utest.c。
+   uuid.* 文件是上述 UUID 生成算法的系统独立实现,除跨进程的有效状态共享外,上述所有
+   优化除外。 该代码已在 Linux (红帽 4.0) 上测试,其 GCC (2.7.2) 和 Windows NT
+   4.0 和 VC++ 5.0。  该代码假定 64 位整数支持,这使得它更加清晰。
  
-   All the following source files should have the following copyright   notice included:
+   以下所有源文件都应包含以下版权声明:
  
 copyrt.h
  
@@ -661,7 +738,8 @@ void uuid_create_sha1_from_name(
  
     uuid_t *uuid,         /* resulting UUID */
     uuid_t nsid,          /* UUID of the namespace */
-    void *name,           /* the name from which to generate a UUID */    int namelen           /* the length of the name */
+    void *name,           /* the name from which to generate a UUID */
+    int namelen           /* the length of the name */
 );
  
 /* uuid_compare --  Compare two UUID's "lexically" and return
@@ -744,7 +822,8 @@ void format_uuid_v1(uuid_t* uuid, unsigned16 clock_seq,
         (unsigned short)((timestamp &gt;&gt; 48) &amp; 0x0FFF);
     uuid-&gt;time_hi_and_version |= (1 &lt;&lt; 12);
     uuid-&gt;clock_seq_low = clock_seq &amp; 0xFF;
-    uuid-&gt;clock_seq_hi_and_reserved = (clock_seq &amp; 0x3F00) &gt;&gt; 8;    uuid-&gt;clock_seq_hi_and_reserved |= 0x80;
+    uuid-&gt;clock_seq_hi_and_reserved = (clock_seq &amp; 0x3F00) &gt;&gt; 8;
+    uuid-&gt;clock_seq_hi_and_reserved |= 0x80;
     memcpy(&amp;uuid-&gt;node, &amp;node, sizeof uuid-&gt;node);
 }
  
@@ -827,8 +906,10 @@ void get_current_time(uuid_time_t *timestamp)
     for ( ; ; ) {
         get_system_time(&amp;time_now);
  
-        /* if clock reading changed since last UUID generated, */        if (time_last != time_now) {
-            /* reset count of uuids gen'd with this clock reading */            uuids_this_tick = 0;
+        /* if clock reading changed since last UUID generated, */
+        if (time_last != time_now) {
+            /* reset count of uuids gen'd with this clock reading */
+            uuids_this_tick = 0;
             time_last = time_now;
             break;
         }
@@ -841,7 +922,8 @@ void get_current_time(uuid_time_t *timestamp)
  
         /* going too fast for our clock; spin */
     }
-    /* add the count of uuids to low order bits of the clock reading */    *timestamp = time_now + uuids_this_tick;
+    /* add the count of uuids to low order bits of the clock reading */
+    *timestamp = time_now + uuids_this_tick;
 }
  
 /* true_random -- generate a crypto-quality random number.
@@ -871,7 +953,8 @@ void uuid_create_md5_from_name(uuid_t *uuid, uuid_t nsid, void *name,
     unsigned char hash[16];
     uuid_t net_nsid;
  
-    /* put name space ID in network byte order so it hashes the same       no matter what endian machine we're on */
+    /* put name space ID in network byte order so it hashes the same
+       no matter what endian machine we're on */
     net_nsid = nsid;
     net_nsid.time_low = htonl(net_nsid.time_low);
     net_nsid.time_mid = htons(net_nsid.time_mid);
@@ -1148,7 +1231,9 @@ void puid(uuid_t u)
 {
     int i;
  
-    printf("%8.8x-%4.4x-%4.4x-%2.2x%2.2x-", u.time_low, u.time_mid,    u.time_hi_and_version, u.clock_seq_hi_and_reserved,    u.clock_seq_low);
+    printf("%8.8x-%4.4x-%4.4x-%2.2x%2.2x-", u.time_low, u.time_mid,
+    u.time_hi_and_version, u.clock_seq_hi_and_reserved,
+    u.clock_seq_low);
     for (i = 0; i &lt; 6; i++)
         printf("%2.2x", u.node[i]);
     printf("\n");
@@ -1164,9 +1249,13 @@ void main(int argc, char **argv)
     printf("uuid_create(): "); puid(u);
  
     f = uuid_compare(&amp;u, &amp;u);
-    printf("uuid_compare(u,u): %d\n", f);     /* should be 0 */    f = uuid_compare(&amp;u, &amp;NameSpace_DNS);
-    printf("uuid_compare(u, NameSpace_DNS): %d\n", f); /* s.b. 1 */    f = uuid_compare(&amp;NameSpace_DNS, &amp;u);
-    printf("uuid_compare(NameSpace_DNS, u): %d\n", f); /* s.b. -1 */    uuid_create_md5_from_name(&amp;u, NameSpace_DNS, "www.widgets.com", 15);    printf("uuid_create_md5_from_name(): "); puid(u);}
+    printf("uuid_compare(u,u): %d\n", f);     /* should be 0 */
+    f = uuid_compare(&amp;u, &amp;NameSpace_DNS);
+    printf("uuid_compare(u, NameSpace_DNS): %d\n", f); /* s.b. 1 */
+    f = uuid_compare(&amp;NameSpace_DNS, &amp;u);
+    printf("uuid_compare(NameSpace_DNS, u): %d\n", f); /* s.b. -1 */
+    uuid_create_md5_from_name(&amp;u, NameSpace_DNS, "www.widgets.com", 15);
+    printf("uuid_create_md5_from_name(): "); puid(u);}
  
 Appendix B.  Appendix B - Sample Output of utest
  
