@@ -69,7 +69,9 @@ Category: Standards Track                                    M. Mealling
    B. 附录 B - utest 的样本输出               . . . . . . . . . . . . . 29
    C. 附录 C - 部分名称空间               . . . . . . . . . . . . . . . 30
  
-1.  介绍
+<h2>
+<a class="selflink" name="section-1" href="#section-1">1</a>.  介绍
+</h2>
  
    此规范为 UUID(通用唯一标识器)定义了统一资源名称命名空间,也称为 GUID(全局唯一标
    识)。 UUID 长 128 位,无需中央注册过程。
@@ -83,11 +85,11 @@ Category: Standards Track                                    M. Mealling
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-2.  起因
+<h2><a class="selflink" name="section-2" href="#section-2">2</a>.  起因</h2>
  
    使用 UUID 的主要原因之一是不需要集中机构来管理它们(尽管一种格式使用 IEEE 802 节点
    标识符,但其他格式不使用)。 因此,按需生成可以完全自动化,并用于各种目的。 此处描述的
-   UUID 生成算法支持高达每秒 1000 万台(如有必要)的非常高的分配速率,以便它们甚至可以
+   UUID 生成算法支持高达每秒 1000 万/台(如有必要)的非常高的分配速率,以便它们甚至可以
    用作事务 ID。
  
    UUID 是固定大小(128 位),与其他替代方法相比相当小。 这非常适合对各种排序、排序和
@@ -96,7 +98,7 @@ Category: Standards Track                                    M. Mealling
    由于 UUID 是唯一且持久的,因此它们会创建出色的统一资源名称。 在没有注册过程的情况下
    生成新的 UUID 的独特能力使 UUID 成为具有最低造币成本的 URN 之一。
  
-3.  命名空间注册模板
+<h2><a class="selflink" name="section-3" href="#section-3">3</a>.  命名空间注册模板</h2>
  
    命名空间 ID:  UUID
    注册信息:
@@ -114,7 +116,7 @@ Category: Standards Track                                    M. Mealling
       UUID 的内部表示形式是内存中特定的位序列,如第 4 节所述。 要将 UUID 准确地表示
       为 URN,必须将位序列转换为字符串表示形式。
  
-      每个字段都被视为整数,其值打印为具有最显著数字的零填充十六进制数字字符串。 十六
+      每个字段都被视为整数,其值打印为具有数字零填充的十六进制数字字符串。 十六
       进制值 "a" 到 "f" 作为小写字符输出,并且对输入不区分大小写。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
@@ -125,12 +127,12 @@ Category: Standards Track                                    M. Mealling
                                time-high-and-version "-"
                                clock-seq-and-reserved
                                clock-seq-low "-" node
-      time-low               = 4hexOctet
-      time-mid               = 2hexOctet
-      time-high-and-version  = 2hexOctet
-      clock-seq-and-reserved = hexOctet
-      clock-seq-low          = hexOctet
-      node                   = 6hexOctet
+      time-low               = [4]hexOctet
+      time-mid               = [2]hexOctet
+      time-high-and-version  = [2]hexOctet
+      clock-seq-and-reserved = [1]hexOctet
+      clock-seq-low          = [1]hexOctet
+      node                   = [6]hexOctet
       hexOctet               = hexDigit hexDigit
       hexDigit =
             "0" / "1" / "2" / "3" / "4" / "5" / "6" / "7" / "8" / "9" /
@@ -144,7 +146,7 @@ Category: Standards Track                                    M. Mealling
    相关辅助文件:
       [1][2]
    标识符唯一性注意事项:
-      本文档指定了三种算法来生成 UUID:第一种算法利用 802个 MAC 地址的唯一值来保证
+      本文档指定了三种算法来生成 UUID:第一种算法利用 802 MAC 地址的唯一值来保证
       唯一性,第二种算法使用伪随机数生成器,第三种算法使用加密哈希和应用程序-提供的文本
       字符串。因此,根据此处的机制生成的 UUID 将不同于已分配或将分配的所有其他 UUID。
  
@@ -156,7 +158,7 @@ Category: Standards Track                                    M. Mealling
       生成 UUID 不需要联系注册机构。一种算法要求每个生成器在空间上具有唯一值。此值
       通常是 IEEE 802 MAC 地址,通常在联网的主机上已有可用。可以从从 IEEE 注册机构
       获取的地址块分配地址。 如果没有此类地址,或者隐私问题使其使用不可取, 第 4.5 节
-      指定两种备选方案。 另一种方法是使用版本 3 或版本 4 UUID 所示。</pre>
+      指定两种备选方案。 另一种方法是使用版本 3 或版本 4 。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
@@ -194,7 +196,7 @@ Category: Standards Track                                    M. Mealling
  
 4.1. 格式
  
-   UUID 格式为 16 个八位字节;下面指定的八位变量字段的某些位确定更精细的结构。</pre>
+   UUID 格式为 16 个八位字节;下面指定八位变量字段的某些位更精细的结构。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
@@ -474,20 +476,20 @@ Category: Standards Track                                    M. Mealling
    o 确定 UUID 中使用的基于 UTC 的时间戳和时钟序列的值,如第 4.2.1 节所述。
  
    o 出于此算法的目的,将时间戳视为 60 位无符号整数,将时钟序列视为 14 位无符号整数。
-     按顺序对字段中的位进行编号,以零开头表示最低显著性位。
+     按顺序对字段中的位进行编号,以零开头表示最低位。
  
-   o 以相同的显著性顺序将 time_low 设置为时间戳的最小显著性 32 位(位为零到 31)。
+   o 以相同的顺序将 time_low 设置为时间戳的 0 到 31 位。
  
-   o 以相同的显著性顺序将 time_mid 字段设置为时间戳中等于位 32 到 47 的位。
+   o 以相同的顺序将 time_mid 字段设置为时间戳 32 到 47 位。
  
-   o 以相同的显著性顺序将时间戳中等于位 48 到 59 的 time_hi_and_version 字段的
-     12 个最低显著位(位零到 11)设置为 48 到 59。
+   o 以相同的顺序将时间戳中等于位 48 到 59 的 time_hi_and_version 字段的
+     12 个位(0到 11)设置为 48 到 59。
  
    o 将 time_hi_and_version 字段的四个版本位(位 12 到 15)设置为与正在创建的
      UUID 版本对应的 4 位版本号,如上表所示。
  
    o 以相同的显著性顺序将 clock_seq_low 字段设置为时钟序列的八个最低显著位
-     (位为零到 7)。
+     (0到 7)。
 
    o 以相同的显著性顺序将 clock_seq_hi_and_reserved 的 0 到 5 设置为时钟序列
      的 8 到 13 。
@@ -617,7 +619,7 @@ Category: Standards Track                                    M. Mealling
 
 5. 社区考虑
  
-   UUD 的使用在计算中极为普遍。 它们构成了许多操作系统(微软 Windows)和应用程序
+   UUID 的使用在计算中极为普遍。 它们构成了许多操作系统(微软 Windows)和应用程序
    (Mozilla 浏览器)的核心标识符基础结构,在许多情况下,它们以许多非标准方式向 
    Web 公开。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
@@ -754,10 +756,10 @@ int uuid_compare(uuid_t *u1, uuid_t *u2);
 uuid.c
  
 #include "copyrt.h"
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
+#include &lt;string.h&gt;
+#include &lt;stdio.h&gt;
+#include &lt;stdlib.h&gt;
+#include &lt;time.h&gt;
 #include "sysdep.h"
 #include "uuid.h"
  
@@ -767,7 +769,7 @@ static int read_state(unsigned16 *clockseq, uuid_time_t *timestamp,
 static void write_state(unsigned16 clockseq, uuid_time_t timestamp,
     uuid_node_t node);
 static void format_uuid_v1(uuid_t *uuid, unsigned16 clockseq,
-    uuid_time_t timestamp, uuid_node_t node);</time.h></stdlib.h></stdio.h></string.h></pre>
+    uuid_time_t timestamp, uuid_node_t node);</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
@@ -787,7 +789,8 @@ int uuid_create(uuid_t *uuid)
  
      /* acquire system-wide lock so we're alone */
      LOCK;
-     /* get time, node ID, saved state from non-volatile storage */     get_current_time(×tamp);
+     /* get time, node ID, saved state from non-volatile storage */
+     get_current_time(&amp;timestamp);
      get_ieee_node_identifier(&amp;node);
      f = read_state(&amp;clockseq, &amp;last_time, &amp;last_node);
  
@@ -978,7 +981,8 @@ void uuid_create_sha1_from_name(uuid_t *uuid, uuid_t nsid, void *name,
     unsigned char hash[20];
     uuid_t net_nsid;
  
-    /* put name space ID in network byte order so it hashes the same       no matter what endian machine we're on */
+    /* put name space ID in network byte order so it hashes the same
+       no matter what endian machine we're on */
     net_nsid = nsid;
     net_nsid.time_low = htonl(net_nsid.time_low);
     net_nsid.time_mid = htons(net_nsid.time_mid);
@@ -1021,7 +1025,9 @@ int uuid_compare(uuid_t *u1, uuid_t *u2)
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-    CHECK(u1-&gt;time_hi_and_version, u2-&gt;time_hi_and_version);    CHECK(u1-&gt;clock_seq_hi_and_reserved, u2-&gt;clock_seq_hi_and_reserved);    CHECK(u1-&gt;clock_seq_low, u2-&gt;clock_seq_low)
+    CHECK(u1-&gt;time_hi_and_version, u2-&gt;time_hi_and_version);
+    CHECK(u1-&gt;clock_seq_hi_and_reserved, u2-&gt;clock_seq_hi_and_reserved);
+    CHECK(u1-&gt;clock_seq_low, u2-&gt;clock_seq_low)
     for (i = 0; i &lt; 6; i++) {
         if (u1-&gt;node[i] &lt; u2-&gt;node[i])
             return -1;
@@ -1040,11 +1046,11 @@ sysdep.h
 #define WININC 0
  
 #ifdef WININC
-#include <windows.h>
+#include &lt;windows.h&gt;
 #else
-#include <sys types.h="">
-#include <sys time.h="">
-#include <sys sysinfo.h="">
+#include &lt;sys types.h=""&gt;
+#include &lt;sys time.h=""&gt;
+#include &lt;sys sysinfo.h=""&gt;
 #endif
  
 #include "global.h"
@@ -1066,7 +1072,7 @@ typedef unsigned char   unsigned8;
 typedef unsigned char   byte;
  
 /* Set this to what your compiler uses for 64-bit data type */
-#ifdef WININC</sys></sys></sys></windows.h></pre>
+#ifdef WININC</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
@@ -1090,7 +1096,7 @@ void get_random_info(char seed[16]);
 sysdep.c
  
 #include "copyrt.h"
-#include <stdio.h>
+#include &lt;stdio.h&gt;
 #include "sysdep.h"
  
 /* system dependent call to get IEEE node ID.
@@ -1117,7 +1123,7 @@ void get_ieee_node_identifier(uuid_node_t *node)
                 fwrite(&amp;saved_node, sizeof saved_node, 1, fp);
                 fclose(fp);
             }
-        }</stdio.h></pre>
+        }</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
@@ -1136,14 +1142,17 @@ void get_system_time(uuid_time_t *uuid_time)
 {
     ULARGE_INTEGER time;
  
-    /* NT keeps time in FILETIME format which is 100ns ticks since       Jan 1, 1601. UUIDs use time in 100ns ticks since Oct 15, 1582.       The difference is 17 Days in Oct + 30 (Nov) + 31 (Dec)
+    /* NT keeps time in FILETIME format which is 100ns ticks since
+       Jan 1, 1601. UUIDs use time in 100ns ticks since Oct 15, 1582.
+       The difference is 17 Days in Oct + 30 (Nov) + 31 (Dec)
        + 18 years and 5 leap days. */
     GetSystemTimeAsFileTime((FILETIME *)&amp;time);
     time.QuadPart +=
  
           (unsigned __int64) (1000*1000*10)       // seconds
         * (unsigned __int64) (60 * 60 * 24)       // days
-        * (unsigned __int64) (17+30+31+365*18+5); // # of days    *uuid_time = time.QuadPart;
+        * (unsigned __int64) (17+30+31+365*18+5); // # of days
+    *uuid_time = time.QuadPart;
 }
  
 /* Sample code, not for use in production; see RFC 1750 */
@@ -1183,7 +1192,8 @@ void get_system_time(uuid_time_t *uuid_time)
  
     gettimeofday(&amp;tp, (struct timezone *)0);
  
-    /* Offset between UUID formatted times and Unix formatted times.       UUID UTC base time is October 15, 1582.
+    /* Offset between UUID formatted times and Unix formatted times.
+       UUID UTC base time is October 15, 1582.
        Unix base time is January 1, 1970.*/
     *uuid_time = ((unsigned64)tp.tv_sec * 10000000)
         + ((unsigned64)tp.tv_usec * 10)
@@ -1214,8 +1224,8 @@ utest.c
  
 #include "copyrt.h"
 #include "sysdep.h"
-#include <stdio.h>
-#include "uuid.h"</stdio.h></pre>
+#include &lt;stdio.h&gt;
+#include "uuid.h"</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
@@ -1259,7 +1269,8 @@ void main(int argc, char **argv)
  
 Appendix B.  Appendix B - Sample Output of utest
  
-     uuid_create(): 7d444840-9dc0-11d1-b245-5ffdce74fad2     uuid_compare(u,u): 0
+     uuid_create(): 7d444840-9dc0-11d1-b245-5ffdce74fad2
+     uuid_compare(u,u): 0
      uuid_compare(u, NameSpace_DNS): 1
      uuid_compare(NameSpace_DNS, u): -1
      uuid_create_md5_from_name(): e902893a-9d22-3c7e-a7b8-d6e313b71d9f</pre>
@@ -1268,30 +1279,36 @@ Appendix B.  Appendix B - Sample Output of utest
  
 Appendix C.  Appendix C - Some Name Space IDs
  
-   This appendix lists the name space IDs for some potentially   interesting name spaces, as initialized C structures and in the   string representation defined above.
+   本附录列出了某些可能感兴趣的名称空间的名称空间 D,如初始化的 C 结构和上面定义的
+   字符串表示形式。
  
    /* Name string is a fully-qualified domain name */
-   uuid_t NameSpace_DNS = { /* 6ba7b810-9dad-11d1-80b4-00c04fd430c8 */       0x6ba7b810,
+   uuid_t NameSpace_DNS = { /* 6ba7b810-9dad-11d1-80b4-00c04fd430c8 */
+       0x6ba7b810,
        0x9dad,
        0x11d1,
        0x80, 0xb4, 0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8
    };
  
    /* Name string is a URL */
-   uuid_t NameSpace_URL = { /* 6ba7b811-9dad-11d1-80b4-00c04fd430c8 */       0x6ba7b811,
+   uuid_t NameSpace_URL = { /* 6ba7b811-9dad-11d1-80b4-00c04fd430c8 */
+       0x6ba7b811,
        0x9dad,
        0x11d1,
        0x80, 0xb4, 0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8
    };
  
    /* Name string is an ISO OID */
-   uuid_t NameSpace_OID = { /* 6ba7b812-9dad-11d1-80b4-00c04fd430c8 */       0x6ba7b812,
+   uuid_t NameSpace_OID = { /* 6ba7b812-9dad-11d1-80b4-00c04fd430c8 */
+       0x6ba7b812,
        0x9dad,
        0x11d1,
        0x80, 0xb4, 0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8
    };
  
-   /* Name string is an X.500 DN (in DER or a text output format) */   uuid_t NameSpace_X500 = { /* 6ba7b814-9dad-11d1-80b4-00c04fd430c8 */       0x6ba7b814,
+   /* Name string is an X.500 DN (in DER or a text output format) */
+   uuid_t NameSpace_X500 = { /* 6ba7b814-9dad-11d1-80b4-00c04fd430c8 */
+       0x6ba7b814,
        0x9dad,
        0x11d1,
        0x80, 0xb4, 0x00, 0xc0, 0x4f, 0xd4, 0x30, 0xc8
@@ -1335,7 +1352,7 @@ Authors' Addresses
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-Full Copyright Statement
+完整版权声明
  
    Copyright (C) The Internet Society (2005).
  
@@ -1343,7 +1360,7 @@ Full Copyright Statement
  
    This document and the information contained herein are provided on an   "AS IS" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS   OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY AND THE INTERNET   ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS OR IMPLIED,   INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE   INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED   WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
  
-Intellectual Property
+知识产权
  
    The IETF takes no position regarding the validity or scope of any   Intellectual Property Rights or other rights that might be claimed to   pertain to the implementation or use of the technology described in   this document or the extent to which any license under such rights   might or might not be available; nor does it represent that it has   made any independent effort to identify any such rights.  Information   on the procedures with respect to rights in RFC documents can be   found in BCP 78 and BCP 79.
  
