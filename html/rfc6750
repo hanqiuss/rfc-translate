@@ -1,0 +1,732 @@
+<div class="content" style="float: left; margin: 0px 30%; width: 579px; font-size: 10pt;">
+   <div style="height: 13px;">
+      <div onmouseover="this.style.cursor='pointer';" onclick="showElem('legend');" onmouseout="hideElem('legend')" style="height: 6px; position: absolute; cursor: pointer;" class="pre noprint docinfo bgblue" title="Click for colour legend.">                                                                        </div>
+      <div id="legend" class="docinfo noprint pre legend" style="position:absolute; top: 4px; left: 4ex; visibility:hidden; background-color: white; padding: 4px 9px 5px 7px; border: solid #345 1px; " onmouseover="showElem('legend');" onmouseout="hideElem('legend');">
+      </div>
+   </div>
+<span class="pre noprint docinfo top">[<a href="../html/" title="Document search and retrieval page">Docs</a>] [<a href="/rfc/rfc6750.txt" title="Plaintext version of this document">txt</a>|<a href="/pdf/rfc6750" title="PDF version of this document">pdf</a>] [<a href="./draft-ietf-oauth-v2-bearer" title="draft-ietf-oauth-v2-bearer">draft-ietf-oaut...</a>] [<a href="https://datatracker.ietf.org/doc/rfc6750" title="IESG Datatracker information for this document">Tracker</a>] [<a href="/rfcdiff?difftype=--hwdiff&amp;url2=rfc6750" title="Inline diff (wdiff)">Diff1</a>] [<a href="/rfcdiff?url2=rfc6750" title="Side-by-side diff">Diff2</a>] [<a href="https://datatracker.ietf.org/ipr/search/?rfc=6750&amp;submit=rfc" title="IPR disclosures related to this document">IPR</a>] [<a href="https://www.rfc-editor.org/errata_search.php?rfc=6750">Errata</a>]</span><br>
+<span class="pre noprint docinfo">                                                                        </span><br>
+<span class="pre noprint docinfo">                                                       PROPOSED STANDARD</span><br>
+<span class="pre noprint docinfo">                                                            <span style="color: #C00;">Errata Exist</span></span><br>
+<pre style="height: 780px; white-space: pre-wrap;">Internet Engineering Task Force (IETF)                          M. Jones
+Request for Comments: 6750                                     Microsoft
+Category: Standards Track                                       D. Hardt
+ISSN: 2070-1721                                              Independent
+                                                            October 2012
+ 
+
+                 OAuth 2.0 授权框架:Bearer令牌使用
+ 
+抽象
+ 
+   此规范介绍如何使用 HTTP 请求中的Bearer令牌访问 OAuth 2.0 受保护资源。 拥有
+   无记名令牌的任何一方("Bearer")都可以使用该令牌访问相关资源(而无需证明拥有加密
+   密钥)。 为了防止误用,需要保护无记名令牌在存储和运输中不泄露。
+ 
+本备忘录的状态
+ 
+   这是一个互联网标准跟踪文档。
+ 
+   本文档是互联网工程任务组 (IETF) 的产品。 它代表了IETF社区的共识。它已接受公众
+   审查,并经互联网工程指导小组批准出版。 有关互联网标准的更多信息,请访问 
+   RFC 5741 第 2 节。
+ 
+   有关本文档的当前状态、任何勘误表以及如何提供有关文档的反馈的信息,请查阅以下信息:
+   http://www.rfc-editor.org/info/rfc6750。
+ 
+
+
+版权声明
+
+   Copyright (c) 2012 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents
+   (http://trustee.ietf.org/license-info) in effect on the date of
+   publication of this document.  Please review these documents
+   carefully, as they describe your rights and restrictions with respect
+   to this document.  Code Components extracted from this document must
+   include Simplified BSD License text as described in Section 4.e of
+   the Trust Legal Provisions and are provided without warranty as
+   described in the Simplified BSD License.</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+目录
+ <pre style="font-family: 新宋体;">   1. 介绍         ....................................................2
+      1.1. 表示约定               .....................................3
+      1.2. 术语        ................................................3
+      1.3. 概述     ...................................................3
+   2. 已验证的请求           ..........................................4
+      2.1. 授权请求header字段                 .........................5
+      2.2. 表单实体参数                ................................5
+      2.3. URI 查询参数 ...............................................6
+   3. WWW 身份验证响应header字段 ......................................7
+      3.1.  错误代码.. ................................................9
+   4. 访问令牌响应示例................................................10
+   5. 安全注意事项....................................................10
+      5.1. 安全威胁...................................................10
+      5.2. 威胁缓解 ..................................................11
+      5.3. 建议摘要 ..................................................13
+   6. IANA 注意事项 ..................................................14
+      6.1. OAuth 访问令牌类型注册 ....................................14
+           6.1.1. "Bearer" OAuth 访问令牌类型 ........................14
+      6.2. OAuth 扩展错误注册 ........................................14
+           6.2.1. The "invalid_request" Error Value ..................14
+           6.2.2. The "invalid_token" Error Value ....................15
+           6.2.3. The "insufficient_scope" Error Value ...............15
+   7. 参考文献 .......................................................15
+      7.1. 规范参考 ..................................................15
+      7.2. 信息参考 ..................................................17
+   附录 A. Acknowledgements ..........................................18
+</pre>
+ 
+1.  介绍
+ 
+   OAuth 使客户端能够通过获取访问令牌来访问受保护的资源,该令牌在"OAuth 2.0 
+   授权框架"[RFC6749] 中定义为"向客户端发出的访问授权的字符串",而不是直接
+   使用资源所有者的凭据。
+ 
+   令牌由授权服务器在资源所有者批准后颁发给客户端。 客户端使用访问令牌访问资源
+   服务器托管的受保护资源。 此规范介绍如何使 OAuth 通过获取访问令牌使客户端能够
+   访问受保护的资源,该令牌在"OAuth 2.0 授权框架"[RFC6749] 中定义为"向
+   客户端颁发的访问授权的字符串"而不是直接使用资源所有者的凭据。
+ 
+   此规范定义使用传输层安全 (TLS) [RFC5246] 在 HTTP/1.1 [RFC2616] 上使用
+   bearer令牌访问受保护的资源。 TLS 必须实现并使用此规范;其他规范可能会扩展此
+   规范,以便与其他协议一起使用。 虽然设计为与 OAuth 2.0 授权 [RFC6749] 流程
+   产生的访问令牌一起使用以访问 OAuth 受保护的资源,但此规范实际上定义了一个通用
+   HTTP 授权方法,该方法可与任何源到访问受这些bearer令牌保护的任何资源。bearer
+   身份验证方案主要用于使用 WWW 身份验证和授权 HTTP Header 的服务器身份验证,
+   但不排除将其用于代理身份验证。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+
+
+
+
+
+
+
+ 
+1.1.  Notational Conventions
+ 
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",   "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this   document are to be interpreted as described in "Key words for use in   RFCs to Indicate Requirement Levels" [RFC2119].
+ 
+   This document uses the Augmented Backus-Naur Form (ABNF) notation of   [RFC5234].  Additionally, the following rules are included from   HTTP/1.1 [RFC2617]: auth-param and auth-scheme; and from "Uniform   Resource Identifier (URI): Generic Syntax" [RFC3986]: URI-reference.
+ 
+   Unless otherwise noted, all the protocol parameter names and values   are case sensitive.
+ 
+1.2.  术语
+ 
+   Bearer 令牌
+      具有属性的安全令牌,任何拥有令牌的一方("持有者")都可以以拥有该令牌的任何其他
+      方可以的任何方式使用该令牌。使用Bearer 令牌不需要持有者证明拥有加密密钥材料
+      (占有证明)。
+ 
+   所有其他术语都定义在"OAuth 2.0 授权框架"[RFC6749]中。
+
+
+ 
+1.3.  概述
+ 
+   OAuth 为客户端提供了代表资源所有者访问受保护资源的方法。 通常,在客户端可以访问
+   受保护的资源之前,它必须首先从资源所有者处获取授权Grant,然后将授权Grant交换为
+   访问令牌。 访问令牌表示授权的范围、持续时间和授权Grant的其他属性。 客户端通过将
+   访问令牌呈现给资源服务器来访问受保护的资源。 在某些情况下,客户端可以直接向授权
+   服务器提交自己的凭据以获取访问令牌,而无需首先从资源所有者处获取授权。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   访问令牌提供抽象,替换资源服务器理解的单个令牌的不同授权构造(例如,用户名和密码、
+   断言)。 此抽象允许颁发短期有效的访问令牌,并删除资源服务器了解各种身份验证方案
+   的需要。
+ 
+     +--------+                               +---------------+
+     |        |--(A)- Authorization Request -&gt;|   Resource    |
+     |        |                               |     Owner     |
+     |        |&lt;-(B)-- Authorization Grant ---|               |
+     |        |                               +---------------+
+     |        |
+     |        |                               +---------------+
+     |        |--(C)-- Authorization Grant --&gt;| Authorization |
+     | Client |                               |     Server    |
+     |        |&lt;-(D)----- Access Token -------|               |
+     |        |                               +---------------+
+     |        |
+     |        |                               +---------------+
+     |        |--(E)----- Access Token ------&gt;|    Resource   |
+     |        |                               |     Server    |
+     |        |&lt;-(F)--- Protected Resource ---|               |
+     +--------+                               +---------------+
+ 
+                     Figure 1: 抽象协议流程
+ 
+   图 1 所示的抽象 OAuth 2.0 流程描述了客户端、资源所有者、授权服务器和资源
+   服务器之间的交互(在 [RFC6749] 中介绍)。 本文档中指定了以下两个步骤:
+ 
+   (E)  客户端从资源服务器请求受保护的资源,并通过显示访问令牌进行身份验证。
+ 
+   (F)  资源服务器验证访问令牌,如果有效,则为请求提供服务。
+ 
+   本文档还对步骤 (D) 中返回的访问令牌施加了语义要求。
+
+
+
+
+
+
+
+ 
+2.  验证请求
+ 
+   本节定义在资源请求中向资源服务器发送承载访问令牌的三种方法。 客户端不得使用多种
+   方法来在单个请求中传输令牌。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+2.1.  授权请求 Header 字段
+ 
+   在 HTTP/1.1 [RFC2617] 定义的 "Authorization" 请求HEader字段中发送访问
+   令牌时,客户端使用"Bearer"身份验证方案传输访问令牌。
+ 
+   For example:
+ 
+     GET /resource HTTP/1.1
+     Host: server.example.com
+     Authorization: Bearer mF_9.B5f-4.1JqM
+ 
+   此方案的 "Authorization" Header 字段的语法遵循 [RFC2617] 第 2 节中定义的
+   基本方案的使用。 请注意,与 Basic 一样,它不符合 [RFC2617] 第 1.2 节中定义的
+   通用语法,但与为 HTTP 1.1 [HTTP-AUTH] 开发的一般身份验证框架兼容,尽管它不遵循
+   概述中的首选做法,以反映现有的部署。Bearer凭据的语法如下所示:
+ 
+     b64token    = 1*( ALPHA / DIGIT /
+                       "-" / "." / "_" / "~" / "+" / "/" ) *"="
+     credentials = "Bearer" 1*SP b64token
+ 
+   客户端应使用带有“Bearer”HTTP 授权方案的“Authorization”请求Header字段，使用
+   Bearer令牌发出经过身份验证的请求。资源服务器必须支持此方法。
+ 
+
+
+
+
+
+2.2.  表单编码体参数
+ 
+   在 HTTP 请求实体体中发送访问令牌时,客户端使用"access_token"参数将访问令牌
+   添加到请求正文。 除非满足以下所有条件,否则客户端不得使用此方法:
+ 
+   o  HTTP 请求 header 的"Content-Type" 字段为 
+      "application/x-www-form-urlencoded"。
+ 
+   o  请求 body 遵循 "application/x-www-form-urlencoded" 编码标准。
+ 
+   o  HTTP 请求实体主体是单部分。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   o  在请求实体中编码的内容必须完全由 ASCII [USASCII] 字符组成。
+ 
+   o  HTTP 请求方法是请求正文已为其定义语义的方法。 特别是,这意味着不得使用
+      "GET"方法。
+ 
+   entity-body 可能包括其他特定于请求的参数,在这种情况下,"access_token"参数
+   必须使用"&amp;"字符(ASCII 代码 38)与特定于请求的参数正确分离。
+ 
+   例如,客户端使用传输层安全性发出以下 HTTP 请求:
+ 
+     POST /resource HTTP/1.1
+     Host: server.example.com
+     Content-Type: application/x-www-form-urlencoded
+ 
+     access_token=mF_9.B5f-4.1JqM
+ 
+   "application/x-www-form-urlencoded"方法不应使用,除非在参与的浏览器无法
+   访问"Authorization" Header 字段的应用程序上下文中。 
+   资源服务器可能支持此方法。
+ 
+
+
+
+
+2.3.  URI 查询参数
+ 
+   在 HTTP 请求 URI 中发送访问令牌时,客户端使用 "access_token" 参数将访问令牌
+   添加到请求 URI 查询组件,由"统一资源标识符 (URI: 通用语法][RFC3986])定义"。
+ 
+   例如,客户端使用传输层安全性发出以下 HTTP 请求:
+ 
+     GET /resource?access_token=mF_9.B5f-4.1JqM HTTP/1.1
+     Host: server.example.com
+ 
+   HTTP 请求 URI 查询可以包括其他特定于请求的参数,在这种情况下,必须使用"&amp;"字符
+   (ASCII 代码 38)将"access_token"参数与特定于请求的参数正确分离。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   For example:
+ 
+    https://server.example.com/resource?access_token=mF_9.B5f-4.1JqM&amp;p=q
+ 
+   使用 URI 查询参数方法的客户端还应发送包含"no-store"选项的缓存控制Header。 
+   服务器成功(2XX 状态)对这些请求的响应应包含具有"private"选项的缓存控制Header。
+ 
+   由于与 URI 方法相关的安全漏洞(请参阅第 5 节),包括记录包含访问令牌的 URL 的
+   可能性很高,因此除非无法在"Authoriza"或请求正文中传输访问令牌,否则不应使用它。
+   资源服务器可能支持此方法。
+ 
+   此方法用于记录当前使用情况;不建议使用,因为它的安全缺陷(参见第 5 节),也因为它
+   使用保留查询参数名称,这是与 URI 命名空间最佳实践相反,根据 "Architecture of
+   the World Wide Web, Volume One" [W3C.REC-webarch-20041215].
+ 
+
+
+
+
+
+3.  WWW-Authenticate响应Header字段
+ 
+   如果受保护的资源请求不包含身份验证凭据或不包含允许访问受保护资源的访问令牌,则
+   资源服务器必须包括 HTTP "WWW-Authenticate" 响应标头字段，它可能包括它响应
+   其他条件。 "WWW-Authenticate"标头字段使用 HTTP/1.1 [RFC2617] 定义的框架。
+ 
+   本规范定义的所有挑战都必须使用身份验证方案值“Bearer”。此方案后面必须跟随一个或
+   多个auth-param值。本规范使用或定义的auth-param属性如下。也可以使用其他
+   auth-param属性。
+ 
+   可以包含一个"realm"属性,以 HTTP/1.1 [RFC2617] 中所述的方式指示保护范围。
+   "realm"属性不能多次出现。
+ 
+   [RFC6749] 第 3.3 节定义了"scope"属性。 "scope"属性是区分大小写作用域值的
+   空间限定列表,指示访问请求的资源所需的访问令牌范围。"scope"值是定义的实现;没有
+   集中的注册表;允许的值由授权服务器定义。 "scope"值的顺序不重要。 在某些情况下,
+   在请求具有足够访问范围的新访问令牌以利用受保护资源时,将使用"scope"值。 使用
+   "scope"属性是可选的。 "scope"属性不能多次出现。 "scope"值用于编程用途,不用
+   于向最终用户显示。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+
+
+
+
+
+
+ 
+   以下两个示例范围值;这些分别取自 OpenID Connect [OpenID.messages] 和开放
+   身份验证技术委员会 (OATC) 在线多媒体授权协议 [OMAP] OAuth 2.0 用例:
+ 
+     scope="openid profile email"
+     scope="urn:example:channel=HBO&amp;urn:example:rating=G,PG-13"
+ 
+   如果受保护的资源请求包含访问令牌和身份验证失败,则资源服务器应包含 "error"属性,
+   以便向客户端提供拒绝访问请求的原因。 参数值在第 3.1 节中介绍。 此外,资源服务器
+   可能包括"error_description"属性,以便为开发人员提供不向最终用户显示的人类可读
+   说明。 它还可能包括"error_uri"属性,该属性具有绝对 URI,用于标识解释错误的人类
+   可读网页。 "error","error_description"和"error_uri"属性不能多次出现。
+ 
+   "scope"属性的值(在 [RFC6749] 附录中指定)的值不得包括设置 %x21 / %x23-5B 
+   / %x5D-7E 表示范围值的字符,以及范围值之间的分隔符的 %x20。 "error"和
+   "error_description"属性的值(在 [RFC6749] 附录 A.7 和 A.8 中指定)不得包含
+   %x20-21 / %x23-5B / %5D-7E 以外的字符。"error_uri"属性的值(在 [RFC6749]
+   的附录[A.9]中指定)必须符合 URI 引用语法,因此不得包含 %x21 / %x23-5B 
+   / %5D-7E 以外的字符。
+
+   例如,在响应没有身份验证的受保护资源请求时:
+ 
+     HTTP/1.1 401 Unauthorized
+     WWW-Authenticate: Bearer realm="example"</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   并且,为了响应使用过期访问令牌进行身份验证尝试的受保护资源请求:
+ 
+     HTTP/1.1 401 Unauthorized
+     WWW-Authenticate: Bearer realm="example",
+                       error="invalid_token",
+                       error_description="The access token expired"
+ 
+3.1.  错误代码
+ 
+   当请求失败时,资源服务器使用适当的 HTTP 状态代码(通常为 400、401、403 或 405)
+   进行响应,并在响应中包括以下错误代码之一:
+ 
+   invalid_request
+         请求缺少必需的参数,包括：不受支持的参数或参数值,重复相同的参数,使用多个
+         方法包括访问令牌,或者格式不正确。 资源服务器应响应 HTTP 400(错误请求)
+         状态代码。
+ 
+   invalid_token
+         由于其他原因,提供的访问令牌已过期、吊销、格式不正确或无效。 资源服务器
+         应使用 HTTP 401(未授权)状态代码进行响应。 客户端可以请求新的访问令牌
+         并重试受保护的资源请求。
+ 
+   insufficient_scope
+         请求需要比访问令牌提供的权限更高。 资源服务器应响应 HTTP 403(禁止)状态
+         代码,并可能包含具有访问受保护资源所需的范围的 "scope" 属性。
+ 
+   如果请求缺少任何身份验证信息(例如,客户端不知道身份验证是必需的,或者尝试使用不受
+   支持的身份验证方法),则资源服务器不应包含错误代码或其他错误信息。
+ 
+   For example:
+ 
+     HTTP/1.1 401 Unauthorized
+     WWW-Authenticate: Bearer realm="example"</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+4.  访问令牌响应示例
+ 
+   通常,bearer令牌作为 OAuth 2.0 [RFC6749] 访问令牌响应的一部分返回到客户端。
+   此类响应的一个示例是:
+ 
+     HTTP/1.1 200 OK
+     Content-Type: application/json;charset=UTF-8
+     Cache-Control: no-store
+     Pragma: no-cache
+ 
+     {
+       "access_token":"mF_9.B5f-4.1JqM",
+       "token_type":"Bearer",
+       "expires_in":3600,
+       "refresh_token":"tGzv3JOkF0XG5Qx2TlKWIA"
+     }
+ 
+5.  安全注意事项
+ 
+   本节介绍使用bearer令牌时有关令牌处理的相关安全威胁,并介绍如何缓解这些威胁。
+ 
+5.1.  安全威胁
+ 
+   下面的列表列出了针对使用某种形式的令牌的协议的几种常见威胁。 此威胁列表基于
+   NIST 特别出版物 800-63 [NIST800-63]。 由于本文档基于 OAuth 2.0 授权
+   规范 [RFC6749] 构建,因此我们排除了对存在或相关文档中描述的威胁的讨论。
+ 
+   令牌制造/修改:攻击者可能会生成虚假令牌或修改现有令牌的令牌内容(如身份验证或属性
+   语句),从而导致资源服务器向客户端授予不适当的访问权限。 例如,攻击者可能会修改令牌
+   以延长有效期。恶意客户端可能会修改断言,以访问他们不应查看的信息。
+ 
+   令牌泄露:令牌可能包含包含敏感信息的身份验证和属性语句。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   令牌重定向:攻击者使用为一个资源服务器生成的令牌来访问错误地资源服务器。
+ 
+   令牌重播:攻击者尝试使用过去已与该资源服务器一起使用的令牌。
+ 
+5.2.  威胁缓解
+ 
+   通过使用数字签名或消息身份验证代码 (MAC) 保护令牌的内容,可以缓解大量威胁。
+   或者,bearer 令牌可以包含对授权信息的引用,而不是直接对信息进行编码。 此类引用
+   必须是攻击者无法猜到的;使用引用可能需要服务器和令牌颁发者之间进行额外的交互,以
+   解决对授权信息的引用。 此规范未定义此类交互的机制。
+ 
+   本文档未指定令牌的编码或内容;因此,有关保证令牌完整性保护方法的详细建议不在本文档
+   的范围之内。 令牌完整性保护必须足以防止令牌被修改。
+ 
+   要处理令牌重定向,授权服务器必须将目标收件人(访问群体)的标识(通常是单个资源服务器
+   (或资源服务器列表)包含在令牌中。 还建议将令牌的使用限制为特定作用域。
+ 
+   授权服务器必须实现 TLS。 应该实施哪个版本会随时间而变化,并且取决于实施时的广泛
+   部署和已知的安全漏洞。 在撰写本文时,TLS 版本 1.2 [RFC5246] 是最新版本,但它的
+   实际部署非常有限,并且可能无法在实现工具包中随时可用。 TLS 版本 1.0 [RFC2246]
+   是部署最广泛的版本,将提供最广泛的互操作性。
+ 
+   为了防止令牌泄露,必须使用 TLS [RFC5246] 与提供机密性和完整性保护的密码套件
+   应用机密性保护。 这要求客户端和授权服务器之间的通信交互以及客户端和资源服务器
+   之间的交互利用机密性和完整性保护。  由于 TLS 必须实现并使用此规范,因此它是防止
+   通过通信通道泄露令牌的首选方法。 对于阻止客户端观察令牌内容的情况,除了使用 TLS 
+   保护外,还必须应用令牌加密。 作为防止令牌泄露的进一步防御,客户端在请求受保护资源
+   时必须验证 TLS 证书链,包括检查证书吊销列表 (CRL) [RFC5280]。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+
+
+
+
+
+
+
+ 
+   Cookie 通常以透明形式传输。 因此,其中包含的任何信息都存在披露风险。 因此,
+   bearer令牌不得存储在可以以透明方式发送的 Cookie 中。 有关 Cookie 的安全注意
+   事项,请参阅"HTTP 状态管理机制"[RFC6265]。
+ 
+   在某些部署(包括使用负载均衡器的部署)中,与资源服务器的 TLS 连接在提供资源的实际
+   服务器之前终止。 这可能使 TLS 连接终止的前端服务器与提供资源的后端服务器之间保持
+   令牌的保护。 在此类部署中,必须采用足够的措施,以确保前端服务器和后端服务器之间的
+   令牌的机密性;令牌的加密是这种可能的度量值之一。
+ 
+   为了处理令牌捕获和重播,提出了以下建议:首先,必须限制令牌的生存期，实现此目标的一个
+   方法就是将有效时间字段放在令牌的受保护部分内。 请注意,使用短期(一小时或更少)令牌
+   可减少它们泄露的影响。 其次,必须应用客户端与授权服务器之间以及客户端与资源服务器
+   之间的交换的机密性保护。 因此,通信路径上的窃听者无法观察令牌交换。因此,此类路径
+   上的对手无法重播令牌。此外,在向资源服务器呈现令牌时,客户端必须验证该资源服务器的
+   身份,根据"HTTP 通过 TLS"[RFC2818]第 3.1 节所述。 请注意,客户端在向受保护
+   资源发出这些请求时必须验证 TLS 证书链。 将令牌呈现给未经身份验证和未经授权或
+   无法验证证书链的资源服务器将允许攻击者窃取令牌并获得对受保护资源的未授权访问。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+5.3.  建议摘要
+ 
+   保护 bearer tokens:  客户端实现必须确保bearer 令牌不会泄露给意外方,因为他们
+       能够使用它们来访问受保护的资源。 这是使用bearer令牌时的主要安全注意事项,
+       也是以下所有更具体的建议的基础。
+ 
+   验证 TLS 证书链:客户端在请求受保护资源时必须验证 TLS 证书链。如果不这样做,DNS
+       劫持攻击可能会窃取令牌并获得意外访问。
+ 
+   始终使用 TLS (https):客户端在使用承载令牌发出请求时必须始终使用TLS [RFC5246]
+       (https) 或等效传输安全性。 否则,将会使令牌面临许多攻击,这些攻击可能会使
+       攻击者获得意外的访问。
+ 
+   不要在 Cookie 中存储承载令牌:实施不得在 Cookie 中存储可以以透明方式发送的
+       bearer令牌(这是 Cookie 的默认传输模式)。 在 Cookie 中存储bearer令牌的
+       实现必须采取预防措施,防止跨站点请求伪造。
+ 
+   发行短期承载令牌:令牌服务器应颁发短期(一小时或更少)的承载令牌,尤其是在向在 Web
+      浏览器或其他可能发生信息泄漏的环境中运行的客户端颁发令牌时。 使用短期的
+      bearer令牌可以减少它们被泄露的影响。
+ 
+   颁发有范围限制的bearer令牌:令牌服务器应颁发包含访问群体限制的bearer令牌,将其
+       使用范围限定为预期依赖方或依赖方集。
+ 
+   不要在页 URL 中传递bearer令牌:不应在页 URL 中传递承载令牌(例如,作为查询字符串
+       参数)。相反,bearer令牌应在 HTTP 消息Header或消息正文中传递,并为此采取
+       保密措施。浏览器、Web 服务器和其他软件可能无法充分保护浏览器历史记录、Web
+       服务器日志和其他数据结构中的 URL。如果在页 URL 中传递承载令牌,攻击者可能
+       能够从历史数据、日志或其他不安全的位置窃取它们。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+6.  IANA 注意事项
+ 
+6.1.  OAuth 访问令牌类型注册
+ 
+   此规范在 [RFC6749] 中定义的 OAuth 访问令牌类型注册表中注册以下访问令牌类型。
+ 
+6.1.1.  The "Bearer" OAuth Access Token Type
+ 
+   Type name:
+      Bearer
+ 
+   Additional Token Endpoint Response Parameters:
+      (none)
+ 
+   HTTP Authentication Scheme(s):
+      Bearer
+ 
+   Change controller:
+      IETF
+ 
+   Specification document(s):
+      RFC 6750
+ 
+6.2.  OAuth Extensions Error Registration
+ 
+   This specification registers the following error values in the OAuth   Extensions Error registry defined in [RFC6749].
+ 
+6.2.1.  The "invalid_request" Error Value
+ 
+   Error name:
+      invalid_request
+ 
+   Error usage location:
+      Resource access error response
+ 
+   Related protocol extension:
+      Bearer access token type
+ 
+   Change controller:
+      IETF
+ 
+   Specification document(s):
+      RFC 6750</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+6.2.2.  The "invalid_token" Error Value
+
+   Error name:
+      invalid_token
+
+   Error usage location:
+      Resource access error response
+
+   Related protocol extension:
+      Bearer access token type
+
+   Change controller:
+      IETF
+
+   Specification document(s):
+      RFC 6750
+
+6.2.3.  The "insufficient_scope" Error Value
+
+   Error name:
+      insufficient_scope
+
+   Error usage location:
+      Resource access error response
+
+   Related protocol extension:
+      Bearer access token type
+
+   Change controller:
+      IETF
+
+   Specification document(s):
+      RFC 6750
+
+7.  参考
+
+7.1.  Normative References
+
+   [RFC2119]    Bradner, S., "Key words for use in RFCs to Indicate
+                Requirement Levels", BCP 14, RFC 2119, March 1997.
+
+   [RFC2246]    Dierks, T. and C. Allen, "The TLS Protocol Version 1.0",
+                RFC 2246, January 1999.
+
+   [RFC2616]    Fielding, R., Gettys, J., Mogul, J., Frystyk, H.,
+                Masinter, L., Leach, P., and T. Berners-Lee, "Hypertext
+                Transfer Protocol -- HTTP/1.1", RFC 2616, June 1999.</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   [RFC2617]    Franks, J., Hallam-Baker, P., Hostetler, J., Lawrence,
+                S., Leach, P., Luotonen, A., and L. Stewart, "HTTP
+                Authentication: Basic and Digest Access Authentication",
+                RFC 2617, June 1999.
+
+   [RFC2818]    Rescorla, E., "HTTP Over TLS", RFC 2818, May 2000.
+
+   [RFC3986]    Berners-Lee, T., Fielding, R., and L. Masinter, "Uniform
+                Resource Identifier (URI): Generic Syntax", STD 66,
+                RFC 3986, January 2005.
+
+   [RFC5234]    Crocker, D. and P. Overell, "Augmented BNF for Syntax
+                Specifications: ABNF", STD 68, RFC 5234, January 2008.
+
+   [RFC5246]    Dierks, T. and E. Rescorla, "The Transport Layer
+                Security (TLS) Protocol Version 1.2", RFC 5246,
+                August 2008.
+
+   [RFC5280]    Cooper, D., Santesson, S., Farrell, S., Boeyen, S.,
+                Housley, R., and W. Polk, "Internet X.509 Public Key
+                Infrastructure Certificate and Certificate Revocation
+                List (CRL) Profile", RFC 5280, May 2008.
+
+   [RFC6265]    Barth, A., "HTTP State Management Mechanism", RFC 6265,
+                April 2011.
+
+   [RFC6749]    Hardt, D., Ed., "The OAuth 2.0 Authorization Framework",
+                RFC 6749, October 2012.
+
+   [USASCII]    American National Standards Institute, "Coded Character
+                Set -- 7-bit American Standard Code for Information
+                Interchange", ANSI X3.4, 1986.
+
+   [W3C.REC-html401-19991224]
+                Raggett, D., Le Hors, A., and I. Jacobs, "HTML 4.01
+                Specification", World Wide Web Consortium
+                Recommendation REC-html401-19991224, December 1999,
+                <http: www.w3.org="" tr="" 1999="" rec-html401-19991224="">.
+
+   [W3C.REC-webarch-20041215]
+                Jacobs, I. and N. Walsh, "Architecture of the World Wide
+                Web, Volume One", World Wide Web Consortium
+                Recommendation REC-webarch-20041215, December 2004,
+                <http: www.w3.org="" tr="" 2004="" rec-webarch-20041215="">.</http:></http:></pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+7.2.  Informative References
+
+   [HTTP-AUTH]  Fielding, R., Ed., and J. Reschke, Ed., "Hypertext
+                Transfer Protocol (HTTP/1.1): Authentication", Work
+                in Progress, October 2012.
+
+   [NIST800-63] Burr, W., Dodson, D., Newton, E., Perlner, R., Polk, T.,
+                Gupta, S., and E. Nabbus, "NIST Special Publication
+                800-63-1, INFORMATION SECURITY", December 2011,
+                <http: csrc.nist.gov="" publications="">.
+
+   [OMAP]       Huff, J., Schlacht, D., Nadalin, A., Simmons, J.,
+                Rosenberg, P., Madsen, P., Ace, T., Rickelton-Abdi, C.,
+                and B. Boyer, "Online Multimedia Authorization Protocol:
+                An Industry Standard for Authorized Access to Internet
+                Multimedia Resources", April 2012,
+                <http: www.oatc.us="" standards="" download.aspx="">.
+
+   [OpenID.Messages]
+                Sakimura, N., Bradley, J., Jones, M., de Medeiros, B.,
+                Mortimore, C., and E. Jay, "OpenID Connect Messages
+                1.0", June 2012, <http: openid.net="" specs="" openid-connect-messages-1_0.html="">.</http:></http:></http:></pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+Appendix A.  Acknowledgements
+
+   The following people contributed to preliminary versions of this
+   document: Blaine Cook (BT), Brian Eaton (Google), Yaron Y. Goland
+   (Microsoft), Brent Goldman (Facebook), Raffi Krikorian (Twitter),
+   Luke Shepard (Facebook), and Allen Tom (Yahoo!).  The content and
+   concepts within are a product of the OAuth community, the Web
+   Resource Authorization Profiles (WRAP) community, and the OAuth
+   Working Group.  David Recordon created a preliminary version of this
+   specification based upon an early draft of the specification that
+   evolved into OAuth 2.0 [RFC6749].  Michael B. Jones in turn created
+   the first version (00) of this specification using portions of
+   David's preliminary document and edited all subsequent versions.
+
+   The OAuth Working Group has dozens of very active contributors who
+   proposed ideas and wording for this document, including Michael
+   Adams, Amanda Anganes, Andrew Arnott, Derek Atkins, Dirk Balfanz,
+   John Bradley, Brian Campbell, Francisco Corella, Leah Culver, Bill de
+   hOra, Breno de Medeiros, Brian Ellin, Stephen Farrell, Igor Faynberg,
+   George Fletcher, Tim Freeman, Evan Gilbert, Yaron Y. Goland, Eran
+   Hammer, Thomas Hardjono, Dick Hardt, Justin Hart, Phil Hunt, John
+   Kemp, Chasen Le Hara, Barry Leiba, Amos Jeffries, Michael B. Jones,
+   Torsten Lodderstedt, Paul Madsen, Eve Maler, James Manger, Laurence
+   Miao, William J. Mills, Chuck Mortimore, Anthony Nadalin, Axel
+   Nennker, Mark Nottingham, David Recordon, Julian Reschke, Rob
+   Richards, Justin Richer, Peter Saint-Andre, Nat Sakimura, Rob Sayre,
+   Marius Scurtescu, Naitik Shah, Justin Smith, Christian Stuebner,
+   Jeremy Suriel, Doug Tangren, Paul Tarjan, Hannes Tschofenig, Franklin
+   Tse, Sean Turner, Paul Walker, Shane Weeden, Skylar Woodward, and
+   Zachary Zeltsan.
+
+Authors' Addresses
+
+   Michael B. Jones
+   Microsoft
+
+   EMail: mbj@microsoft.com
+   URI:   http://self-issued.info/
+
+
+   Dick Hardt
+   Independent
+
+   EMail: dick.hardt@gmail.com
+   URI:   http://dickhardt.org/
+
+ 
+
+ 
+
+ 
+
+Jones &amp; Hardt                Standards Track                   [Page 18]</pre><br>
+    <span class="noprint"><small><small>Html markup produced by rfcmarkup 1.129c, available from
+      <a href="https://tools.ietf.org/tools/rfcmarkup/">https://tools.ietf.org/tools/rfcmarkup/</a>
+    </small></small></span>
+  </div>
