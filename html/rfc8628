@@ -1,0 +1,786 @@
+<div class="content" style="float: left; margin: 0px 30%; width: 579px; font-size: 10pt;">
+   <div style="height: 13px;">
+      <div onmouseover="this.style.cursor='pointer';" onclick="showElem('legend');" onmouseout="hideElem('legend')" style="height: 6px; position: absolute; cursor: pointer;" class="pre noprint docinfo bgblue" title="Click for colour legend.">                                                                        </div>
+      <div id="legend" class="docinfo noprint pre legend" style="position:absolute; top: 4px; left: 4ex; visibility:hidden; background-color: white; padding: 4px 9px 5px 7px; border: solid #345 1px; " onmouseover="showElem('legend');" onmouseout="hideElem('legend');">
+      </div>
+   </div>
+<span class="pre noprint docinfo top">[<a href="../html/" title="Document search and retrieval page">Docs</a>] [<a href="/rfc/rfc8628.txt" title="Plaintext version of this document">txt</a>|<a href="/pdf/rfc8628" title="PDF version of this document">pdf</a>] [<a href="./draft-ietf-oauth-device-flow" title="draft-ietf-oauth-device-flow">draft-ietf-oaut...</a>] [<a href="https://datatracker.ietf.org/doc/rfc8628" title="IESG Datatracker information for this document">Tracker</a>] [<a href="https://www.rfc-editor.org/errata_search.php?rfc=8628">Errata</a>]                </span><br>
+<span class="pre noprint docinfo">                                                                        </span><br>
+<span class="pre noprint docinfo">                                                       PROPOSED STANDARD</span><br>
+<span class="pre noprint docinfo">                                                            <span style="color: #C00;">Errata Exist</span></span><br>
+<pre style="height: 780px; white-space: pre-wrap;">Internet Engineering Task Force (IETF)                        W. Denniss
+Request for Comments: 8628                                        Google
+Category: Standards Track                                     J. Bradley
+ISSN: 2070-1721                                            Ping Identity
+                                                                M. Jones
+                                                               Microsoft
+                                                           H. Tschofenig
+                                                             ARM Limited
+                                                             August 2019
+ 
+
+                  OAuth 2.0 Device Authorization Grant
+ 
+Abstract
+ 
+   OAuth 2.0 设备授权授权专为连接互联网的设备而设计，这些设备要么缺少浏览器来执行
+   基于用户代理的授权，要么在要求用户输入文本以进行身份验证时，输入受到限制。授权
+   流程不切实际。 它使 OAuth 客户端在此类设备上（如智能电视、媒体控制台、数字相框
+   和打印机）上通过使用单独设备上的用户代理获得访问受保护资源的用户授权。
+ 
+Status of This Memo
+
+   This is an Internet Standards Track document.
+
+   This document is a product of the Internet Engineering Task Force
+   (IETF).  It represents the consensus of the IETF community.  It has
+   received public review and has been approved for publication by the
+   Internet Engineering Steering Group (IESG).  Further information on
+   Internet Standards is available in Section 2 of RFC 7841.
+
+   Information about the current status of this document, any errata,
+   and how to provide feedback on it may be obtained at
+   https://www.rfc-editor.org/info/rfc8628.</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 839px; white-space: pre-wrap;"> 
+
+ 
+Copyright Notice
+ 
+   Copyright (c) 2019 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents
+   (https://trustee.ietf.org/license-info) in effect on the date of
+   publication of this document.  Please review these documents
+   carefully, as they describe your rights and restrictions with respect
+   to this document.  Code Components extracted from this document must
+   include Simplified BSD License text as described in Section 4.e of
+   the Trust Legal Provisions and are provided without warranty as
+   described in the Simplified BSD License.
+ <p style="font-family: 新宋体;">
+目录
+ 
+   1.  简介  . . . . . . . . . . . . . . . . . . . . . . . . . . . .     3
+   2.  术语        . . . . . . . . . . . . . . . . . . . . . . . . .     5
+   3.  协议      . . . . . . . . . . . . . . . . . . . . . . . . . .     5
+     3.1.  设备授权请求                    . . . . . . . . . . . . . .   5
+     3.2.  设备授权响应                    . . . . . . . . . . . . . .   7
+     3.3.  用户交互           . . . . . . . . . . . . . . . . . . . .    8
+       3.3.1.  非文本验证 URI 优化                         . . . . . .   9
+     3.4.  设备访问令牌请求              . . . . . . . . . . . . . . .  10
+     3.5.  设备访问令牌响应                . . . . . . . . . . . . . .  11
+   4.  发现元数据           . . . . . . . . . . . . . . . . . . . . .   12
+   5.  安全注意事项              . . . . . . . . . . . . . . . . . . .  12
+     5.1.  User Code 暴力破解       . . . . . . . . . . . . . . . . .   12
+     5.2.  Device Code 暴力破解       . . . . . . . . . . . . . . . .   13
+     5.3.  设备可信度               . . . . . . . . . . . . . . . . .   13
+     5.4.  远程网络钓鱼      . . . . . . . . . . . . . . . . . . . . .  14
+     5.5.  会话间谍         . . . . . . . . . . . . . . . . . . . . .   15
+     5.6.  非机密客户                 . . . . . . . . . . . . . . . .   15
+     5.7.  非视觉代码传输                  . . . . . . . . . . . . . .  15
+   6.  可用性注意事项              . . . . . . . . . . . . . . . . . .  16
+     6.1.  用户代码建议                . . . . . . . . . . . . . . . .  16
+     6.2.  非浏览器用户交互                . . . . . . . . . . . . . .  17
+   7.  IANA 考虑           . . . . . . . . . . . . . . . . . . . . .    17
+     7.1.  OAuth 参数注册                 . . . . . . . . . . . . . .   17
+     7.2.  OAuth URI 注册          . . . . . . . . . . . . . . . . .    17
+     7.3.  OAuth 扩展错误注册                    . . . . . . . . . . .  18
+     7.4.  OAuth 授权服务器元数据                . . . . . . . . . . .  18
+   8.  规范参考               . . . . . . . . . . . . . . . . . . . .   19
+   Acknowledgements  . . . . . . . . . . . . . . . . . . . . . . . .    20
+   Authors' Addresses  . . . . . . . . . . . . . . . . . . . . . . .    21
+</p></pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+1.  Introduction
+ 
+   此 OAuth 2.0 [RFC6749] 协议扩展使 OAuth 客户端能够从输入功能受限或缺少合适
+   浏览器的设备上的应用程序请求用户授权。 此类设备包括智能电视、媒体控制台、相框和
+   打印机，它们缺乏简单的输入方法或传统 OAuth 交互所需的合适浏览器。 此规范定义的
+   授权流程（有时称为"设备流"）指示用户查看辅助设备上的授权请求，例如智能手机，该设备
+   具有所需的输入和浏览器功能，完成用户交互。
+ 
+   设备授权不是为了取代智能手机等有能力的设备上的本机应用程序中基于浏览器的OAuth。
+   这些应用程序应遵循<a href="./rfc8252" title="&quot;OAuth 2.0 for Native Apps&quot;">RFC8252</a>中指定的做法。
+ 
+   使用此授权类型的操作要求是：
+ 
+   (1)  设备已连接到互联网。
+ 
+   (2)  设备能够发出出站 HTTPS 请求。
+ 
+   (3)  设备能够显示或以其他方式向用户传达 URI 和代码序列。
+ 
+   (4)  用户拥有辅助设备（例如个人计算机或智能手机），他们可以从该设备处理请求。
+ 
+   由于设备授权不需要设备上的OAuth客户端和用户代理之间的双向通信(与其他OAuth 2
+   授权类型不同，如授权码和隐式授权类型)，它支持那些其他方法无法服务的几个用例。
+ 
+   设备客户端指示最终用户使用另一台计算机或设备并连接到授权服务器以批准访问请求，而
+   不是直接与最终用户的用户代理（即浏览器）交互。 由于该协议支持无法接收传入请求的
+   客户端，因此客户端会反复轮询授权服务器，直到最终用户完成审批过程。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   设备客户端通常选择要支持的授权服务器集合(即，其自己的授权服务器或与其具有关系的
+   提供商的那些授权服务器)。设备客户端通常仅支持一个授权服务器，例如在仅支持该媒体
+   提供商的授权服务器的特定媒体提供商的TV应用的情况下。用户可能尚未与该授权提供者
+   建立已建立的关系，尽管可以在授权流程期间潜在地建立一个关系。
+ 
+      +----------+                                +----------------+
+      |          |&gt;---(A)-- Client Identifier ---&gt;|                |
+      |          |                                |                |
+      |          |&lt;---(B)-- Device Code,      ---&lt;|                |
+      |          |          User Code,            |                |
+      |  Device  |          &amp; Verification URI    |                |
+      |  Client  |                                |                |
+      |          |  [polling]                     |                |
+      |          |&gt;---(E)-- Device Code       ---&gt;|                |
+      |          |          &amp; Client Identifier   |                |
+      |          |                                |  Authorization |
+      |          |&lt;---(F)-- Access Token      ---&lt;|     Server     |
+      +----------+   (&amp; Optional Refresh Token)   |                |
+            v                                     |                |
+            :                                     |                |
+           (C) User Code &amp; Verification URI       |                |
+            :                                     |                |
+            v                                     |                |
+      +----------+                                |                |
+      | End User |                                |                |
+      |    at    |&lt;---(D)-- End user reviews  ---&gt;|                |
+      |  Browser |          authorization request |                |
+      +----------+                                +----------------+
+ 
+                         图 1：设备授权流程
+ 
+   图 1 所示的设备授权流程包括以下步骤：
+ 
+   (A)  客户端从授权服务器请求访问，并在请求中包括其客户端标识符。
+ 
+   (B)  授权服务器发出设备代码和最终用户代码，并提供最终用户验证 URI。
+ 
+   (C)  客户端指示最终用户在另一台设备上使用用户代理，并访问提供的最终用户验证 URI。
+        客户端为用户提供要输入的最终用户代码，以便查看授权请求。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   （D） 授权服务器（通过用户代理）对最终用户进行身份验证，并提示用户输入设备客户端
+        提供的用户代码。授权服务器验证用户提供的用户代码，并提示用户接受或拒绝请求。
+ 
+   (E)  当最终用户检查客户端的请求（步骤 D）时，客户端会反复轮询授权服务器，以了解
+        用户是否完成了用户授权步骤。 客户端包括设备代码及其客户端标识符。
+ 
+   (F)  授权服务器验证客户端提供的设备代码，并在客户端被授予访问权限时使用访问令牌
+        进行响应;如果拒绝访问，则出现错误，或指示客户端应继续轮询。
+ 
+2.  术语
+ 
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
+   "OPTIONAL" in this document are to be interpreted as described in
+   BCP 14 [RFC2119] [RFC8174] when, and only when, they appear in all
+   capitals, as shown here.
+ 
+3.  协议
+ 
+3.1.  设备授权请求
+ 
+   本规范定义了一个新的OAuth节点：设备授权节点。这独立于[RFC6749]中定义的OAuth授权
+   节点，用户通过用户代理(即浏览器)与之交互。相比之下，当使用设备授权节点时，设备上的
+   OAuth客户端直接与授权服务器交互，而不在用户代理中呈现请求，并且最终用户在单独的
+   设备上授权请求。该交互的定义如下。
+ 
+   客户端通过向设备授权端点发出HTTP“POST”请求，从授权服务器请求一组验证码来启动
+   授权流程。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   客户端向设备授权节点发出设备授权请求，方法是根据[RFC6749]的附录B，使用
+   “application/x-www-form-urlencode”格式，在HTTP请求实体正文中包含以下参数，
+   字符编码为UTF-8：
+ 
+   client_id
+      REQUIRED 如果客户端没有按照第3.2.1节所述向授权服务器进行身份验证。
+      属于[RFC6749]。如[RFC6749]第2.2节所述的客户端标识符。
+ 
+   scope
+      OPTIONAL.  访问请求的范围，如[RFC6749]第3.3节所定义。
+ 
+   例如，客户端发出以下HTTPS请求：
+ 
+      POST /device_authorization HTTP/1.1
+      Host: server.example.com
+      Content-Type: application/x-www-form-urlencoded
+ 
+      client_id=1406020730&amp;scope=example_scope
+ 
+   来自设备的所有请求必须使用传输层安全(TLS)协议[RFC8446]，并实现
+   BCP 195[RFC7525]的最佳实践。
+ 
+   发送的没有值的参数必须被视为是从请求中省略的。授权服务器必须忽略无法识别的请求
+   参数。请求和响应参数不得包含多次。
+ 
+   [RFC6749]第3.2.1节的客户端身份验证要求适用于此节点上的请求，这意味着机密客户端
+   (已建立客户端凭据的客户端)以与向令牌节点发出请求时相同的方式进行身份验证，而公共
+   客户端提供“client_id”参数来标识自己。
+ 
+   由于此协议的轮询性质(如第3.4节所述)，需要小心避免令牌节点的容量过载。为了避免
+   令牌节点上不需要的请求，客户端应仅在用户提示时才开始设备授权请求，而不是自动启动，
+   例如当APP启动或前一个授权会话过期或失败时。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+3.2.  设备授权响应。
+ 
+   作为响应，授权服务器生成在有限时间内有效的唯一设备验证码和最终用户码，并使用具有
+   200(OK)状态码的“application/json”格式[RFC8259]将它们包括在HTTP响应体中。
+   响应包含以下参数：
+ 
+   device_code
+      REQUIRED.  设备验证码。
+ 
+   user_code
+      REQUIRED.  最终用户验证码。
+ 
+   verification_uri
+      REQUIRED.  授权服务器上的最终用户验证URI。URI应该简短且易于记忆，因为最终
+      用户将被要求手动将其键入到他们的用户代理中。
+ 
+   verification_uri_complete
+      OPTIONAL.  包括“user_code”(或与“user_code”具有相同功能的其他信息)的
+      验证URI，其设计用于非文本传输。
+ 
+   expires_in
+      REQUIRED.  “device_code”和“user_code”的生存期(以秒为单位)。
+ 
+   interval
+      OPTIONAL.  客户端在对令牌节点的轮询请求之间应等待的最小时间(以秒为单位)。
+      如果未提供值，则客户端必须使用5作为默认值。
+
+ 
+   For example:
+ 
+      HTTP/1.1 200 OK
+      Content-Type: application/json
+      Cache-Control: no-store
+ 
+      {
+        "device_code": "GmRhmhcxhwAzkoEqiMEg_DnyEysNkuNhszIySk9eS",
+        "user_code": "WDJB-MJHT",
+        "verification_uri": "https://example.com/device",
+        "verification_uri_complete":
+            "https://example.com/device?user_code=WDJB-MJHT", 
+        "expires_in": 1800,
+        "interval": 5
+      }</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   在发生错误(例如配置无效的客户端)时，授权服务器的响应方式与[RFC6749]第5.2节中指定
+   的令牌节点相同。
+ 
+3.3.  用户交互
+ 
+   在接收到成功的授权响应之后，客户端将“user_code”和“validation_uri”显示或以
+   其他方式传送给最终用户，并指示他们访问辅助设备上的用户代理中的URI(例如，在他们的
+   移动电话上的浏览器中)并输入用户代码。
+ 
+            +-----------------------------------------------+
+            |                                               |
+            |  Using a browser on another device, visit:    |
+            |  https://example.com/device                   |
+            |                                               |
+            |  And enter the code:                          |
+            |  WDJB-MJHT                                    |
+            |                                               |
+            +-----------------------------------------------+
+ 
+                           图2：示例用户说明
+ 
+   授权用户导航到“verification_uri”，并在受TLS保护的[RFC8446]会话中向授权
+   服务器进行身份验证。授权服务器通过输入客户端提供的“user_code”提示终端用户识别
+   设备授权会话。授权服务器应该通知用户他们正在进行的操作，并要求他们批准或拒绝请求。
+   一旦用户交互完成，服务器就会指示用户返回到他们的设备。
+ 
+   在用户交互过程中，设备使用“device_code”持续轮询令牌节点(详见第3.4节)，直到用户
+   完成交互、代码过期或发生另一个错误。“device_code”不是直接供最终用户使用的；
+   因此，在交互过程中不应显示它，以避免混淆最终用户。
+ 
+   支持此规范的授权服务器必须实现用户交互序列，该序列从用户导航到“validation_uri”
+   开始，并在交互期间的某个阶段继续提供“user_code”。除此之外，用户交互的确切顺序
+   和实现取决于授权服务器；例如，授权服务器可以使新用户能够在授权流程期间注册帐户或
+   添加额外的安全验证步骤。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   不建议授权服务器在验证URI(“verification_uri”)中包含用户代码(“user_code”)，
+   因为这会增加用户必须键入的URI的长度和复杂性。尽管用户仍必须在“user_code”分隔的
+   情况下键入类似数量的字符，但一旦他们成功导航到“validation_uri”，则授权服务器
+   可以突出显示输入代码中的任何错误，以改善用户体验。下一节记录了用户使用
+   “validation_uri_complete”进行的交互，它的设计目的是同时携带这两部分信息。
+ 
+3.3.1.  非文本验证URI优化
+ 
+   当“verification_uri_complete”包括在授权响应中(第3.2节)时，客户端可以使用
+   导致浏览器用URI打开的任何方法以非文本方式呈现此URI，例如使用QR(快速响应)码或
+   NFC(近场通信)，以避免用户键入URI。
+ 
+   出于可用性方面的原因，对于无法使用这种快捷方式的用户，建议客户端仍然显示文本验证
+   URI(“validation_uri”)。客户端仍必须显示“user_code”，因为授权服务器将要求
+   用户对其进行确认以消除设备歧义或作为远程网络钓鱼的缓解(参见5.4节)。
+ 
+   如果用户通过导航到“verification_uri_complete”开始用户交互，则仍遵循第3.3节
+   中描述的用户交互，并进行用户不需要键入“user_code”的优化。服务器应向用户显示
+   “user_code”，并要求他们验证它是否与设备上显示的“user_code”匹配，以确认他们正在
+   授权正确的设备。如前所述，除了采取步骤确认设备的身份外，还应向用户提供批准或拒绝
+   授权请求的选择。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+            +-------------------------------------------------+
+            |                                                 |
+            |  Scan the QR code or, using     +------------+  |
+            |  a browser on another device,   |[_]..  . [_]|  |
+            |  visit:                         | .  ..   . .|  |
+            |  https://example.com/device     | . .  . ....|  |
+            |                                 |.   . . .   |  |
+            |  And enter the code:            |[_]. ... .  |  |
+            |  WDJB-MJHT                      +------------+  |
+            |                                                 |
+            +-------------------------------------------------+
+ 
+                  图3：带有完整验证URI的QR码表示的示例用户指令
+ 
+3.4.  设备访问令牌请求
+ 
+   在向用户显示指令后，客户端创建一个访问令牌请求，并将其发送到令牌节点
+   (如[RFC6749]的第3.2节所定义)，其“grant_type”为
+   “urn:ietf:params:oauth:grant-type:device_code”。这是一个扩展授权
+   类型(如[RFC6749]第4.5节所定义)，具有以下参数：
+ 
+   grant_type
+      REQUIRED.  值必须设置为
+      "urn:ietf:params:oauth:grant-type:device_code".
+ 
+   device_code
+      REQUIRED.  第3.2节中定义的设备验证码，来自设备授权响应的"device_code"
+ 
+   client_id
+      如果客户端未按照第3.2.1节所述向授权服务器进行身份验证，则为必填项。
+      第2.2节所述的客户端标识符。
+
+ 
+   例如，客户端发出以下HTTPS请求(换行符仅用于显示目的)：
+ 
+      POST /token HTTP/1.1
+      Host: server.example.com
+      Content-Type: application/x-www-form-urlencoded
+ 
+      grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code      &amp;device_code=GmRhmhcxhwAzkoEqiMEg_DnyEysNkuNhszIySk9eS      &amp;client_id=1406020730</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   如果客户端已发出客户端凭据（或分配了其他身份验证要求），则客户端必须使用授权服务器
+   进行身份验证，如 [RFC6749] 第 3.2.1 节所述。请注意，静态分布式客户端凭据具有
+   安全隐患;参见第 5.6 节。
+ 
+   对此请求的响应在第3.5节中定义。与其他OAuth授权类型不同，客户端要根据响应中的错误
+   代码以轮询方式重复尝试访问令牌请求。
+ 
+3.5.  设备访问令牌响应
+ 
+   如果用户已批准授予，令牌节点将响应 [RFC6749] 第 5.1 节中定义的成功响应;否则，
+   它响应错误，如 [RFC6749] 第 5.2 节所定义。
+ 
+   除了 [RFC6749] 第 5.2 节中定义的错误代码外，还指定了以下错误代码，用于在令牌
+   节点响应中使用设备授权：
+ 
+   authorization_pending
+      授权请求仍处于挂起状态，因为最终用户尚未完成用户交互步骤（第 3.3 节）。 
+      客户端应重复对令牌节点的访问令牌请求（称为轮询的进程）。 在每个新请求之前，
+      客户端必须至少等待设备授权响应的"interval"参数指定的秒数（参见第 3.2 节），
+      如果未提供，则等待5秒，并考虑到“slow_Down”错误所要求的轮询间隔的增加。
+ 
+   slow_down
+      authorization_pending 的变体，授权请求仍处于挂起状态，轮询应该继续，但对于
+      此请求和所有后续请求，间隔必须增加5秒。
+ 
+   access_denied
+      授权请求被拒绝。
+ 
+   expired_token
+      “device_code”已过期，设备授权会话已结束。客户端可以开始新的设备授权请求，
+      但是应该在重新启动之前等待用户交互，以避免不必要的轮询。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   “authorization_pending”和“slow_down”错误代码定义了特别独特的行为，因为它们
+   指示OAuth客户端应通过重复令牌请求(实现上面定义的精确行为)来继续轮询令牌节点。如果
+   客户端接收到带有任何其他错误代码的错误响应，则它必须停止轮询并相应地做出反应，
+   例如，通过向用户显示错误。
+ 
+   遇到连接超时，客户端在重试之前必须单方面降低其轮询频率。建议使用指数回退算法来
+   实现这一点，例如在每个这样的连接超时将轮询间隔增加一倍。
+ 
+   本规范的假设是，用户在其上授权请求的单独设备没有与OAuth客户端通信回设备的方式。
+   该协议仅需要单向信道，以便在受限环境中最大限度地提高协议的可行性，就像在TV上运行
+   的应用程序只能够发出站请求一样。如果对于所选择的用户交互接口存在返回信道，则设备
+   可以等待，直到在发起令牌请求之前在该信道上通知用户已经完成动作(作为轮询的替代)。
+   然而，这种行为超出了本规范的范围。
+
+ 
+4.  Discovery 元数据
+ 
+   OAuth 2.0授权服务器元数据[RFC8414]中声明了对此协议的支持，如下所示。值
+   "urn:ietf:params:oauth:grant-type:device_code" 包含在
+   "grant_types_supported"键的值中，并添加了以下新的键值对：
+ 
+   device_authorization_endpoint
+      OPTIONAL.  授权服务器的设备授权节点的URL，如3.1节所定义。
+ 
+5.  安全注意事项
+ 
+5.1.  User Code 暴力破解
+ 
+   由于用户代码由用户键入，因此出于可用性原因，更需要较短的代码。 这意味着熵通常小于
+   用于设备代码或其他 OAuth 承载令牌类型（其中代码长度不会影响可用性）。因此，建议
+   服务器对用户代码尝试进行速率限制。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   用户代码应该具有足够的熵，当结合速率限制和其他缓解措施时，暴力攻击变得不可行。
+   例如，一般认为现在用于加密的128位对称密钥已经足够好，因为攻击者必须投入2^96的
+   工作才能通过蛮力正确猜测2^-32的机会。用户代码的速率限制和有限生存期人为地限制了
+   攻击者可以“做”的工作量。例如，如果使用8个字符的以20为基数的用户代码(具有大约
+   34.5比特的熵)，则速率限制间隔和有效期将只需要允许5次尝试，以便通过随机猜测获得
+   相同的2^-32成功概率。
+ 
+   对用户代码的成功破解将使攻击者能够使用自己的凭据批准授权，之后设备将收到链接到
+   攻击者帐户的设备授权。这与暴力破解使用OAuth承载令牌的情况相反，攻击者由此获得对
+   受害者授权的控制权。这样的攻击可能并不总是有经济上的意义。例如，对于视频应用程序，
+   设备所有者然后可以使用攻击者的帐户购买电影(尽管即使在这种情况下，隐私风险仍然
+   存在，因此保护是重要的)。此外，设备流的某些用途使授权帐户能够执行需要保护的操作，
+   例如控制设备。
+ 
+   用户代码的精确长度和其中包含的熵由授权服务器决定，授权服务器需要考虑其特定受保护
+   资源的敏感性，从可用性角度考虑代码长度的实用性，以及在确定用户代码格式时存在的
+   任何缓解措施，例如速率限制。
+ 
+5.2.  Device Code 暴力破解
+ 
+   一旦用户完成流程，猜测设备代码的攻击者将有可能获得授权码。由于不向用户显示设备
+   代码，因此在长度上没有可用性考虑，应该使用非常高的熵代码。
+ 
+5.3.  设备可信性
+ 
+   与其他本机应用程序OAuth 2.0流不同，请求授权的设备与用户授予访问权限的设备不同。
+   因此，来自批准用户的会话和设备的信号并不总是与客户端设备的可信性相关。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   请注意，如果与此流一起使用的授权服务器是恶意的，则它可以对到另一个授权服务器的
+   反向通道流执行中间人攻击。在这种情况下，中间人并不是完全隐藏在视线之外，因为最终
+   用户最终会出现在错误服务的授权页面上，从而使他们有机会注意到浏览器地址栏中的URL是
+   错误的。要做到这一点，设备制造商必须是攻击者并出货用于执行中间人攻击的设备，或者
+   使用由攻击者控制的授权服务器，这可能是因为攻击者破坏了设备使用的授权服务器。在某种
+   程度上，购买设备的人指望制造商及其商业伙伴是值得信赖的。
+ 
+5.4.  远程网络钓鱼
+ 
+   设备流有可能在攻击者拥有的设备上启动。例如，攻击者可能会发送电子邮件，指示目标用户
+   访问验证URL并输入用户代码。为了减轻这种攻击，建议在用户交互步骤(参见第3.3节)期间
+   通知用户他们正在授权设备，并确认设备在他们手中。授权服务器应该显示关于设备的信息，
+   以便用户可以注意到软件客户端是否试图模拟硬件设备。
+ 
+   对于支持“verification_uri_complete”优化中，确认设备在用户手中尤其重要，因为
+   用户不再需要手动键入显示在设备上的代码。一种建议是在授权流程期间显示代码，并要求
+   用户验证他们正在设置的设备上当前是否正在显示相同的代码。
+
+   用户代码需要有足够长的生存期才能使用(允许用户检索他们的辅助设备，导航到验证URI，
+   登录等)。但是应该足够短以限制为网络钓鱼而获得的代码的可用性。这不会阻止网络钓鱼者
+   提供新的令牌，特别是当他们与用户实时交互时，但它确实限制了通过电子邮件或文本消息
+   发送的代码的可行性。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+5.5.  会话监听
+ 
+   当设备处于待授权状态时，恶意用户可能会对设备用户界面进行物理监视(例如，通过查看
+   其显示的屏幕)，并通过比启动它的用户更快地完成授权来劫持会话。设备在考虑如何将代码
+   传递给用户时应考虑操作环境，以减少恶意用户观察到代码的机会。
+
+ 
+5.6.  非机密客户端
+ 
+   设备客户端通常不能维护其凭证的机密性，因为拥有设备的用户可以对其进行反向工程并
+   提取凭证。因此，除非采取其他措施，否则应将他们视为公共客户(如[RFC6749]第2.1节
+   所定义)，这些客户容易被冒充。[RFC6819]第5.3.1节和[RFC8252]第8.5和8.6节的安全
+   考虑适用于此类客户端。
+ 
+   用户还可以获得“device_code”和/或颁发给他们的客户端的其他OAuth承载令牌，这将允许
+   他们通过模仿客户端直接使用他们自己的授权。假设拥有客户端凭据的用户已经可以模拟客户
+   端并创建新的授权(使用新的“device_code”)，这并不代表一个单独的模拟向量。
+ 
+5.7.  非可视代码传输
+ 
+   不要求设备在视觉上显示用户代码。可以潜在地使用其他单向通信方法，例如文本到语音音频
+   或蓝牙低能量。为了缓解恶意用户可以将其凭据引导到不在其控制范围内的设备上的攻击，
+   建议任何选定的通信通道只能由附近的人访问，例如，可以看到或听到该设备的用户。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+6.  可用性注意事项
+ 
+   本节是对可用性考虑的非规范性讨论.
+ 
+6.1.  User Code 建议
+ 
+   对于许多用户来说，他们最近的互联网连接设备将是他们的移动电话；通常，这些设备提供的
+   输入方法比计算机键盘更耗时来更改大小写或输入数字。为了提高可用性(提高输入速度和
+   减少重试次数)，在选择用户代码字符集时应考虑到此类设备的限制。
+ 
+   提高输入速度的一种方法是将字符集限制为不区分大小写的A-Z字符，不含数字。这些字符
+   通常可以在不使用修改键的情况下在移动键盘上输入。Further removing vowels to 
+   avoid randomly creating words   results in the base 20 character set
+   "BCDFGHJKLMNPQRSTVWXZ"。为了可读性，可以包括破折号或其他标点符号。
+ 
+   遵循此准则的示例用户代码“WDJB-MJHT”包含8个有效字符，并添加了用于最终用户可读性
+   的破折号。得到的熵是20^8。
+ 
+   纯数字代码在可用性方面也是一个很好的选择，特别是对于针对不使用A-Z字符键盘的区域
+   设置的客户，尽管这样的代码的长度需要更长才能保持高熵。
+ 
+   包含9个有效数字和为最终用户可读性添加的破折号(熵为10^9)的示例数字用户代码为
+   “019-450-730”。
+ 
+   在处理输入的用户代码时，服务器应该去掉为可读性而添加的破折号和其他标点符号(使用户
+   可以选择包含此类标点符号)。对于仅使用A-Z范围内的字符的代码，如上面定义的基础20
+   字符集，在进行比较之前应该提高用户的输入，以说明用户可以输入等效的小写字符这一
+   事实。建议进一步剥离所选字符集之外的所有字符，以减少键入错误的字符(如空格字符)使
+   其他有效输入无效的情况。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   建议避免包含两个或两个以上容易相互混淆的字符集，如“0”和“O”或“1”、“l”和“i”。
+   此外，在实际的程度上，当字符集包含可能与字符集外的字符混淆的字符时，可以用它通常
+   与之混淆的字符集中的字符替换该字符集外的字符；例如，当使用数字0-9字符集时，可以用
+   “O”代替“0”。
+ 
+6.2.  非浏览器用户交互
+ 
+   设备和授权服务器可以协商除了第3.3节中描述的方法之外的替代代码传输和用户交互方法。
+   这样一种替代的用户交互流程可以消除对浏览器和手动输入代码的需要，例如，通过使用蓝牙
+   将代码传输到授权服务器的配套应用程序。这样的交互方法可以利用该协议，因为最终用户
+   只需要识别到授权服务器的授权会话；然而，不通过验证URI的用户交互不在本规范的范围
+   之内。
+ 
+7.  IANA Considerations
+ 
+7.1.  OAuth 参数注册
+ 
+  本规范在[RFC6749]建立的IANA“OAuth Parameters”注册表
+  [IANA.OAuth.Parameters]中注册下列值。
+ 
+      Name: device_code
+      Parameter Usage Location: token request
+      Change Controller: IESG
+      Reference: Section&nbsp;3.4 of RFC 8628
+ 
+7.2.  OAuth URI 注册
+ 
+   本规范在[RFC6755]建立的IANA“OAuth URI”注册表[IANA.OAuth.Parameters]中
+   注册下列值。
+ 
+      URN: urn:ietf:params:oauth:grant-type:device_code
+      Common Name: Device Authorization Grant Type for OAuth 2.0
+      Change Controller: IESG
+      Specification Document: Section&nbsp;3.4 of RFC 8628</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+7.3.  OAuth扩展错误注册
+ 
+   本规范在[RFC6749]建立的IANA“OAuth Extensions Error Registry”注册表
+   [IANA.OAuth.Parameters]中注册下列值。
+ 
+      Name: authorization_pending
+      Usage Location: Token endpoint response
+      Protocol Extension: RFC 8628
+      Change Controller: IETF
+      Reference: Section&nbsp;3.5 of RFC 8628
+ 
+      Name: access_denied
+      Usage Location: Token endpoint response
+      Protocol Extension: RFC 8628
+      Change Controller: IETF
+      Reference: Section&nbsp;3.5 of RFC 8628
+ 
+      Name: slow_down
+      Usage Location: Token endpoint response
+      Protocol Extension: RFC 8628
+      Change Controller: IETF
+      Reference: Section&nbsp;3.5 of RFC 8628
+ 
+      Name: expired_token
+      Usage Location: Token endpoint response
+      Protocol Extension: RFC 8628
+      Change Controller: IETF
+      Reference: Section&nbsp;3.5 of RFC 8628
+ 
+7.4.  OAuth 授权服务器元数据
+ 
+   本规范在[RFC8414]建立的IANA“OAuth Authorization Server Metadata”注册表
+   [IANA.OAuth.Parameters]中注册下列值。
+ 
+      Metadata name: device_authorization_endpoint
+      Metadata Description: URL of the authorization server's device      authorization endpoint
+      Change Controller: IESG
+      Reference: Section&nbsp;4 of RFC 8628</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"><a name="page-19" id="page-19" href="#page-19" class="invisible"> </a>
+<span class="grey"><a href="./rfc8628">RFC 8628</a>                 OAuth 2.0 Device Grant              August 2019</span>
+
+
+<span class="h2"><h2><a class="selflink" name="section-8" href="#section-8">8</a>.  Normative References</h2></span>
+
+   [<a name="ref-IANA.OAuth.Parameters" id="ref-IANA.OAuth.Parameters">IANA.OAuth.Parameters</a>]
+              IANA, "OAuth Parameters",
+              &lt;<a href="http://www.iana.org/assignments/oauth-parameters">http://www.iana.org/assignments/oauth-parameters</a>&gt;.
+
+   [<a name="ref-RFC2119" id="ref-RFC2119">RFC2119</a>]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", <a href="./bcp14">BCP 14</a>, <a href="./rfc2119">RFC 2119</a>,
+              DOI 10.17487/RFC2119, March 1997,
+              &lt;<a href="https://www.rfc-editor.org/info/rfc2119">https://www.rfc-editor.org/info/rfc2119</a>&gt;.
+
+   [<a name="ref-RFC6749" id="ref-RFC6749">RFC6749</a>]  Hardt, D., Ed., "The OAuth 2.0 Authorization Framework",
+              <a href="./rfc6749">RFC 6749</a>, DOI 10.17487/RFC6749, October 2012,
+              &lt;<a href="https://www.rfc-editor.org/info/rfc6749">https://www.rfc-editor.org/info/rfc6749</a>&gt;.
+
+   [<a name="ref-RFC6755" id="ref-RFC6755">RFC6755</a>]  Campbell, B. and H. Tschofenig, "An IETF URN Sub-Namespace
+              for OAuth", <a href="./rfc6755">RFC 6755</a>, DOI 10.17487/RFC6755, October 2012,
+              &lt;<a href="https://www.rfc-editor.org/info/rfc6755">https://www.rfc-editor.org/info/rfc6755</a>&gt;.
+
+   [<a name="ref-RFC6819" id="ref-RFC6819">RFC6819</a>]  Lodderstedt, T., Ed., McGloin, M., and P. Hunt, "OAuth 2.0
+              Threat Model and Security Considerations", <a href="./rfc6819">RFC 6819</a>,
+              DOI 10.17487/RFC6819, January 2013,
+              &lt;<a href="https://www.rfc-editor.org/info/rfc6819">https://www.rfc-editor.org/info/rfc6819</a>&gt;.
+
+   [<a name="ref-RFC7525" id="ref-RFC7525">RFC7525</a>]  Sheffer, Y., Holz, R., and P. Saint-Andre,
+              "Recommendations for Secure Use of Transport Layer
+              Security (TLS) and Datagram Transport Layer Security
+              (DTLS)", <a href="./bcp195">BCP 195</a>, <a href="./rfc7525">RFC 7525</a>, DOI 10.17487/RFC7525, May
+              2015, &lt;<a href="https://www.rfc-editor.org/info/rfc7525">https://www.rfc-editor.org/info/rfc7525</a>&gt;.
+
+   [<a name="ref-RFC8174" id="ref-RFC8174">RFC8174</a>]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in <a href="./rfc2119">RFC</a>
+              <a href="./rfc2119">2119</a> Key Words", <a href="./bcp14">BCP 14</a>, <a href="./rfc8174">RFC 8174</a>, DOI 10.17487/RFC8174,
+              May 2017, &lt;<a href="https://www.rfc-editor.org/info/rfc8174">https://www.rfc-editor.org/info/rfc8174</a>&gt;.
+
+   [<a name="ref-RFC8252" id="ref-RFC8252">RFC8252</a>]  Denniss, W. and J. Bradley, "OAuth 2.0 for Native Apps",
+              <a href="./bcp212">BCP 212</a>, <a href="./rfc8252">RFC 8252</a>, DOI 10.17487/RFC8252, October 2017,
+              &lt;<a href="https://www.rfc-editor.org/info/rfc8252">https://www.rfc-editor.org/info/rfc8252</a>&gt;.
+
+   [<a name="ref-RFC8259" id="ref-RFC8259">RFC8259</a>]  Bray, T., Ed., "The JavaScript Object Notation (JSON) Data
+              Interchange Format", STD 90, <a href="./rfc8259">RFC 8259</a>,
+              DOI 10.17487/RFC8259, December 2017,
+              &lt;<a href="https://www.rfc-editor.org/info/rfc8259">https://www.rfc-editor.org/info/rfc8259</a>&gt;.
+
+   [<a name="ref-RFC8414" id="ref-RFC8414">RFC8414</a>]  Jones, M., Sakimura, N., and J. Bradley, "OAuth 2.0
+              Authorization Server Metadata", <a href="./rfc8414">RFC 8414</a>,
+              DOI 10.17487/RFC8414, June 2018,
+              &lt;<a href="https://www.rfc-editor.org/info/rfc8414">https://www.rfc-editor.org/info/rfc8414</a>&gt;.
+
+
+
+
+<span class="grey">Denniss, et al.              Standards Track                   [Page 19]</span></pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   [RFC8446]  Rescorla, E., "The Transport Layer Security (TLS) Protocol
+              Version 1.3", RFC 8446, DOI 10.17487/RFC8446, August 2018,
+              <https: www.rfc-editor.org="" info="" rfc8446="">.
+
+Acknowledgements
+
+   The starting point for this document was the Internet-Draft
+   draft-recordon-oauth-v2-device, authored by David Recordon and Brent
+   Goldman, which itself was based on content in draft versions of the
+   OAuth 2.0 protocol specification removed prior to publication due to
+   a then-lack of sufficient deployment expertise.  Thank you to the
+   OAuth Working Group members who contributed to those earlier drafts.
+
+   This document was produced in the OAuth Working Group under the
+   chairpersonship of Rifaat Shekh-Yusef and Hannes Tschofenig, with
+   Benjamin Kaduk, Kathleen Moriarty, and Eric Rescorla serving as
+   Security Area Directors.
+
+   The following individuals contributed ideas, feedback, and wording
+   that shaped and formed the final specification:
+
+   Ben Campbell, Brian Campbell, Roshni Chandrashekhar, Alissa Cooper,
+   Eric Fazendin, Benjamin Kaduk, Jamshid Khosravian, Mirja Kuehlewind,
+   Torsten Lodderstedt, James Manger, Dan McNulty, Breno de Medeiros,
+   Alexey Melnikov, Simon Moffatt, Stein Myrseth, Emond Papegaaij,
+   Justin Richer, Adam Roach, Nat Sakimura, Andrew Sciberras, Marius
+   Scurtescu, Filip Skokan, Robert Sparks, Ken Wang, Christopher Wood,
+   Steven E. Wright, and Qin Wu.</https:></pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+Authors' Addresses
+ 
+   William Denniss
+   Google
+   1600 Amphitheatre Pkwy
+   Mountain View, CA  94043
+   United States of America
+ 
+   Email: wdenniss@google.com
+   URI:   https://wdenniss.com/deviceflow
+ 
+
+   John Bradley
+   Ping Identity
+ 
+   Email: ve7jtb@ve7jtb.com
+   URI:   http://www.thread-safe.com/
+ 
+
+   Michael B. Jones
+   Microsoft
+ 
+   Email: mbj@microsoft.com
+   URI:   http://self-issued.info/
+ 
+
+   Hannes Tschofenig
+   ARM Limited
+   Austria
+ 
+   Email: Hannes.Tschofenig@gmx.net
+   URI:   http://www.tschofenig.priv.at
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+</pre><br>
+    <span class="noprint"><small><small>Html markup produced by rfcmarkup 1.129c, available from
+      <a href="https://tools.ietf.org/tools/rfcmarkup/">https://tools.ietf.org/tools/rfcmarkup/</a>
+    </small></small></span>
+  </div>
