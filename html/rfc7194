@@ -1,0 +1,244 @@
+<div class="content" style="float: left; margin: 0px 30%; width: 579px; font-size: 10pt;">
+   <div style="height: 13px;">
+      <div onmouseover="this.style.cursor='pointer';" onclick="showElem('legend');" onmouseout="hideElem('legend')" style="height: 6px; position: absolute; cursor: pointer;" class="pre noprint docinfo bgorange" title="Click for colour legend.">                                                                        </div>
+      <div id="legend" class="docinfo noprint pre legend" style="position:absolute; top: 4px; left: 4ex; visibility:hidden; background-color: white; padding: 4px 9px 5px 7px; border: solid #345 1px; " onmouseover="showElem('legend');" onmouseout="hideElem('legend');">
+      </div>
+   </div>
+<span class="pre noprint docinfo top">[<a href="../html/" title="Document search and retrieval page">Docs</a>] [<a href="/rfc/rfc7194.txt" title="Plaintext version of this document">txt</a>|<a href="/pdf/rfc7194" title="PDF version of this document">pdf</a>] [<a href="./draft-hartmann-default-port-for-irc-via-tls-ssl" title="draft-hartmann-default-port-for-irc-via-tls-ssl">draft-hartmann-...</a>] [<a href="https://datatracker.ietf.org/doc/rfc7194" title="IESG Datatracker information for this document">Tracker</a>] [<a href="/rfcdiff?difftype=--hwdiff&amp;url2=rfc7194" title="Inline diff (wdiff)">Diff1</a>] [<a href="/rfcdiff?url2=rfc7194" title="Side-by-side diff">Diff2</a>]         </span><br>
+<span class="pre noprint docinfo">                                                                        </span><br>
+<span class="pre noprint docinfo">                                                           INFORMATIONAL</span><br>
+<span class="pre noprint docinfo">                                                                        </span><br>
+<pre style="height: 780px; white-space: pre-wrap;">Independent Submission                                       R. Hartmann
+Request for Comments: 7194                                   August 2014
+Updates: 1459
+类别: 信息
+ISSN: 2070-1721
+ 
+
+            通过TLS/SSL进行Internet中继聊天(IRC)的默认端口
+ 
+摘要
+ 
+   本文档描述了在TCP端口6697上侦听通过TLS/SSL加密的传入Internet中继聊天(IRC)
+   连接的普遍接受做法。
+ 
+备忘录的状态
+ 
+   本文档不是Internet标准跟踪规范；它是为提供信息而发布的。
+ 
+   这是对RFC系列的贡献，独立于任何其他RFC流。RFC Editor已选择自行发布本文档，并且
+   不声明其实施或部署的价值。RFC编辑器批准发布的文档不是任何级别的Internet标准的
+   候选；参见RFC 5741的第2节。
+ 
+   有关本文档的当前状态、任何勘误表以及如何提供反馈的信息，请访问:
+   http://www.rfc-editor.org/info/rfc7194.
+ 
+Copyright Notice
+
+   Copyright (c) 2014 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents
+   (http://trustee.ietf.org/license-info) in effect on the date of
+   publication of this document.  Please review these documents
+   carefully, as they describe your rights and restrictions with respect
+   to this document.</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ <p style="font-family: 新宋体;">
+目录
+ 
+   1. 理由      .......................................................2
+   2. 技术细节          ...............................................2
+      2.1. 连接建立                 ...................................2
+      2.2. 证书详细信息        ........................................3
+           2.2.1. 服务器证书         ..................................3
+           2.2.2. 客户端证书         ..................................3
+   3. 安全注意事项            .........................................3
+   4. IANA注意事项        .............................................4
+   5. 规范参考             ............................................4
+   6. 参考资料               ..........................................4
+   7. Acknowledgements ................................................5
+   附录A. 支持数据             ........................................6
+</p>
+1.  理由
+ 
+   尽管对于纯文本(TCP/UDP端口194)或TLS/SSL加密(TCP/UDP端口994)[IANALIST]的
+   IRC流量存在系统端口分配, 但 IRC 网络中通常的做法是，出于方便和系统可用性的原因，
+   不在未授权或不希望root访问的系统上使用他们。
+ 
+   IRC网络默认在TCP端口6667上侦听纯文本连接已有相当一段时间了。TCP/UDP端口
+   6665-6669的IRCU分配涵盖了这一点。
+ 
+   对于在TCP端口6697上侦听通过TLS/SSL加密的传入IRC连接，IRC社区内也达成了类似的
+   共识[RFC5246]。
+ 
+2.  技术细节
+ 
+2.1.  连接建立
+ 
+   IRC客户端连接到IRC服务器。在此之后，立即进行正常的TLS/SSL握手。一旦建立了
+   TLS/SSL连接，就会通过隧道建立正常的IRC连接。可选地，IRC服务器可以为客户端设置
+   特定的用户模式(Umode)，将其标记为使用TLS/SSL。同样，可选的是，IRC服务器可以提供
+   创建通道的选项，以便只有通过TLS/SSL连接的客户端才能加入。
+ 
+   有关IRC如何工作的详细信息，请参阅[RFC1459]、[RFC2810]、[RFC2811]、[RFC2812]
+   和[RFC2813]。请注意，IRC非常零散，实现细节可能差异很大。大多数实现将后面的RFC
+   视为建议，而不是捆绑的。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+2.2.  证书详细信息
+ 
+2.2.1.  服务器证书
+ 
+   IRC服务器的证书应由通常信任的证书颁发机构(CA)颁发。
+ 
+   Common Name应与IRC服务器的完全限定域名(FQDN)匹配，或具有适当的通配符
+   (如果适用)。
+ 
+   IRC客户端应验证证书。
+ 
+2.2.2.  客户端证书
+ 
+   如果客户端也使用证书，则应由共同信任的CA或IRC网络指定的CA颁发。
+ 
+   证书的Common name应该与主IRC昵称匹配。
+ 
+   如果网络提供昵称注册，则应使用此昵称。
+ 
+   如果网络提供分组的昵称，则应使用主昵称或帐户名。
+ 
+   如果网络提供昵称注册，则应使用客户端证书根据昵称数据库来识别用户。有关可能的实现，
+   请参见[CERTFP]。
+ 
+3.  安全注意事项
+ 
+   缺乏通过TLS/SSL为IRC建立良好的公共侦听端口可能导致最终用户不知道他们选择的支持
+   TLS/SSL的IRC网络。因此，即使他们想使用加密，他们也可能不使用。
+ 
+   应该注意的是，本文档仅描述了客户端到服务器的加密。还有其他攻击媒介，如恶意管理员、
+   受危害的服务器、不安全的服务器到服务器通信、不对所有通道成员强制加密的通道、恶意
+   客户端或包含存储日志的客户端机器。
+ 
+   这些攻击本质上不能通过客户端到服务器的加密来解决。如果用户害怕上述任何威胁，则需要
+   额外的安全措施。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   本文档不解决服务器链接问题，因为没有普遍接受的端口，甚至没有后端协议。端口和后端
+   协议通常在双边协议中建立。鼓励所有运营商对后端流量使用强加密，无论他们是否通过
+   TLS/SSL向最终用户提供IRC。
+ 
+4.  IANA 注意事项
+ 
+   已通过TLS/SSL为IRC分配TCP端口6697。服务名称为“ircs-u”，描述为“通过TLS/SSL
+   进行互联网中继聊天”：
+ 
+   ircs-u  6697/tcp       Internet Relay Chat via TLS/SSL
+ 
+5.  Normative References
+ 
+   [RFC1459]  Oikarinen, J. and D. Reed, "Internet Relay Chat Protocol",
+              RFC 1459, May 1993.
+
+   [RFC2810]  Kalt, C., "Internet Relay Chat: Architecture", RFC 2810,
+              April 2000.
+
+   [RFC2811]  Kalt, C., "Internet Relay Chat: Channel Management", RFC
+              2811, April 2000.
+
+   [RFC2812]  Kalt, C., "Internet Relay Chat: Client Protocol", RFC
+              2812, April 2000.
+
+   [RFC2813]  Kalt, C., "Internet Relay Chat: Server Protocol", RFC
+              2813, April 2000.
+
+   [RFC5246]  Dierks, T. and E. Rescorla, "The Transport Layer Security
+              (TLS) Protocol Version 1.2", RFC 5246, August 2008.
+ 
+6.  Informative References
+ 
+   [IANALIST] IANA, "Service Name and Transport Protocol Port Number
+              Registry", <http: www.iana.org="" assignments="" service-names-port-numbers="">.
+
+   [TOP100]   netsplit.de, "IRC Networks - Top 100",
+              <http: irc.netsplit.de="" networks="" top100.php="">.
+
+   [MAVERICK] netsplit.de, "IRC Networks - in alphabetical order",
+              <http: irc.netsplit.de="" networks="" lists.php?query="maverick">.</http:></http:></http:></pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   [CERTFP]   The Open and Free Technology Community, "OFTC -
+              NickServ/CertFP",
+              <http: www.oftc.net="" oftc="" nickserv="" certfp="">.
+ 
+7.  Acknowledgements
+
+   Thanks go to the IRC community at large for reaching a consensus.
+
+   Special thanks go to the IRC operators who were eager to support port
+   6697 on their respective networks.
+
+   Special thanks also go to Nevil Brownlee and James Schaad for working
+   on this document in their capacities as Independent Submissions
+   Editor and Reviewer, respectively.</http:></pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+Appendix A.  Supporting Data
+ 
+   截至2010年10月，在排名前20位的IRC网络[Top100][maverick]中，有10个支持
+   TLS/SSL。这些网络中只有一个不通过端口6697支持TLS/SSL，并且没有计划支持它。
+   自作者联系以来，所有其他人支持它已经或正在支持它。可以获得更详细的分析，但不符合
+   本文档的范围。
+ 
+Authors' Address
+ 
+   Richard Hartmann
+   Munich
+   Germany
+ 
+   EMail: richih.mailinglist@gmail.com
+   URI:   http://richardhartmann.de
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+Hartmann                      Informational                     [Page 6]</pre><br>
+    <span class="noprint"><small><small>Html markup produced by rfcmarkup 1.129c, available from
+      <a href="https://tools.ietf.org/tools/rfcmarkup/">https://tools.ietf.org/tools/rfcmarkup/</a>
+    </small></small></span>
+  </div>
