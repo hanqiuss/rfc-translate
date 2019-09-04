@@ -138,7 +138,7 @@ Copyright Notice
       7.4. (EC)DHE共享密钥计算               .........................95
            7.4.1. 有限域Diffie-Hellman        ........................95
            7.4.2. 椭圆曲线Diffie-Hellman        ......................96
-      7.5. Exporters .................................................97
+      7.5. 导出器    .................................................97
    8. 0-RTT 和防重放        ..........................................98
       8.1. 单次票据           ........................................99
       8.2. Client Hello Recording ....................................99
@@ -547,10 +547,10 @@ Auth | {CertificateVerify*}
 2.3.  0-RTT Data
  
    当客户端和服务器共享PSK(通过外部获取或通过先前的握手获得)时，TLS 1.3允许客户端
-   在第一次飞行时发送数据(“早期数据”)。客户端使用PSK对服务器进行身份验证，并对早期
+   在第一波发送时发送数据(“早期数据”)。客户端使用PSK对服务器进行身份验证，并对早期
    数据进行加密。
  
-   如图4所示，0-RTT数据只是添加到第一次飞行中的1-RTT握手。握手的其余部分使用与具有
+   如图4所示，0-RTT数据只是添加到第一波发送中的1-RTT握手。握手的其余部分使用与具有
    PSK恢复的1-RTT握手相同的消息。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
@@ -1863,7 +1863,7 @@ Auth | {CertificateVerify*}
 
  
    如果这些检查中的任何一个失败，服务器必须不响应扩展，并且必须使用上面列出的前两个
-   机制之一丢弃所有的第一次飞行数据(因此回退到1-RTT或2-RTT)。如果客户端尝试0-RTT
+   机制之一丢弃所有的第一波发送数据(因此回退到1-RTT或2-RTT)。如果客户端尝试0-RTT
    握手，但服务器拒绝它，则服务器通常不具有0-RTT记录保护密钥，并且必须改为使用试用
    解密(或者使用1-RTT握手密钥，或者通过在HelloRetryRequest的情况下通过查找明文
    ClientHello)来找到第一个非0-RTT消息。
@@ -2034,7 +2034,7 @@ Auth | {CertificateVerify*}
                       Truncate(ClientHello2))
  
    完整的ClientHello1/ClientHello2包含在所有其他握手散列计算中。请注意，在
-   第一次飞行中，Truncate(ClientHello1)直接进行散列，但在第二次飞行中，对
+   第一波发送中，Truncate(ClientHello1)直接进行散列，但在第二波发送中，对
    ClientHello1进行散列，然后作为“message_hash”消息重新注入，如第4.4.1节所述。
  
 4.2.11.3.  Processing Order
@@ -2115,7 +2115,7 @@ Auth | {CertificateVerify*}
  
    如第2节所述，TLS通常使用一组通用的消息进行身份验证、密钥确认和握手
    完整性：Certificate、CertificateVerify和Finish。(PSK绑定器也以类似的方式
-   执行密钥确认。)。这三条消息总是作为他们握手飞行中的最后一条消息发送。Certificate
+   执行密钥确认。)。这三条消息总是作为他们握手发送中的最后一条消息发送。Certificate
    和CertificateVerify 消息仅在某些情况下发送，定义如下。完成的消息始终作为身份
    验证块的一部分发送。这些消息在从 [sender]_handshake_traffic_secret 派生的
    密钥下进行加密。</pre>
@@ -2468,7 +2468,7 @@ Auth | {CertificateVerify*}
  
    1.  客户端发送第4.2.10节所述的0-RTT数据。
  
-   2.  服务器可在发送第一次飞行后发送数据，但由于握手尚未完成，因此无法保证对等方
+   2.  服务器可在发送第一波发送后发送数据，但由于握手尚未完成，因此无法保证对等方
        的身份或其活动性（即，ClientHello 可能已被重播）。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
@@ -2530,23 +2530,37 @@ Auth | {CertificateVerify*}
  
 4.6.1.  New Session Ticket Message
  
-   At any time after the server has received the client Finished   message, it MAY send a NewSessionTicket message.  This message   creates a unique association between the ticket value and a secret   PSK derived from the resumption master secret (see Section 7).
+   在服务器接收到客户端 Finished 消息后的任何时间，它都可以发送NewSessionTicket
+   消息。该消息在票据值和从恢复主秘密导出的秘密PSK之间创建唯一的关联(参见第7节)。
  
-   The client MAY use this PSK for future handshakes by including the   ticket value in the "pre_shared_key" extension in its ClientHello   (Section 4.2.11).  Servers MAY send multiple tickets on a single   connection, either immediately after each other or after specific   events (see Appendix C.4).  For instance, the server might send a new   ticket after post-handshake authentication in order to encapsulate   the additional client authentication state.  Multiple tickets are   useful for clients for a variety of purposes, including:
+   客户端可以通过在其ClientHello(第4.2.11节)中的“pre_shared_key”扩展中包含
+   票证值，从而将此PSK用于未来的握手。服务器可以在单个连接上发送多个票证，可以在连接
+   之后立即发送，也可以在特定事件之后发送(参见附录C.4)。例如，服务器可能在握手后
+   身份验证后发送新票证，以便封装额外的客户端身份验证状态。多张票证对客户有多种用途，
+   包括：
  
-   -  Opening multiple parallel HTTP connections.
+   -  打开多个并行HTTP连接。
  
-   -  Performing connection racing across interfaces and address      families via (for example) Happy Eyeballs [RFC8305] or related      techniques.
+   -  通过(例如)Happy Eyeballs[RFC8305]或相关技术跨接口和寻址系列执行连接竞速。
  
-   Any ticket MUST only be resumed with a cipher suite that has the same   KDF hash algorithm as that used to establish the original connection.
+   任何票证只能使用与用于建立原始连接的KDF哈希算法相同的密码套件恢复。
  
-   Clients MUST only resume if the new SNI value is valid for the server   certificate presented in the original session and SHOULD only resume   if the SNI value matches the one used in the original session.  The   latter is a performance optimization: normally, there is no reason to   expect that different servers covered by a single certificate would   be able to accept each other's tickets; hence, attempting resumption   in that case would waste a single-use ticket.  If such an indication   is provided (externally or by any other means), clients MAY resume   with a different SNI value.</pre>
+   仅当新的SNI值对原始会话中提供的服务器证书有效时，客户端才能恢复，并且仅当SNI值
+   与原始会话中使用的SNI值匹配时才应恢复。后者是一种性能优化：通常，没有理由期望单个
+   证书覆盖的不同服务器能够接受彼此的票证；因此，在这种情况下尝试恢复将浪费单次使用
+   票证。如果提供了这样的指示(外部或通过任何其他方式)，则客户端可以使用不同的SNI值
+   恢复。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   On resumption, if reporting an SNI value to the calling application,   implementations MUST use the value sent in the resumption ClientHello   rather than the value sent in the previous session.  Note that if a   server implementation declines all PSK identities with different SNI   values, these two values are always the same.
+   在恢复时，如果向调用应用程序报告SNI值，则实现必须使用在恢复ClientHello中发送的
+   值，而不是在前一个会话中发送的值。请注意，如果服务器实现拒绝具有不同SNI值的所有
+   PSK身份，则这两个值总是相同的。
  
-   Note: Although the resumption master secret depends on the client's   second flight, a server which does not request client authentication   MAY compute the remainder of the transcript independently and then   send a NewSessionTicket immediately upon sending its Finished rather   than waiting for the client Finished.  This might be appropriate in   cases where the client is expected to open multiple TLS connections   in parallel and would benefit from the reduced overhead of a   resumption handshake, for example.
+   注意：虽然恢复主密钥取决于客户端的第二波发送，但不请求客户端身份验证的服务器可以
+   独立计算成绩单的剩余部分，然后在发送完成后立即发送 NewSessionTicket ，而不是
+   等待客户端完成。例如，在期望客户端并行打开多个TLS连接并且将受益于恢复握手的减少
+   的开销的情况下，这可能是适当的。
  
       struct {
           uint32 ticket_lifetime;
@@ -2556,47 +2570,82 @@ Auth | {CertificateVerify*}
           Extension extensions&lt;0..2^16-2&gt;;
       } NewSessionTicket;
  
-   ticket_lifetime:  Indicates the lifetime in seconds as a 32-bit      unsigned integer in network byte order from the time of ticket      issuance.  Servers MUST NOT use any value greater than      604800 seconds (7 days).  The value of zero indicates that the      ticket should be discarded immediately.  Clients MUST NOT cache      tickets for longer than 7 days, regardless of the ticket_lifetime,      and MAY delete tickets earlier based on local policy.  A server      MAY treat a ticket as valid for a shorter period of time than what      is stated in the ticket_lifetime.
+   ticket_lifetime:  表示从票证签发时起按网络字节顺序以秒为单位的32位无符号整数
+      的生存期。服务器不得使用任何大于604800秒(7天)的值。值为零表示应立即丢弃票证。
+      客户端缓存票证的时间不得超过7天，无论ticket_lifetime如何，并且可以根据本地
+      策略提前删除票证。服务器可能会将票证视为有效期比ticket_lifetime中规定的时间
+      更短的一段时间。
  
-   ticket_age_add:  A securely generated, random 32-bit value that is      used to obscure the age of the ticket that the client includes in      the "pre_shared_key" extension.  The client-side ticket age is      added to this value modulo 2^32 to obtain the value that is      transmitted by the client.  The server MUST generate a fresh value      for each ticket it sends.
+   ticket_age_add:  安全生成的随机32位值，用于模糊客户端包含在“pre_shared_key”
+      扩展中的票证的年龄。将客户端票证年龄与此值模2^32相加，以获得由客户端传输的值。
+      服务器必须为它发送的每个票证生成一个新值。
  
-   ticket_nonce:  A per-ticket value that is unique across all tickets      issued on this connection.</pre>
+   ticket_nonce:  在此连接上签发的所有票证中唯一的每次票值。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   ticket:  The value of the ticket to be used as the PSK identity.  The      ticket itself is an opaque label.  It MAY be either a database      lookup key or a self-encrypted and self-authenticated value.
+   ticket:  用作 PSK 标识的票证的值。 票证本身是一个字符串。 它可能是数据库查找
+      密钥，也可以是自加密和自验证的值。
  
-   extensions:  A set of extension values for the ticket.  The      "Extension" format is defined in Section 4.2.  Clients MUST ignore      unrecognized extensions.
+   extensions:  票据的一组扩展值。“扩展”格式在4.2节中定义。客户端必须忽略无法
+      识别的扩展名。
  
-   The sole extension currently defined for NewSessionTicket is   "early_data", indicating that the ticket may be used to send 0-RTT   data (Section 4.2.10).  It contains the following value:
+   目前为NewSessionTicket定义的唯一扩展名是“early_data”，表示票据可用于发送
+   0-RTT数据(第4.2.10节)。它包含下列值：
  
-   max_early_data_size:  The maximum amount of 0-RTT data that the      client is allowed to send when using this ticket, in bytes.  Only      Application Data payload (i.e., plaintext but not padding or the      inner content type byte) is counted.  A server receiving more than      max_early_data_size bytes of 0-RTT data SHOULD terminate the      connection with an "unexpected_message" alert.  Note that servers      that reject early data due to lack of cryptographic material will      be unable to differentiate padding from content, so clients      SHOULD NOT depend on being able to send large quantities of      padding in early data records.
+   max_early_data_size:  客户端在使用此票证时允许发送的最大0-RTT数据量，以字节
+      为单位。仅计算应用数据有效载荷(即，明文而不是填充或内部内容类型字节)。接收到
+      超过max_arly_data_size字节的0-RTT数据的服务器应终止连接，并发出
+      “unexpected_message”警报。请注意，由于缺少加密材料而拒绝早期数据的服务器
+      将无法区分填充与内容，因此客户端不应依赖能够在早期数据记录中发送大量填充。
  
-   The PSK associated with the ticket is computed as:
+   与票证关联的PSK计算如下：
  
        HKDF-Expand-Label(resumption_master_secret,
                         "resumption", ticket_nonce, Hash.length)
  
-   Because the ticket_nonce value is distinct for each NewSessionTicket   message, a different PSK will be derived for each ticket.
+   由于Ticket_Nonce值对于每个NewSessionTicket消息是不同的，因此将为每个票证
+   派生不同的PSK。
  
-   Note that in principle it is possible to continue issuing new tickets   which indefinitely extend the lifetime of the keying material   originally derived from an initial non-PSK handshake (which was most   likely tied to the peer's certificate).  It is RECOMMENDED that   implementations place limits on the total lifetime of such keying   material; these limits should take into account the lifetime of the   peer's certificate, the likelihood of intervening revocation, and the   time since the peer's online CertificateVerify signature.
+   请注意，原则上可以继续颁发新票证，从而无限期地延长最初派生自初始非 PSK 握手
+   （很可能与对等方证书相关）的密钥材料的生存期。 建议实施对此类密钥材料的总使用寿命
+   进行限制;这些限制应考虑对等方证书的生存期、干预吊销的可能性以及对等方联机证书验证
+   签名后的时间。
  
 4.6.2.  Post-Handshake Authentication
  
-   When the client has sent the "post_handshake_auth" extension (see   Section 4.2.6), a server MAY request client authentication at any   time after the handshake has completed by sending a
-   CertificateRequest message.  The client MUST respond with the   appropriate Authentication messages (see Section 4.4).  If the client   chooses to authenticate, it MUST send Certificate, CertificateVerify,</pre>
+   当客户端发送了“post_handshake_auth”扩展(参见第4.2.6节)时，服务器可以在握手
+   完成后的任何时间通过发送CertificateRequest消息来请求客户端身份验证。客户端
+   必须使用适当的身份验证消息进行响应(参见第4.4节)。如果客户端选择进行身份验证，则
+   必须发送Certificate、CertificateVerify和Finished。如果拒绝，则必须发送
+   不包含证书的 Certificate 消息，后跟 Finished 。给定响应的所有客户端消息必须
+   连续出现在线路上，不能插入其他类型的消息。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   and Finished.  If it declines, it MUST send a Certificate message   containing no certificates followed by Finished.  All of the client's   messages for a given response MUST appear consecutively on the wire   with no intervening messages of other types.
+
+
+
+
+
+
+   如果客户端接收CertificateRequest消息而没有发送“post_handshak_auth”扩展，
+   则必须发送“unexpected_message”致命警报。
  
-   A client that receives a CertificateRequest message without having   sent the "post_handshake_auth" extension MUST send an   "unexpected_message" fatal alert.
+   注意：因为客户端身份验证可能涉及提示用户，所以服务器必须为一些延迟做好准备，包括
+   在发送CertificateRequest和接收响应之间接收任意数量的其他消息。此外，紧密接连
+   收到多个CertificateRequest的客户端可能会以与收到它们的顺序不同的顺序响应它们
+   (certificate_request_context值允许服务器消除响应的歧义)。
  
-   Note: Because client authentication could involve prompting the user,   servers MUST be prepared for some delay, including receiving an   arbitrary number of other messages between sending the   CertificateRequest and receiving a response.  In addition, clients   which receive multiple CertificateRequests in close succession MAY   respond to them in a different order than they were received (the   certificate_request_context value allows the server to disambiguate   the responses).
+
+
+4.6.3.  密钥和初始化向量更新
  
-4.6.3.  Key and Initialization Vector Update
- 
-   The KeyUpdate handshake message is used to indicate that the sender   is updating its sending cryptographic keys.  This message can be sent   by either peer after it has sent a Finished message.  Implementations   that receive a KeyUpdate message prior to receiving a Finished   message MUST terminate the connection with an "unexpected_message"   alert.  After sending a KeyUpdate message, the sender SHALL send all   its traffic using the next generation of keys, computed as described   in Section 7.2.  Upon receiving a KeyUpdate, the receiver MUST update   its receiving keys.
+   KeyUpdate握手消息用于指示发送方正在更新其发送的加密密钥。该消息可以在发送
+   Finished 消息之后由任何一个对等体发送。在接收完成消息之前接收到KeyUpdate消息
+   的实现必须终止连接，并发出“unexpected_message”警报。发送KeyUpdate消息后，
+   发送方应使用新密钥发送其所有数据，按第7.2节所述计算。在接收到KeyUpdate后，
+   接收方必须更新其接收密钥。
  
       enum {
           update_not_requested(0), update_requested(1), (255)      } KeyUpdateRequest;
@@ -2605,45 +2654,81 @@ Auth | {CertificateVerify*}
           KeyUpdateRequest request_update;
       } KeyUpdate;
  
-   request_update:  Indicates whether the recipient of the KeyUpdate      should respond with its own KeyUpdate.  If an implementation      receives any other value, it MUST terminate the connection with an      "illegal_parameter" alert.
+   request_update:  指示KeyUpdate的接收者是否应使用自己的KeyUpdate进行响应。
+      如果一个实现接收到任何其他值，它必须终止连接并发出“illegal_parameter”警报。
  
-   If the request_update field is set to "update_requested", then the   receiver MUST send a KeyUpdate of its own with request_update set to   "update_not_requested" prior to sending its next Application Data   record.  This mechanism allows either side to force an update to the   entire connection, but causes an implementation which receives</pre>
+   如果request_update 字段设置为 “update_requested”，则在发送其下一个应用数据
+   记录之前，接收方必须发送自己的带有request_update 设置为
+   “update_not_requested”的KeyUpdate。此机制允许任何一方强制对整个连接进行
+   更新，但会导致接收多个KeyUpdates的实现在静默状态下使用单个更新进行响应。请注意，
+   在发送request_update设置为“update_request”的KeyUpdate和接收对等体的
+   KeyUpdate之间，实现可能会接收任意数量的消息，因为这些消息可能已经在传输中。然而，
+   因为发送和接收密钥是从独立的数据密钥中派生出来的，所以保留接收数据密钥不会威胁到
+   在发送方更改密钥之前发送的数据的前向保密性。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   multiple KeyUpdates while it is silent to respond with a single   update.  Note that implementations may receive an arbitrary number of   messages between sending a KeyUpdate with request_update set to   "update_requested" and receiving the peer's KeyUpdate, because those   messages may already be in flight.  However, because send and receive   keys are derived from independent traffic secrets, retaining the   receive traffic secret does not threaten the forward secrecy of data   sent before the sender changed keys.
+
+
+
+
  
-   If implementations independently send their own KeyUpdates with   request_update set to "update_requested" and they cross in flight,   then each side will also send a response, with the result that each   side increments by two generations.
+   如果实现独立地发送自己的KeyUpdates，request_update设置为“update_request”，
+   并且它们在发送中交叉，那么每一端也将发送响应，结果是每一端增加两代。
  
-   Both sender and receiver MUST encrypt their KeyUpdate messages with   the old keys.  Additionally, both sides MUST enforce that a KeyUpdate   with the old key is received before accepting any messages encrypted   with the new key.  Failure to do so may allow message truncation   attacks.
+   发送方和接收方都必须使用旧密钥对其KeyUpdate消息进行加密。此外，在接受用新密钥
+   加密的任何消息之前，双方必须强制接收到具有旧密钥的KeyUpdate。如果不这样做，则
+   可能允许邮件截断攻击。
  
-5.  Record Protocol
+5.  记录协议
  
-   The TLS record protocol takes messages to be transmitted, fragments   the data into manageable blocks, protects the records, and transmits   the result.  Received data is verified, decrypted, reassembled, and   then delivered to higher-level clients.
+   TLS记录协议接收要传输的消息，将数据分段为可管理的块，保护记录，并传输结果。对
+   接收到的数据进行验证、解密、重新组装，然后将其传递给更高级别的客户端。
  
-   TLS records are typed, which allows multiple higher-level protocols   to be multiplexed over the same record layer.  This document   specifies four content types: handshake, application_data, alert, and   change_cipher_spec.  The change_cipher_spec record is used only for   compatibility purposes (see Appendix D.4).
+   TLS记录是分类的，这允许在同一记录层上多路复用多个更高级别的协议。本文档指定了
+   四种内容类型：握手、application_data、alert和change_cipher_spec。
+   change_cipher_spec记录仅用于兼容性目的(参见附录D.4)。
  
-   An implementation may receive an unencrypted record of type   change_cipher_spec consisting of the single byte value 0x01 at any   time after the first ClientHello message has been sent or received   and before the peer's Finished message has been received and MUST   simply drop it without further processing.  Note that this record may   appear at a point at the handshake where the implementation is   expecting protected records, and so it is necessary to detect this   condition prior to attempting to deprotect the record.  An   implementation which receives any other change_cipher_spec value or   which receives a protected change_cipher_spec record MUST abort the   handshake with an "unexpected_message" alert.  If an implementation   detects a change_cipher_spec record received before the first   ClientHello message or after the peer's Finished message, it MUST be   treated as an unexpected record type (though stateless servers may   not be able to distinguish these cases from allowed cases).</pre>
+   在发送或接收第一个 ClientHello 消息之后以及在接收到对等体的 Finished 消息
+   之前的任何时间，实现可以接收由单字节值 0x01 组成的类型 change_cipher_spec 的
+   未加密记录，并且必须简单地丢弃它而无需进一步处理。请注意，此记录可能出现在握手时
+   实现预期受保护记录的某一点，因此有必要在尝试解除记录保护之前检测此条件。接收任何
+   其他 change_cipher_spec 值或接收到受保护的 change_cipher_spec 记录的实现
+   必须中止握手，并发出“unexpected_message”警报。如果实现检测到
+   change_cipher_spec 记录在第一个 ClientHello 消息之前或对等体的 Finished 
+   消息之后接收，则必须将其视为意外的记录类型(尽管无状态服务器可能无法将这些情况与
+   允许的情况区分开来)。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   Implementations MUST NOT send record types not defined in this   document unless negotiated by some extension.  If a TLS   implementation receives an unexpected record type, it MUST terminate   the connection with an "unexpected_message" alert.  New record   content type values are assigned by IANA in the TLS ContentType   registry as described in Section 11.
+   实现不得发送本文档中未定义的记录类型，除非通过某些扩展进行协商。如果TLS实现接收
+   到意外的记录类型，则它必须终止连接并发出“unexpected_message”警报。新的记录
+   内容类型值由IANA在TLS Content Type注册表中分配，如第11节所述。
  
-5.1.  Record Layer
+5.1.  记录层
  
-   The record layer fragments information blocks into TLSPlaintext   records carrying data in chunks of 2^14 bytes or less.  Message   boundaries are handled differently depending on the underlying   ContentType.  Any future content types MUST specify appropriate   rules.  Note that these rules are stricter than what was enforced in   TLS 1.2.
+   记录层将信息块分片成TLSPlaintext记录，这些记录以2^14字节或更少的块为单位承载
+   数据。消息边界的处理方式取决于底层的contentType。任何未来的内容类型都必须指定
+   适当的规则。请注意，这些规则比TLS 1.2中强制实施的规则更严格。
  
-   Handshake messages MAY be coalesced into a single TLSPlaintext record   or fragmented across several records, provided that:
+   握手消息可以合并到单个TLSPlaintext记录中，也可以在多个记录之间进行分段，前提是：
  
-   -  Handshake messages MUST NOT be interleaved with other record      types.  That is, if a handshake message is split over two or more      records, there MUST NOT be any other records between them.
+   -  握手消息不得与其他记录类型交错。也就是说，如果握手消息被拆分为两个或多个记录，
+      则它们之间不能有任何其他记录。
  
-   -  Handshake messages MUST NOT span key changes.  Implementations      MUST verify that all messages immediately preceding a key change      align with a record boundary; if not, then they MUST terminate the      connection with an "unexpected_message" alert.  Because the      ClientHello, EndOfEarlyData, ServerHello, Finished, and KeyUpdate      messages can immediately precede a key change, implementations      MUST send these messages in alignment with a record boundary.
+   -  握手消息不得跨越密钥更改。实现必须验证紧接在键更改之前的所有消息是否与记录
+      边界对齐；如果不是，则它们必须终止连接，并发出“unexpected_message”警报。
+      因为ClientHello、EndOfEarlyData、ServerHello、Finish和KeyUpdate消息
+      可以紧跟在键更改之前，所以实现必须按照记录边界发送这些消息。
  
-   Implementations MUST NOT send zero-length fragments of Handshake   types, even if those fragments contain padding.
+   实现不能发送握手类型的零长度片段，即使这些片段包含填充。
  
-   Alert messages (Section 6) MUST NOT be fragmented across records, and   multiple alert messages MUST NOT be coalesced into a single   TLSPlaintext record.  In other words, a record with an Alert type   MUST contain exactly one message.
+   报警消息(第6节)不能在记录之间分割，并且不能将多个报警消息合并到单个
+   TLSPlaintext记录中。换句话说，具有Alert类型的记录必须恰好包含一条消息。
  
-   Application Data messages contain data that is opaque to TLS.   Application Data messages are always protected.  Zero-length   fragments of Application Data MAY be sent, as they are potentially   useful as a traffic analysis countermeasure.  Application Data   fragments MAY be split across multiple records or coalesced into a   single record.</pre>
+   应用程序数据消息包含对TLS不透明的数据。应用程序数据消息始终受到保护。可以发送应用
+   数据的零长度片段，因为它们作为流量分析对策是潜在有用的。应用程序数据片段可以跨多个
+   记录拆分或合并为单个记录。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
@@ -2663,24 +2748,38 @@ Auth | {CertificateVerify*}
           opaque fragment[TLSPlaintext.length];
       } TLSPlaintext;
  
-   type:  The higher-level protocol used to process the enclosed      fragment.
+   type:  用于处理包含的片段的更高级别的协议。
  
-   legacy_record_version:  MUST be set to 0x0303 for all records      generated by a TLS 1.3 implementation other than an initial      ClientHello (i.e., one not generated after a HelloRetryRequest),      where it MAY also be 0x0301 for compatibility purposes.  This      field is deprecated and MUST be ignored for all purposes.      Previous versions of TLS would use other values in this field      under some circumstances.
+   legacy_record_version:  对于由TLS 1.3实现生成的除初始ClientHello之外的
+      所有记录(即，在HelloRetryRequest之后未生成的记录)，必须将其设置为0x0303，
+      其中出于兼容性目的，也可以设置为0x0301。此字段已弃用，在任何情况下都必须忽略。
+      在某些情况下，以前版本的TLS会在此字段中使用其他值。
  
-   length:  The length (in bytes) of the following
-      TLSPlaintext.fragment.  The length MUST NOT exceed 2^14 bytes.  An      endpoint that receives a record that exceeds this length MUST      terminate the connection with a "record_overflow" alert.
+   length:  以下TLSPlaintext.Fragment的长度(以字节为单位)。长度不能超过2^14
+      字节。接收到超过此长度的记录的端点必须使用“record_overflow”警报终止连接。
  
-   fragment:  The data being transmitted.  This value is transparent and      is treated as an independent block to be dealt with by the higher-      level protocol specified by the type field.
+   fragment:  正在传输的数据。这个值是透明的，并且被视为一个独立的块，由type字段
+      指定的更高级别的协议来处理。
  
-   This document describes TLS 1.3, which uses the version 0x0304.  This   version value is historical, deriving from the use of 0x0301 for   TLS 1.0 and 0x0300 for SSL 3.0.  In order to maximize backward   compatibility, a record containing an initial ClientHello SHOULD have   version 0x0301 (reflecting TLS 1.0) and a record containing a second   ClientHello or a ServerHello MUST have version 0x0303 (reflecting   TLS 1.2).  When negotiating prior versions of TLS, endpoints follow   the procedure and requirements provided in Appendix D.</pre>
+   本文档介绍TLS 1.3，它使用版本0x0304。此版本值是历史的，源自对TLS 1.0使用
+   0x0301和对SSL 3.0使用0x0300。为了最大化向后兼容性，包含初始ClientHello的
+   记录应该具有版本0x0301(反射TLS 1.0)，而包含第二个ClientHello或ServerHello
+   的记录必须具有版本0x0303(反射TLS 1.2)。在协商TLS的先前版本时，端点遵循附录D中
+   提供的程序和要求。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   When record protection has not yet been engaged, TLSPlaintext   structures are written directly onto the wire.  Once record   protection has started, TLSPlaintext records are protected and sent   as described in the following section.  Note that Application Data   records MUST NOT be written to the wire unprotected (see Section 2   for details).
+   当尚未启用记录保护时，直接将TLSPlaintext结构写入导线上。一旦开始记录保护，
+   TLSPlaintext记录就会被保护并发送，如下节所述。请注意，应用程序数据记录不得写入
+   未受保护的线路(详情请参阅第2节)。
  
-5.2.  Record Payload Protection
+5.2.  记录负载保护
  
-   The record protection functions translate a TLSPlaintext structure   into a TLSCiphertext structure.  The deprotection functions reverse   the process.  In TLS 1.3, as opposed to previous versions of TLS, all   ciphers are modeled as "Authenticated Encryption with Associated   Data" (AEAD) [RFC5116].  AEAD functions provide a unified encryption   and authentication operation which turns plaintext into authenticated   ciphertext and back again.  Each encrypted record consists of a   plaintext header followed by an encrypted body, which itself contains   a type and optional padding.
+   记录保护功能将TLSPlaintext结构转换为TLSCiphertext结构。去保护功能反转该过程。
+   在TLS 1.3中，与以前版本的TLS不同，所有密码都被建模为“带关联数据的身份验证加密”
+   (AEAD)[RFC5116]。EAAD函数提供统一的加密和认证操作，其将明文转换成认证的密文，
+   然后再返回。每个加密记录都由一个明文头和一个加密体组成，加密体本身包含一个类型和
+   可选的填充。
  
       struct {
           opaque content[TLSPlaintext.length];
@@ -2689,27 +2788,43 @@ Auth | {CertificateVerify*}
       } TLSInnerPlaintext;
  
       struct {
-          ContentType opaque_type = application_data; /* 23 */          ProtocolVersion legacy_record_version = 0x0303; /* TLS v1.2 */          uint16 length;
-          opaque encrypted_record[TLSCiphertext.length];      } TLSCiphertext;
+          ContentType opaque_type = application_data; /* 23 */
+          ProtocolVersion legacy_record_version = 0x0303; /* TLS v1.2 */
+          uint16 length;
+          opaque encrypted_record[TLSCiphertext.length];
+      } TLSCiphertext;
  
-   content:  The TLSPlaintext.fragment value, containing the byte      encoding of a handshake or an alert message, or the raw bytes of      the application's data to send.
+   content:  TLSPlaintext.Fragment值，包含握手或警报消息的字节编码，或要发送
+      的应用程序数据的原始字节。
  
-   type:  The TLSPlaintext.type value containing the content type of the      record.
+   type:  包含记录内容类型的TLSPlaintext.type值。
  
-   zeros:  An arbitrary-length run of zero-valued bytes may appear in      the cleartext after the type field.  This provides an opportunity      for senders to pad any TLS record by a chosen amount as long as      the total stays within record size limits.  See Section 5.4 for      more details.</pre>
+   zeros:  零值字节的任意长度游程可能出现在类型字段之后的明文中。这为发件人提供了
+      将任何TLS记录填充选定数量的机会，只要总数保持在记录大小限制内即可。更多细节
+      见5.4节。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   opaque_type:  The outer opaque_type field of a TLSCiphertext record      is always set to the value 23 (application_data) for outward      compatibility with middleboxes accustomed to parsing previous      versions of TLS.  The actual content type of the record is found      in TLSInnerPlaintext.type after decryption.
+   opaque_type:  TLSCiphertext记录的外部opaque_type 字段始终设置为值23
+      (APPLICATION_DATA)，以便与习惯于解析以前版本的TLS的中间件保持向外兼容性。
+      解密后，可以在TLSInnerPlaintext.type中找到记录的实际内容类型。
  
-   legacy_record_version:  The legacy_record_version field is always      0x0303.  TLS 1.3 TLSCiphertexts are not generated until after      TLS 1.3 has been negotiated, so there are no historical      compatibility concerns where other values might be received.  Note      that the handshake protocol, including the ClientHello and      ServerHello messages, authenticates the protocol version, so this      value is redundant.
+   legacy_record_version:  Legacy_Record_Version字段始终为0x0303。TLS 1.3
+      TLSCiphertext直到TLS 1.3被协商后才会生成，因此在可能接收到其他值的地方没有
+      历史兼容性问题。请注意，握手协议(包括ClientHello和ServerHello消息)验证协议
+      版本，因此此值是冗余的。
  
-   length:  The length (in bytes) of the following
-      TLSCiphertext.encrypted_record, which is the sum of the lengths of      the content and the padding, plus one for the inner content type,      plus any expansion added by the AEAD algorithm.  The length      MUST NOT exceed 2^14 + 256 bytes.  An endpoint that receives a      record that exceeds this length MUST terminate the connection with      a "record_overflow" alert.
+   length:  以下TLSCiphertext.encrypted_record 的长度(以字节为单位)，它是
+      内容和填充的长度之和，加上内部内容类型的1长度，再加上由aead算法添加的任何
+      扩展。长度不能超过2^14+256字节。接收到超过此长度的记录的端点必须使用
+      “record_overflow”警报终止连接。
  
-   encrypted_record:  The AEAD-encrypted form of the serialized      TLSInnerPlaintext structure.
+   encrypted_record:  序列化的TLSInnerPlaintext结构的aead加密形式。
  
-   AEAD algorithms take as input a single key, a nonce, a plaintext, and   "additional data" to be included in the authentication check, as   described in Section&nbsp;2.1 of [RFC5116].  The key is either the   client_write_key or the server_write_key, the nonce is derived from   the sequence number and the client_write_iv or server_write_iv (see   Section 5.3), and the additional data input is the record header.
+   AEAD 算法将单个密钥、nonce、纯文本和"附加数据"作为输入包含在身份验证检查中，
+   如 [RFC5116] 第 2.1 节所述。 密钥是client_write_key 或
+   server_write_key，nonce派生自序列号和client_write_iv 或server_write_iv 
+   （请参阅第 5.3 节），其他数据输入是记录标头。
  
    I.e.,
  
@@ -2717,87 +2832,128 @@ Auth | {CertificateVerify*}
                         TLSCiphertext.legacy_record_version ||
                         TLSCiphertext.length
  
-   The plaintext input to the AEAD algorithm is the encoded   TLSInnerPlaintext structure.  Derivation of traffic keys is defined   in Section 7.3.
+   AEAD算法的明文输入是编码的TLSInnerPlaintext结构。数据密钥的推导在7.3节中定义。
  
-   The AEAD output consists of the ciphertext output from the AEAD   encryption operation.  The length of the plaintext is greater than   the corresponding TLSPlaintext.length due to the inclusion of   TLSInnerPlaintext.type and any padding supplied by the sender.  The   length of the AEAD output will generally be larger than the   plaintext, but by an amount that varies with the AEAD algorithm.</pre>
+   AEAD输出由来自AEAD加密操作的密文输出组成。由于包含TLSInnerPlaintext.type和
+   发送方提供的任何填充，明文的长度大于相应的TLSPlaintext.length。AEAD输出的
+   长度通常将大于明文，但数量随AEAD算法而变化。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   Since the ciphers might incorporate padding, the amount of overhead   could vary with different lengths of plaintext.  Symbolically,
+   由于密码可能包含填充，因此开销的量可以随明文的不同长度而变化。象征性的
  
       AEADEncrypted =
           AEAD-Encrypt(write_key, nonce, additional_data, plaintext)
  
-   The encrypted_record field of TLSCiphertext is set to AEADEncrypted.
+   TLSCiphertext的 encrypted_record 字段设置为AEADEncrypted。
  
-   In order to decrypt and verify, the cipher takes as input the key,   nonce, additional data, and the AEADEncrypted value.  The output is   either the plaintext or an error indicating that the decryption   failed.  There is no separate integrity check.  Symbolically,
+   为了解密和验证，算法以密钥、随机数、附加数据和AEADEncrypted值作为输入。输出
+   要么是明文，要么是指示解密失败的错误。没有单独的完整性检查。象征性的
  
       plaintext of encrypted_record =
           AEAD-Decrypt(peer_write_key, nonce,
                        additional_data, AEADEncrypted)
  
-   If the decryption fails, the receiver MUST terminate the connection   with a "bad_record_mac" alert.
+   如果解密失败，接收方必须终止连接并发出“bad_record_mac”警报。
  
-   An AEAD algorithm used in TLS 1.3 MUST NOT produce an expansion   greater than 255 octets.  An endpoint that receives a record from its   peer with TLSCiphertext.length larger than 2^14 + 256 octets MUST   terminate the connection with a "record_overflow" alert.  This limit   is derived from the maximum TLSInnerPlaintext length of 2^14 octets +   1 octet for ContentType + the maximum AEAD expansion of 255 octets.
+   TLS 1.3中使用的AEAD算法不得产生大于255个八位组的扩展。从其对等端接收
+   TLSCiphertext.length大于2^14+256个八位字节的记录的端点必须使用
+   “record_overflow”警报终止连接。此限制由最大TLSInnerPlaintext长度2^14个
+   八位字节+ContentType的1个八位字节+255个八位字节的最大aead扩展得出。
  
 5.3.  Per-Record Nonce
  
-   A 64-bit sequence number is maintained separately for reading and   writing records.  The appropriate sequence number is incremented by   one after reading or writing each record.  Each sequence number is   set to zero at the beginning of a connection and whenever the key is   changed; the first record transmitted under a particular traffic key   MUST use sequence number 0.
+   64位序列号被单独维护，用于读取和写入记录。在读取或写入每个记录后，适当的序列号
+   递增1。在连接开始时和每当密钥改变时，每个序列号都被设置为零；在特定业务下加密
+   传输的第一个记录必须使用序列号0。
  
-   Because the size of sequence numbers is 64-bit, they should not wrap.   If a TLS implementation would need to wrap a sequence number, it MUST   either rekey (Section 4.6.3) or terminate the connection.</pre>
+   因为序列号的大小是64位，所以它们不应该换行。如果TLS实现需要包装序列号，则必须
+   重新设置密钥(第4.6.3节)或终止连接。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   Each AEAD algorithm will specify a range of possible lengths for the   per-record nonce, from N_MIN bytes to N_MAX bytes of input [RFC5116].   The length of the TLS per-record nonce (iv_length) is set to the   larger of 8 bytes and N_MIN for the AEAD algorithm (see [RFC5116],   Section&nbsp;4).  An AEAD algorithm where N_MAX is less than 8 bytes   MUST NOT be used with TLS.  The per-record nonce for the AEAD   construction is formed as follows:
+   每个 AEAD 算法将为每个记录的随机数指定可能的长度范围，从 N_MIN 字节到
+   输入的 N_MAX 字节 [RFC5116]。  对于 AEAD 算法， TLS每条记录随机数的
+   长度被（iv_length）设置为 8 字节和 N_MIN 中较大的一个（参见 [RFC5116]，
+   第 4 节）。 N_MAX 小于 8 字节的 AEAD 算法不得与 TLS 一起使用。 AEAD 构造的
+   每个记录的随机数格式如下：
  
-   1.  The 64-bit record sequence number is encoded in network byte       order and padded to the left with zeros to iv_length.
+   1.  64位记录序列号按网络字节顺序编码，左侧补零至iv_length。
  
-   2.  The padded sequence number is XORed with either the static       client_write_iv or server_write_iv (depending on the role).
+   2.  填充的序列号与静态client_write_iv或server_write_iv进行异或
+       (取决于角色)。
  
-   The resulting quantity (of length iv_length) is used as the   per-record nonce.
+   得到的数量(长度为iv_length)用作每条记录的随机数。
  
-   Note: This is a different construction from that in TLS 1.2, which   specified a partially explicit nonce.
+   注意：这与TLS 1.2中的构造不同，TLS 1.2中指定了部分显式的nonce。
  
-5.4.  Record Padding
+5.4.  记录填充
  
-   All encrypted TLS records can be padded to inflate the size of the   TLSCiphertext.  This allows the sender to hide the size of the   traffic from an observer.
+   可以填充所有加密的TLS记录以扩大TLSCiphertext的大小。这允许发送者对观察者隐藏
+   流量的大小。
  
-   When generating a TLSCiphertext record, implementations MAY choose to   pad.  An unpadded record is just a record with a padding length of   zero.  Padding is a string of zero-valued bytes appended to the   ContentType field before encryption.  Implementations MUST set the   padding octets to all zeros before encrypting.
+   当生成TLSCiphertext记录时，实现可以选择填充。未填充的记录只是填充长度为零的
+   记录。填充是加密前附加到contentType字段的零值字节字符串。在加密之前，实现必须
+   将填充八位组设置为全零。
  
-   Application Data records may contain a zero-length
-   TLSInnerPlaintext.content if the sender desires.  This permits   generation of plausibly sized cover traffic in contexts where the   presence or absence of activity may be sensitive.  Implementations   MUST NOT send Handshake and Alert records that have a zero-length   TLSInnerPlaintext.content; if such a message is received, the   receiving implementation MUST terminate the connection with an   "unexpected_message" alert.</pre>
+   如果发送者需要，应用数据记录可以包含零长度的TLSInnerPlaintext.content。这
+   允许在活动的存在或不存在可能是敏感的上下文中生成合理大小的覆盖流量。实现不得发送
+   长度为零的TLSInnerPlaintext.content的握手和警报记录；如果接收到这样的消息，
+   则接收实现必须终止连接，并发出“unexpected_message”警报。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   The padding sent is automatically verified by the record protection   mechanism; upon successful decryption of a
-   TLSCiphertext.encrypted_record, the receiving implementation scans   the field from the end toward the beginning until it finds a non-zero   octet.  This non-zero octet is the content type of the message.  This   padding scheme was selected because it allows padding of any   encrypted TLS record by an arbitrary size (from zero up to TLS record   size limits) without introducing new content types.  The design also   enforces all-zero padding octets, which allows for quick detection of   padding errors.
+   发送的填充由记录保护机制自动验证；在成功解密TLSCiphertext.Encrypted_Record
+   后，接收实现从末尾向开始扫描字段，直到找到非零的二进制八位数。这个非零的二进制
+   八位数是消息的内容类型。之所以选择这种填充方案，是因为它允许以任意大小(从零到TLS
+   记录大小限制)填充任何加密的TLS记录，而不引入新的内容类型。该设计还强制实施全零
+   填充八位组，这允许快速检测填充错误。
  
-   Implementations MUST limit their scanning to the cleartext returned   from the AEAD decryption.  If a receiving implementation does not   find a non-zero octet in the cleartext, it MUST terminate the   connection with an "unexpected_message" alert.
+   实现必须将其扫描限制为从aead解密返回的明文。如果接收实现在明文中找不到非零的
+   二进制八位数，则它必须终止连接，并发出“unexpected_message”警报。
  
-   The presence of padding does not change the overall record size   limitations: the full encoded TLSInnerPlaintext MUST NOT exceed 2^14   + 1 octets.  If the maximum fragment length is reduced -- as, for   example, by the record_size_limit extension from [RFC8449] -- then   the reduced limit applies to the full plaintext, including the   content type and padding.
+   填充的存在不会改变总体记录大小限制：完整编码的TLSInnerPlaintext不得超过
+   2^14+1个八位字节。如果减少了最大片段长度-例如，通过[RFC8449]的
+   record_size_limit扩展-那么减少的限制适用于完整明文，包括内容类型和填充。
  
-   Selecting a padding policy that suggests when and how much to pad is   a complex topic and is beyond the scope of this specification.  If   the application-layer protocol on top of TLS has its own padding, it   may be preferable to pad Application Data TLS records within the   application layer.  Padding for encrypted Handshake or Alert records   must still be handled at the TLS layer, though.  Later documents may   define padding selection algorithms or define a padding policy   request mechanism through TLS extensions or some other means.
+   选择建议何时填充以及填充多少的填充策略是一个复杂的主题，并且超出了本规范的范围。
+   如果TLS之上的应用层协议有自己的填充，则最好在应用层内填充应用数据TLS记录。不过，
+   加密握手或警报记录的填充仍必须在TLS层处理。稍后的文档可以通过TLS扩展或一些其他
+   手段定义填充选择算法或定义填充策略请求机制。
  
-5.5.  Limits on Key Usage
+5.5.  密钥使用限制
  
-   There are cryptographic limits on the amount of plaintext which can   be safely encrypted under a given set of keys.  [AEAD-LIMITS]   provides an analysis of these limits under the assumption that the   underlying primitive (AES or ChaCha20) has no weaknesses.   Implementations SHOULD do a key update as described in Section 4.6.3   prior to reaching these limits.
+   在给定的密钥集下可以安全加密的纯文本数量有限制。 [AEAD-LIMITS] 在假定基础
+   基元（AES 或 ChaCha20）没有弱点的情况下，对这些限制进行了分析。实现应在达到这些
+   限制之前执行第 4.6.3 节中描述的密钥更新。
  
-   For AES-GCM, up to 2^24.5 full-size records (about 24 million) may be   encrypted on a given connection while keeping a safety margin of   approximately 2^-57 for Authenticated Encryption (AE) security.  For   ChaCha20/Poly1305, the record sequence number would wrap before the   safety limit is reached.</pre>
+   对于AES-GCM，在给定连接上最多可以加密2^24.5条全尺寸记录(约2400万条)，同时保持
+   大约2^-57的安全裕度，以保证身份验证加密(AE)安全性。对于CHACH20/Poly1305，
+   记录序列号将在达到安全限值之前自动换行。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-6.  Alert Protocol
+6.  警报协议
  
-   TLS provides an Alert content type to indicate closure information   and errors.  Like other messages, alert messages are encrypted as   specified by the current connection state.
+   TLS提供警报内容类型以指示关闭信息和错误。与其他消息一样，警报消息按照当前连接状态
+   进行加密。
  
-   Alert messages convey a description of the alert and a legacy field   that conveyed the severity level of the message in previous versions   of TLS.  Alerts are divided into two classes: closure alerts and   error alerts.  In TLS 1.3, the severity is implicit in the type of   alert being sent, and the "level" field can safely be ignored.  The   "close_notify" alert is used to indicate orderly closure of one   direction of the connection.  Upon receiving such an alert, the TLS   implementation SHOULD indicate end-of-data to the application.
+   警报消息传达警报的描述和旧字段，该字段传达TLS早期版本中消息的严重性级别。警报分为
+   两类：关闭警报和错误警报。在TLS 1.3中，严重性隐含在正在发送的警报类型中，并且可以
+   安全地忽略“level”字段。“close_notify”警报用于指示连接的一个方向有序关闭。在
+   接收到这样的警报时，TLS实现应该向应用程序指示数据结束。
  
-   Error alerts indicate abortive closure of the connection (see   Section 6.2).  Upon receiving an error alert, the TLS implementation   SHOULD indicate an error to the application and MUST NOT allow any   further data to be sent or received on the connection.  Servers and   clients MUST forget the secret values and keys established in failed   connections, with the exception of the PSKs associated with session   tickets, which SHOULD be discarded if possible.
+   错误警报指示连接的中止关闭(参见第6.2节)。在接收到错误警报后，TLS实现应向应用程序
+   指示错误，并且不得允许在连接上发送或接收任何进一步的数据。服务器和客户端必须忘记
+   在失败的连接中建立的密码值和密钥，与会话票证关联的PSK除外，如果可能，应将其丢弃。
  
-   All the alerts listed in Section 6.2 MUST be sent with
-   AlertLevel=fatal and MUST be treated as error alerts when received   regardless of the AlertLevel in the message.  Unknown Alert types   MUST be treated as error alerts.
+   6.2节中列出的所有警报必须使用AlertLevel=FATAL发送，并且在收到时必须被视为错误
+   警报，而不管消息中的警报等级是什么。未知警报类型必须视为错误警报。
  
-   Note: TLS defines two generic alerts (see Section 6) to use upon   failure to parse a message.  Peers which receive a message which   cannot be parsed according to the syntax (e.g., have a length   extending beyond the message boundary or contain an out-of-range   length) MUST terminate the connection with a "decode_error" alert.   Peers which receive a message which is syntactically correct but   semantically invalid (e.g., a DHE share of p - 1, or an invalid enum)   MUST terminate the connection with an "illegal_parameter" alert.</pre>
+   注意：TLS定义了两个通用警报(参见第6节)，用于解析消息失败时使用。接收不能根据
+   语法解析的消息的对等体(例如，具有超出消息边界的长度或包含超出范围的长度)必须
+   用“decode_error”警报终止连接。接收到语法上正确但语义上无效的消息的对等体
+   (例如，p-1的DHE共享或无效的枚举)必须以“illegal_parameter”警报终止连接。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
@@ -2841,99 +2997,182 @@ Auth | {CertificateVerify*}
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-6.1.  Closure Alerts
+6.1.  关闭警报
  
-   The client and the server must share knowledge that the connection is   ending in order to avoid a truncation attack.
+   客户端和服务器必须共享连接即将结束的信息，以避免截断攻击。
  
-   close_notify:  This alert notifies the recipient that the sender will      not send any more messages on this connection.  Any data received      after a closure alert has been received MUST be ignored.
+   close_notify:  此警报通知收件人发件人将不再在此连接上发送任何消息。必须忽略
+      在接收到关闭警报之后接收到的任何数据。
  
-   user_canceled:  This alert notifies the recipient that the sender is      canceling the handshake for some reason unrelated to a protocol      failure.  If a user cancels an operation after the handshake is      complete, just closing the connection by sending a "close_notify"      is more appropriate.  This alert SHOULD be followed by a      "close_notify".  This alert generally has AlertLevel=warning.
+   user_canceled:  此警报通知收件人发送方出于某种与协议故障无关的原因取消握手。
+      如果用户在握手完成后取消操作，则通过发送“close_notify”关闭连接更合适。
+      此警报后应紧跟“close_notify”。此警报通常具有AlertLevel=Warning。
  
-   Either party MAY initiate a close of its write side of the connection   by sending a "close_notify" alert.  Any data received after a closure   alert has been received MUST be ignored.  If a transport-level close   is received prior to a "close_notify", the receiver cannot know that   all the data that was sent has been received.
+
+
+
+
+
+   任何一方都可以通过发送“close_notify”警报来启动连接的写入端的关闭。必须忽略在
+   接收到关闭警报之后接收到的任何数据。如果在“close_notify”之前接收到传输层关闭，
+   则接收方无法知道发送的所有数据都已收到。
  
-   Each party MUST send a "close_notify" alert before closing its write   side of the connection, unless it has already sent some error alert.   This does not have any effect on its read side of the connection.   Note that this is a change from versions of TLS prior to TLS 1.3 in   which implementations were required to react to a "close_notify" by   discarding pending writes and sending an immediate "close_notify"   alert of their own.  That previous requirement could cause truncation   in the read side.  Both parties need not wait to receive a   "close_notify" alert before closing their read side of the   connection, though doing so would introduce the possibility of   truncation.
+   每一方必须在关闭其连接的写入端之前发送“close_notify”警报，除非它已经发送了一些
+   错误警报。这对连接的读取端没有任何影响。请注意，这与TLS 1.3之前的TLS版本不同，
+   在TLS 1.3之前的版本中，要求实现通过丢弃挂起的写入并立即发送自己的
+   “close_Notify”警报来对“close_notification”作出反应。之前的要求可能会导致
+   读取侧的截断。在关闭连接的读取端之前，双方不需要等待接收“close_notify”警报，
+   尽管这样做会引入截断的可能性。
  
-   If the application protocol using TLS provides that any data may be   carried over the underlying transport after the TLS connection is   closed, the TLS implementation MUST receive a "close_notify" alert   before indicating end-of-data to the application layer.  No part of   this standard should be taken to dictate the manner in which a usage   profile for TLS manages its data transport, including when   connections are opened or closed.
+
+
+
+
+   如果使用TLS的应用协议规定在关闭TLS连接后可以在底层传输上携带任何数据，则在向
+   应用层指示数据结束之前，TLS实现必须接收“close_notify”警报。本标准的任何部分都
+   不应用于规定TLS的使用配置文件管理其数据传输的方式，包括何时打开或关闭连接。
  
-   Note: It is assumed that closing the write side of a connection   reliably delivers pending data before destroying the transport.</pre>
+   注意：假设关闭连接的写入端在销毁传输之前可靠地传递挂起的数据。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-6.2.  Error Alerts
+6.2.  错误警报
  
-   Error handling in TLS is very simple.  When an error is detected, the   detecting party sends a message to its peer.  Upon transmission or   receipt of a fatal alert message, both parties MUST immediately close   the connection.
+   TLS中的错误处理非常简单。当检测到错误时，检测方向其对等方发送消息。在发送或接收到
+   致命警报消息时，双方必须立即关闭连接。
  
-   Whenever an implementation encounters a fatal error condition, it   SHOULD send an appropriate fatal alert and MUST close the connection   without sending or receiving any additional data.  In the rest of   this specification, when the phrases "terminate the connection" and   "abort the handshake" are used without a specific alert it means that   the implementation SHOULD send the alert indicated by the   descriptions below.  The phrases "terminate the connection with an X   alert" and "abort the handshake with an X alert" mean that the   implementation MUST send alert X if it sends any alert.  All alerts   defined below in this section, as well as all unknown alerts, are   universally considered fatal as of TLS 1.3 (see Section 6).  The   implementation SHOULD provide a way to facilitate logging the sending   and receiving of alerts.
+   每当实现遇到致命错误条件时，它都应该发送适当的致命警报，并且必须在不发送或接收任何
+   其他数据的情况下关闭连接。在本说明书的其余部分中，当在没有特定警报的情况下使用短语
+   “终止连接”和“中止握手”时，意味着实现应该发送如下描述所指示的警报。短语
+   “使用X警报终止连接”和“用X警报中止握手”意味着如果实现发送任何警报，则必须发送警报
+   X。从TLS 1.3开始，本节中定义的所有警报以及所有未知警报都被普遍认为是致命的
+   (参见第6节)。实现应该提供一种方便记录警报发送和接收的方法。
  
-   The following error alerts are defined:
  
-   unexpected_message:  An inappropriate message (e.g., the wrong      handshake message, premature Application Data, etc.) was received.      This alert should never be observed in communication between      proper implementations.
+
+
+
+
+
+
+  已定义了以下错误警报:
  
-   bad_record_mac:  This alert is returned if a record is received which      cannot be deprotected.  Because AEAD algorithms combine decryption      and verification, and also to avoid side-channel attacks, this      alert is used for all deprotection failures.  This alert should      never be observed in communication between proper implementations,      except when messages were corrupted in the network.
+   unexpected_message:  收到不适当的消息（例如，错误的握手消息、过早的应用程序
+      数据等）。在正确实现之间的通信中，绝不应观察到此警报。
  
-   record_overflow:  A TLSCiphertext record was received that had a      length more than 2^14 + 256 bytes, or a record decrypted to a      TLSPlaintext record with more than 2^14 bytes (or some other      negotiated limit).  This alert should never be observed in      communication between proper implementations, except when messages      were corrupted in the network.
+
+
+   bad_record_mac:  如果收到无法解除保护的记录，则返回此警报。因为aead算法结合了
+      解密和验证，并且还为了避免旁道攻击，所以此警报用于所有解除保护失败。在正确实现
+      的通信中绝不应观察到此警报，除非网络中的消息已损坏。
  
-   handshake_failure:  Receipt of a "handshake_failure" alert message      indicates that the sender was unable to negotiate an acceptable      set of security parameters given the options available.
+
+
+
+   record_overflow:  收到长度超过2^14+256字节的TLSCiphertext记录，或解密为
+      超过2^14字节(或其他协商限制)的TLSPlaintext记录的记录。在正确实现的通信中
+      绝不应观察到此警报，除非网络中的消息已损坏。
  
-   bad_certificate:  A certificate was corrupt, contained signatures      that did not verify correctly, etc.</pre>
+
+
+   handshake_failure:  收到“handshake_failure”警报消息表明，发送方在给定可用
+      选项的情况下无法协商一组可接受的安全参数。
+
+ 
+   bad_certificate:  证书已损坏，包含未正确验证的签名等。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   unsupported_certificate:  A certificate was of an unsupported type.
+   unsupported_certificate:  证书的类型不受支持。
  
-   certificate_revoked:  A certificate was revoked by its signer.
+   certificate_revoked:  证书被其签名者吊销。
  
-   certificate_expired:  A certificate has expired or is not currently      valid.
+   certificate_expired:  证书已过期或当前无效。
  
-   certificate_unknown:  Some other (unspecified) issue arose in      processing the certificate, rendering it unacceptable.
+   certificate_unknown:  在处理证书的过程中出现了一些其他(未指定的)问题，
+      使其不可接受。
  
-   illegal_parameter:  A field in the handshake was incorrect or      inconsistent with other fields.  This alert is used for errors      which conform to the formal protocol syntax but are otherwise      incorrect.
+   illegal_parameter:  握手中的某个字段不正确或与其他字段不一致。此警报用于符合
+      正式协议语法但其他方面不正确的错误。
  
-   unknown_ca:  A valid certificate chain or partial chain was received,      but the certificate was not accepted because the CA certificate      could not be located or could not be matched with a known trust      anchor.
+
+
+   unknown_ca:  收到有效的证书链或部分链，但未接受证书，因为找不到CA证书或无法与
+      已知的信任锚点匹配。
  
-   access_denied:  A valid certificate or PSK was received, but when      access control was applied, the sender decided not to proceed with      negotiation.
+
+
+   access_denied:  收到有效的证书或PSK，但当应用访问控制时，发送方决定不继续协商。
  
-   decode_error:  A message could not be decoded because some field was      out of the specified range or the length of the message was      incorrect.  This alert is used for errors where the message does      not conform to the formal protocol syntax.  This alert should      never be observed in communication between proper implementations,      except when messages were corrupted in the network.
+
+   decode_error:  无法解码消息，因为某些字段超出指定范围或消息长度不正确。此警报
+      用于消息不符合正式协议语法的错误。在正确实现之间的通信中绝不应观察到此警报，
+      除非网络中的消息已损坏。
  
-   decrypt_error:  A handshake (not record layer) cryptographic      operation failed, including being unable to correctly verify a      signature or validate a Finished message or a PSK binder.
+
+
+   decrypt_error:  握手(非记录层)加密操作失败，包括无法正确验证签名或验证已完成
+      的消息或PSK绑定器。
  
-   protocol_version:  The protocol version the peer has attempted to      negotiate is recognized but not supported (see Appendix D).
+
+   protocol_version:  对等体尝试协商的协议版本被识别，但不受支持(参见附录D)。
+
  
-   insufficient_security:  Returned instead of "handshake_failure" when      a negotiation has failed specifically because the server requires      parameters more secure than those supported by the client.
+   insufficient_security:  由于服务器需要比客户端支持的参数更安全的参数，在协商
+      失败时返回，而不是返回“handshake_failure”。
  
-   internal_error:  An internal error unrelated to the peer or the      correctness of the protocol (such as a memory allocation failure)      makes it impossible to continue.
+   internal_error:  与对等体或协议的正确性无关的内部错误(如内存分配失败)使其无法
+      继续。
  
-   inappropriate_fallback:  Sent by a server in response to an invalid      connection retry attempt from a client (see [RFC7507]).</pre>
+   inappropriate_fallback:  由服务器发送，以响应来自客户端的无效连接重试尝试
+      (参见[RFC7507])。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   missing_extension:  Sent by endpoints that receive a handshake      message not containing an extension that is mandatory to send for      the offered TLS version or other negotiated parameters.
+   missing_extension:  由接收握手消息的端点发送，该握手消息不包含对于所提供的
+      TLS版本或其他协商参数强制发送的扩展。
  
-   unsupported_extension:  Sent by endpoints receiving any handshake      message containing an extension known to be prohibited for      inclusion in the given handshake message, or including any      extensions in a ServerHello or Certificate not first offered in      the corresponding ClientHello or CertificateRequest.
+   unsupported_extension:  由接收任何握手消息的端点发送，该握手消息包含已知禁止
+      包含在给定握手消息中的扩展，或者包括ServerHello或证书中未首先在相应
+      ClientHello或CertificateRequest中提供的任何扩展。
  
-   unrecognized_name:  Sent by servers when no server exists identified      by the name provided by the client via the "server_name" extension      (see [RFC6066]).
+   unrecognized_name:  当不存在由客户端通过“server_name”扩展提供的名称标识的
+      服务器时，由服务器发送(参见[RFC6066])。
  
-   bad_certificate_status_response:  Sent by clients when an invalid or      unacceptable OCSP response is provided by the server via the      "status_request" extension (see [RFC6066]).
+   bad_certificate_status_response:  当服务器通过“status_request”扩展提供
+      无效或不可接受的OCSP响应时，由客户端发送(参见[RFC6066])。
  
-   unknown_psk_identity:  Sent by servers when PSK key establishment is      desired but no acceptable PSK identity is provided by the client.      Sending this alert is OPTIONAL; servers MAY instead choose to send      a "decrypt_error" alert to merely indicate an invalid PSK      identity.
+
+
+
+   unknown_psk_identity:  当需要PSK密钥建立但客户端没有提供可接受的PSK标识时，
+      服务器发送。发送此警报是可选的；服务器可能会选择发送“decrypt_error”警报，
+      以仅指示无效的PSK身份。
  
-   certificate_required:  Sent by servers when a client certificate is      desired but none was provided by the client.
+   certificate_required:  当需要客户端证书但客户端没有提供任何证书时，服务器
+      发送。
  
-   no_application_protocol:  Sent by servers when a client      "application_layer_protocol_negotiation" extension advertises only      protocols that the server does not support (see [RFC7301]).
+   no_application_protocol:  当“application_layer_protocol_negotiation”
+      扩展仅通告服务器不支持的协议时，由服务器发送(参见[RFC7301])。
  
-   New Alert values are assigned by IANA as described in Section 11.
+   新的警报值由IANA分配，如第11节所述。
  
-7.  Cryptographic Computations
+7.  密码计算
  
-   The TLS handshake establishes one or more input secrets which are   combined to create the actual working keying material, as detailed   below.  The key derivation process incorporates both the input   secrets and the handshake transcript.  Note that because the   handshake transcript includes the random values from the Hello   messages, any given handshake will have different traffic secrets,   even if the same input secrets are used, as is the case when the same   PSK is used for multiple connections.</pre>
+   TLS握手建立一个或多个输入密码，这些输入密钥被组合以创建实际工作密钥材料，如下
+   所述。密钥导出过程合并了输入密码和握手记录。注意，因为握手记录包括来自Hello消息
+   的随机值，所以任何给定的握手都将具有不同的业务密码，即使使用相同的输入密码，当
+   相同的PSK用于多个连接时也是如此。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-7.1.  Key Schedule
+7.1.  密钥表
  
-   The key derivation process makes use of the HKDF-Extract and   HKDF-Expand functions as defined for HKDF [RFC5869], as well as the   functions defined below:
+   密钥派生过程利用为HKDF[RFC5869]定义的HKDF-Extract和HKDF-Expand函数，以及
+   下面定义的函数：
  
-       HKDF-Expand-Label(Secret, Label, Context, Length) =            HKDF-Expand(Secret, HkdfLabel, Length)
+       HKDF-Expand-Label(Secret, Label, Context, Length) =
+            HKDF-Expand(Secret, HkdfLabel, Length)
  
        Where HkdfLabel is specified as:
  
@@ -2947,25 +3186,34 @@ Auth | {CertificateVerify*}
             HKDF-Expand-Label(Secret, Label,
                               Transcript-Hash(Messages), Hash.length)
  
-   The Hash function used by Transcript-Hash and HKDF is the cipher   suite hash algorithm.  Hash.length is its output length in bytes.   Messages is the concatenation of the indicated handshake messages,   including the handshake message type and length fields, but not   including record layer headers.  Note that in some cases a zero-   length Context (indicated by "") is passed to HKDF-Expand-Label.  The   labels specified in this document are all ASCII strings and do not   include a trailing NUL byte.
+   Transcript-Hash 和 HKDF 使用的哈希函数是加密套件哈希算法。hash.length是其
+   输出长度(以字节为单位)。消息是所指示的握手消息的串联，包括握手消息类型和长度字段，
+   但不包括记录层报头。请注意，在某些情况下，零长度上下文(由""表示)被传递给
+   HKDF-Expand-Label。本文档中指定的标签都是ASCII字符串，不包括尾部的NUL字节。
  
-   Note: With common hash functions, any label longer than 12 characters   requires an additional iteration of the hash function to compute.   The labels in this specification have all been chosen to fit within   this limit.</pre>
+   注意：对于常用的散列函数，任何超过12个字符的标签都需要额外的散列函数迭代来计算。
+   本说明书中的标签均已选择适合此限制。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   Keys are derived from two input secrets using the HKDF-Extract and   Derive-Secret functions.  The general pattern for adding a new secret   is to use HKDF-Extract with the Salt being the current secret state   and the Input Keying Material (IKM) being the new secret to be added.   In this version of TLS 1.3, the two input secrets are:
+   使用HKDF-Extract和Derve-Secret函数从两个输入密码派生密钥。添加新密码的一般
+   模式是使用HKDF-Extract，其中Salt是当前密码状态，输入密钥材料(IKM)是要添加的
+   新密码。在此版本的TLS 1.3中，两个输入密码是：
  
-   -  PSK (a pre-shared key established externally or derived from the      resumption_master_secret value from a previous connection)
+   -  PSK (外部建立的预共享密钥，或从前一个连接的resumption_master_secret 值
+      派生而来的预共享密钥)。
  
-   -  (EC)DHE shared secret (Section 7.4)
+   -  (EC)DHE 共享密钥 (Section 7.4)
  
-   This produces a full key derivation schedule shown in the diagram   below.  In this diagram, the following formatting conventions apply:
+   这会产生一个完整的密钥导出计划，如下图所示。在此图中，以下格式约定适用：
  
-   -  HKDF-Extract is drawn as taking the Salt argument from the top and      the IKM argument from the left, with its output to the bottom and      the name of the output on the right.
+   -  HKDF-Extract绘制为采用顶部的Salt参数和左侧的IKM参数，其输出位于底部，输出的
+      名称位于右侧。
  
-   -  Derive-Secret's Secret argument is indicated by the incoming      arrow.  For instance, the Early Secret is the Secret for      generating the client_early_traffic_secret.
+   -  Derive-Secret 的Secret参数由传入箭头指示。例如，Early Secret是用于生成
+      client_early_traffic_secret。
  
-   -  "0" indicates a string of Hash.length bytes set to zero.</pre>
+   -  "0" 表示设置为零的Hash.length字节字符串。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
@@ -2974,11 +3222,14 @@ Auth | {CertificateVerify*}
              v
    PSK -&gt;  HKDF-Extract = Early Secret
              |
-             +-----&gt; Derive-Secret(., "ext binder" | "res binder", "")             |                     = binder_key
+             +-----&gt; Derive-Secret(., "ext binder" | "res binder", "")
+             |                     = binder_key
              |
-             +-----&gt; Derive-Secret(., "c e traffic", ClientHello)             |                     = client_early_traffic_secret
+             +-----&gt; Derive-Secret(., "c e traffic", ClientHello)
+             |                     = client_early_traffic_secret
              |
-             +-----&gt; Derive-Secret(., "e exp master", ClientHello)             |                     = early_exporter_master_secret
+             +-----&gt; Derive-Secret(., "e exp master", ClientHello)
+             |                     = early_exporter_master_secret
              v
        Derive-Secret(., "derived", "")
              |
@@ -3016,42 +3267,59 @@ Auth | {CertificateVerify*}
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   The general pattern here is that the secrets shown down the left side   of the diagram are just raw entropy without context, whereas the   secrets down the right side include Handshake Context and therefore   can be used to derive working keys without additional context.  Note   that the different calls to Derive-Secret may take different Messages   arguments, even with the same secret.  In a 0-RTT exchange,   Derive-Secret is called with four distinct transcripts; in a   1-RTT-only exchange, it is called with three distinct transcripts.
+   这里的一般模式是，图的左侧显示的密码只是没有上下文的原始熵，而右侧的密码包括握手
+   上下文，因此可以用于在没有其他上下文的情况下导出工作密钥。请注意，即使使用相同的
+   密码，对Derve-Secret的不同调用也可能采用不同的消息参数。在0-RTT交换中，
+   Derve-Secret用四个不同的转录本调用；在仅1-RTT的交换中，它用三个不同的转录本
+   调用。
  
-   If a given secret is not available, then the 0-value consisting of a   string of Hash.length bytes set to zeros is used.  Note that this   does not mean skipping rounds, so if PSK is not in use, Early Secret   will still be HKDF-Extract(0, 0).  For the computation of the   binder_key, the label is "ext binder" for external PSKs (those   provisioned outside of TLS) and "res binder" for resumption PSKs   (those provisioned as the resumption master secret of a previous   handshake).  The different labels prevent the substitution of one   type of PSK for the other.
+   如果给定的密码不可用，则使用由设置为零的Hash.length字节字符串组成的0值。请注意，
+   这并不意味着跳过轮次，因此如果PSK不在使用中，则Early Secret仍将是
+   HKDF-Extract(0，0)。对于binder_key的计算，标签是用于外部PSK(在TLS之外提供的
+   那些)的“ext binder”和用于恢复PSK(那些被提供为先前握手的恢复主秘密的PSK)的
+   “res binder”。不同的标签防止用一种类型的PSK替换另一种类型的PSK。
  
-   There are multiple potential Early Secret values, depending on which   PSK the server ultimately selects.  The client will need to compute   one for each potential PSK; if no PSK is selected, it will then need   to compute the Early Secret corresponding to the zero PSK.
+   根据服务器最终选择的PSK，有多个潜在的早期密码值。客户端将需要为每个潜在的PSK计算
+   一次；如果没有选择PSK，则需要计算对应于零PSK的Early Secret。
  
-   Once all the values which are to be derived from a given secret have   been computed, that secret SHOULD be erased.
+   一旦计算了从给定秘密得到的所有值，该秘密就应该被擦除。
  
-7.2.  Updating Traffic Secrets
+7.2.  更新 Traffic Secrets
  
-   Once the handshake is complete, it is possible for either side to   update its sending traffic keys using the KeyUpdate handshake message   defined in Section 4.6.3.  The next generation of traffic keys is   computed by generating client_/server_application_traffic_secret_N+1   from client_/server_application_traffic_secret_N as described in this   section and then re-deriving the traffic keys as described in   Section 7.3.
+   一旦握手完成，任何一方都可以使用第4.6.3节中定义的KeyUpdate握手消息更新其发送
+   Traffic Secrets。下一代数据密钥的计算方法是：如本节所述，从
+   client_/server_application_traffic_secret_N生成
+   client_/server_application_traffic_secret_N+1，然后如第7.3节所述重新推导
+   Traffic Secrets。
  
-   The next-generation application_traffic_secret is computed as:
+   下一代 application_traffic_secret 的计算方式为：
  
        application_traffic_secret_N+1 =
-           HKDF-Expand-Label(application_traffic_secret_N,                             "traffic upd", "", Hash.length)
+           HKDF-Expand-Label(application_traffic_secret_N,
+                             "traffic upd", "", Hash.length)
  
-   Once client_/server_application_traffic_secret_N+1 and its associated   traffic keys have been computed, implementations SHOULD delete   client_/server_application_traffic_secret_N and its associated   traffic keys.</pre>
+   一旦计算出client_/server_application_traffic_secret_N+1及其关联的
+   traffic_secret，实施应该删除client_/server_application_traffic_secret_N
+   及其关联的traffic_secret。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-7.3.  Traffic Key Calculation
+7.3.  Traffic Key 计算
  
-   The traffic keying material is generated from the following input   values:
+   业务密钥材料由以下输入值生成：
  
    -  A secret value
  
-   -  A purpose value indicating the specific value being generated
+   -  目的值，指示正在生成的特定值。
  
-   -  The length of the key being generated
+   -  生成的密钥长度。
  
-   The traffic keying material is generated from an input traffic secret   value using:
+   使用以下方法从输入的业务密码值生成业务密钥材料：
  
-   [sender]_write_key = HKDF-Expand-Label(Secret, "key", "", key_length)   [sender]_write_iv  = HKDF-Expand-Label(Secret, "iv", "", iv_length)
+   [sender]_write_key = HKDF-Expand-Label(Secret, "key", "", key_length)
+   [sender]_write_iv  = HKDF-Expand-Label(Secret, "iv", "", iv_length)
  
-   [sender] denotes the sending side.  The value of Secret for each   record type is shown in the table below.
+   [发送方]表示发送方。下表显示了每种记录类型的Secret值。
  
        +-------------------+---------------------------------------+
        | Record Type       | Secret                                |
@@ -3063,96 +3331,181 @@ Auth | {CertificateVerify*}
        | Application Data  | [sender]_application_traffic_secret_N |
        +-------------------+---------------------------------------+
  
-   All the traffic keying material is recomputed whenever the underlying   Secret changes (e.g., when changing from the handshake to Application   Data keys or upon a key update).
+   每当基础密钥改变时(例如，当从握手改变为应用数据密钥时或在密钥更新时)，重新计算
+   所有业务密钥材料。
  
-7.4.  (EC)DHE Shared Secret Calculation
+7.4.  (EC)DHE 共享密码计算
  
-7.4.1.  Finite Field Diffie-Hellman
+7.4.1.  有限域 Diffie-Hellman
  
-   For finite field groups, a conventional Diffie-Hellman [DH76]   computation is performed.  The negotiated key (Z) is converted to a   byte string by encoding in big-endian form and left-padded with zeros   up to the size of the prime.  This byte string is used as the shared   secret in the key schedule as specified above.
+   对于有限域组，执行常规的 Diffie-Hellman[DH76] 计算。协商的密钥(Z)通过以大端
+   字节顺序形式编码转换为字节串，并用零填充，直到素数的大小。该字节串用作如上所述的
+   密钥调度中的共享秘密。
  
-   Note that this construction differs from previous versions of TLS   which removed leading zeros.</pre>
+   请注意，此构造与以前版本的TLS不同，TLS删除了前导零。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
 7.4.2.  Elliptic Curve Diffie-Hellman
  
-   For secp256r1, secp384r1, and secp521r1, ECDH calculations (including   parameter and key generation as well as the shared secret   calculation) are performed according to [IEEE1363] using the   ECKAS-DH1 scheme with the identity map as the key derivation function   (KDF), so that the shared secret is the x-coordinate of the ECDH   shared secret elliptic curve point represented as an octet string.   Note that this octet string ("Z" in IEEE 1363 terminology) as output   by FE2OSP (the Field Element to Octet String Conversion Primitive)   has constant length for any given field; leading zeros found in this   octet string MUST NOT be truncated.
+   对于secp256r1、secp384r1和secp521r1，ECDH计算(包括参数和密钥生成以及
+   共享秘密计算)是根据[IEEE1363]使用身份图作为密钥导出函数(KDF)的ECKAS-DH1方案
+   来执行的，使得共享秘密是表示为八位字节串的ECDH共享秘密椭圆曲线点的x坐标。请
+   注意，FE2OSP(Field Element To Octet String Conversion Primitive)输出
+   的这个八位字节字符串(IEEE 1363术语中的“Z”)对于任何给定字段都具有恒定的长度；
+   在此八位字节字符串中找到的前导零不得被截断。
  
-   (Note that this use of the identity KDF is a technicality.  The   complete picture is that ECDH is employed with a non-trivial KDF   because TLS does not directly use this secret for anything other than   for computing other secrets.)
+   (请注意，这种身份KDF的使用是技术性的。完整的情况是，ECDH与非平凡的KDF一起使用，
+   因为TLS不直接将此密码用于计算其他密码以外的任何事情。)。
  
-   For X25519 and X448, the ECDH calculations are as follows:
+   对于X25519和X448，ECDH计算如下：
  
-   -  The public key to put into the KeyShareEntry.key_exchange      structure is the result of applying the ECDH scalar multiplication      function to the secret key of appropriate length (into scalar      input) and the standard public basepoint (into u-coordinate point      input).
+   -  放入KeyShareEntry.key_exchange结构的公钥是将ECDH标量乘法函数应用于适当
+      长度的密钥(放入标量输入)和标准公共基点(放入u坐标点输入)的结果。
  
-   -  The ECDH shared secret is the result of applying the ECDH scalar      multiplication function to the secret key (into scalar input) and      the peer's public key (into u-coordinate point input).  The output      is used raw, with no processing.
+   -  ECDH共享密钥是将ECDH标量乘法函数应用于密钥(进入标量输入)和对等体的公钥
+      (进入u坐标点输入)的结果。输出是原始的，没有任何处理。
  
-   For these curves, implementations SHOULD use the approach specified   in [RFC7748] to calculate the Diffie-Hellman shared secret.   Implementations MUST check whether the computed Diffie-Hellman shared   secret is the all-zero value and abort if so, as described in   Section&nbsp;6 of [RFC7748].  If implementors use an alternative   implementation of these elliptic curves, they SHOULD perform the   additional checks specified in Section&nbsp;7 of [RFC7748].</pre>
+   对于这些曲线，实现应该使用[RFC7748]中指定的方法来计算Diffie-Hellman共享秘密。
+   实现必须检查计算出的Diffie-Hellman共享机密是否为全零值，如果是，则中止，
+   如[RFC7748]的第6节所述。如果实现者使用这些椭圆曲线的替代实现，他们应执行
+   [RFC7748]的第7节中指定的附加检查。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-7.5.  Exporters
+7.5.  导出器
  
-   [RFC5705] defines keying material exporters for TLS in terms of the   TLS pseudorandom function (PRF).  This document replaces the PRF with   HKDF, thus requiring a new construction.  The exporter interface   remains the same.
+   [RFC5705]根据TLS伪随机函数(PRF)定义TLS的密钥材料导出器。本文件将PRF替换为
+   HKDF，因此需要新的结构。导出器界面保持不变。
  
-   The exporter value is computed as:
+   导出器的值计算如下：
  
-   TLS-Exporter(label, context_value, key_length) =       HKDF-Expand-Label(Derive-Secret(Secret, label, ""),                         "exporter", Hash(context_value), key_length)
+   TLS-Exporter(label, context_value, key_length) =
+       HKDF-Expand-Label(Derive-Secret(Secret, label, ""),
+                         "exporter", Hash(context_value), key_length)
  
-   Where Secret is either the early_exporter_master_secret or the   exporter_master_secret.  Implementations MUST use the   exporter_master_secret unless explicitly specified by the   application.  The early_exporter_master_secret is defined for use in   settings where an exporter is needed for 0-RTT data.  A separate   interface for the early exporter is RECOMMENDED; this avoids the   exporter user accidentally using an early exporter when a regular one   is desired or vice versa.
+   其中Secret是 early_exporter_master_secret 或 exporter_master_secret。
+   除非应用程序明确指定，否则实现必须使用 exporter_master_secret。
+   early_exporter_master_secret 定义用于0-RTT数据需要导出器的设置中。建议为
+   早期导出器提供单独的界面；这可以避免导出器用户在需要常规导出器时意外使用早期
+   导出器，反之亦然。
  
-   If no context is provided, the context_value is zero length.   Consequently, providing no context computes the same value as   providing an empty context.  This is a change from previous versions   of TLS where an empty context produced a different output than an   absent context.  As of this document's publication, no allocated   exporter label is used both with and without a context.  Future   specifications MUST NOT define a use of exporters that permit both an   empty context and no context with the same label.  New uses of   exporters SHOULD provide a context in all exporter computations,   though the value could be empty.
+   如果未提供上下文，则context_value的长度为零。因此，不提供上下文将计算与提供
+   空上下文相同的值。这与以前版本的TLS有所不同，以前的TLS版本中，空上下文产生的输出
+   与不存在的上下文不同。自本文档发布之日起，没有使用带有上下文和无上下文的已分配
+   导出器标签。 未来的规范不得定义允许空上下文和具有相同标签的空上下文的导出器的
+   使用。导出器的新用途应该在所有导出器计算中提供上下文，尽管值可以是空的。
  
-   Requirements for the format of exporter labels are defined in   Section&nbsp;4 of [RFC5705].</pre>
+   导出器标签格式的要求在[RFC5705]第4节中定义。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
 8.  0-RTT and Anti-Replay
  
-   As noted in Section 2.3 and Appendix E.5, TLS does not provide   inherent replay protections for 0-RTT data.  There are two potential   threats to be concerned with:
+   如第2.3节和附录E.5所述，TLS不为0-RTT数据提供固有的重放保护。需要关注的潜在威胁
+   有两个：
  
-   -  Network attackers who mount a replay attack by simply duplicating      a flight of 0-RTT data.
+   -  通过简单复制0-RTT数据报进行重放攻击的网络攻击者。
  
-   -  Network attackers who take advantage of client retry behavior to      arrange for the server to receive multiple copies of an      application message.  This threat already exists to some extent      because clients that value robustness respond to network errors by      attempting to retry requests.  However, 0-RTT adds an additional      dimension for any server system which does not maintain globally      consistent server state.  Specifically, if a server system has      multiple zones where tickets from zone A will not be accepted in      zone B, then an attacker can duplicate a ClientHello and early      data intended for A to both A and B.  At A, the data will be      accepted in 0-RTT, but at B the server will reject 0-RTT data and      instead force a full handshake.  If the attacker blocks the      ServerHello from A, then the client will complete the handshake      with B and probably retry the request, leading to duplication on      the server system as a whole.
+   -  利用客户端重试行为安排服务器接收应用程序消息的多个副本的网络攻击者。这种威胁
+      在某种程度上已经存在，因为重视健壮性的客户端通过尝试重试请求来响应网络错误。
+      然而，0-RTT为不维护全局一致的服务器状态的任何服务器系统添加了额外的维度。
+      具体地说，如果服务器系统有多个区域，在区域B中不接受区域A的票证，则攻击者可以
+      将针对A的ClientHello和早期数据复制到A和B。在A，数据将在0-RTT中被接受，
+      但是在B处，服务器将拒绝0-RTT数据，而是强制完全握手。如果攻击者阻止来自 A 的
+      ServerHello，则客户端将完成与B的握手，并可能重试请求，从而导致整个服务器
+      系统上的重复。
  
-   The first class of attack can be prevented by sharing state to   guarantee that the 0-RTT data is accepted at most once.  Servers   SHOULD provide that level of replay safety by implementing one of the   methods described in this section or by equivalent means.  It is   understood, however, that due to operational concerns not all   deployments will maintain state at that level.  Therefore, in normal   operation, clients will not know which, if any, of these mechanisms   servers actually implement and hence MUST only send early data which   they deem safe to be replayed.
+   可以通过共享状态来保证0-RTT数据最多接受一次来防止第一类攻击。服务器应通过实施本节
+   中描述的方法之一或通过等效的方法来提供该级别的重放安全。然而，应该理解的是，由于
+   操作方面的考虑，并不是所有的部署都会将状态保持在该级别。因此，在正常操作中，客户端
+   将不知道服务器实际实现这些机制中的哪一种(如果有的话)，因此必须仅发送他们认为可以
+   安全重放的早期数据。
  
-   In addition to the direct effects of replays, there is a class of   attacks where even operations normally considered idempotent could be   exploited by a large number of replays (timing attacks, resource   limit exhaustion and others, as described in Appendix E.5).  Those   can be mitigated by ensuring that every 0-RTT payload can be replayed   only a limited number of times.  The server MUST ensure that any   instance of it (be it a machine, a thread, or any other entity within   the relevant serving infrastructure) would accept 0-RTT for the same   0-RTT handshake at most once; this limits the number of replays to   the number of server instances in the deployment.  Such a guarantee   can be accomplished by locally recording data from recently received   ClientHellos and rejecting repeats, or by any other method that</pre>
+   除了重放的直接影响外，还有一类攻击，其中即使通常被认为是幂等的操作也可以被大量的
+   重放利用(定时攻击，资源限制耗尽等，如附录E.5所述)。这些可以通过确保每个0-RTT
+   有效载荷只能被有限次数地重放来减轻。服务器必须确保它的任何实例(可以是机器、线程或
+   相关服务基础设施内的任何其他实体)最多接受0-RTT进行同一握手；这将重放的次数
+   限制为部署中的服务器实例的数量。这样的保证可以通过本地记录来自最近接收到的
+   ClientHellos的数据并拒绝重复，或者通过提供相同或更强的保证的任何其他方法来实现。
+   “每个服务器实例最多一次”保证是最低要求；如果可行，服务器应该进一步限制0-RTT重播。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   provides the same or a stronger guarantee.  The "at most once per   server instance" guarantee is a minimum requirement; servers SHOULD   limit 0-RTT replays further when feasible.
+
+
+
  
-   The second class of attack cannot be prevented at the TLS layer and   MUST be dealt with by any application.  Note that any application   whose clients implement any kind of retry behavior already needs to   implement some sort of anti-replay defense.
+   第二类攻击在TLS层无法防止，必须由任何应用程序处理。请注意，客户端实现任何类型的
+   重试行为的任何应用程序都需要实现某种反重放防御。
  
-8.1.  Single-Use Tickets
+
+
+8.1.  一次性票据
  
-   The simplest form of anti-replay defense is for the server to only   allow each session ticket to be used once.  For instance, the server   can maintain a database of all outstanding valid tickets, deleting   each ticket from the database as it is used.  If an unknown ticket is   provided, the server would then fall back to a full handshake.
+   最简单的反重放防御形式是服务器只允许每个会话票证使用一次。例如，服务器可以维护所有
+   未完成的有效票证的数据库，在使用时从数据库中删除每个票证。如果提供了未知的票证，
+   则服务器将回退到完全握手。
  
-   If the tickets are not self-contained but rather are database keys,   and the corresponding PSKs are deleted upon use, then connections   established using PSKs enjoy forward secrecy.  This improves security   for all 0-RTT data and PSK usage when PSK is used without (EC)DHE.
+   如果票证不是自包含的，而是数据库 key，并且相应的PSK在使用时被删除，则使用PSK建立
+   的连接享有前向保密性。这提高了在没有(EC)DHE的情况下使用PSK时所有0-RTT数据和PSK
+   使用的安全性。
  
-   Because this mechanism requires sharing the session database between   server nodes in environments with multiple distributed servers, it   may be hard to achieve high rates of successful PSK 0-RTT connections   when compared to self-encrypted tickets.  Unlike session databases,   session tickets can successfully do PSK-based session establishment   even without consistent storage, though when 0-RTT is allowed they   still require consistent storage for anti-replay of 0-RTT data, as   detailed in the following section.
+   由于此机制需要在具有多个分布式服务器的环境中的服务器节点之间共享会话数据库，与
+   自加密票证相比，可能难以实现高成功率的PSK 0-RTT连接。与会话数据库不同，会话票证
+   即使没有一致的存储，也可以成功地进行基于PSK的会话建立，尽管当允许0-RTT时，它们
+   仍然需要一致的存储来防止0-RTT数据的重放，如下一节所述。
  
+
+
+
+
 8.2.  Client Hello Recording
  
-   An alternative form of anti-replay is to record a unique value   derived from the ClientHello (generally either the random value or   the PSK binder) and reject duplicates.  Recording all ClientHellos   causes state to grow without bound, but a server can instead record   ClientHellos within a given time window and use the
-   "obfuscated_ticket_age" to ensure that tickets aren't reused outside   that window.
+   反重放的另一种形式是记录从ClientHello派生的唯一值(通常是随机值或PSK绑定器)并
+   拒绝重复。记录所有ClientHello会导致状态不受限制地增长，但是服务器可以在给定的
+   时间窗口内记录ClientHello，并使用“obfuscated_ticket_age”确保票证不会在
+   该窗口外重用。
  
-   In order to implement this, when a ClientHello is received, the   server first verifies the PSK binder as described in Section 4.2.11.   It then computes the expected_arrival_time as described in the next   section and rejects 0-RTT if it is outside the recording window,   falling back to the 1-RTT handshake.</pre>
+   为了实现这一点，当接收到ClientHello时，服务器首先验证PSK绑定器，如第4.2.11节
+   所述。然后，如下一节所述，它会计算expected_arrival_time ，如果0-RTT在记录
+   窗口之外，则拒绝0-RTT，退回到1-RTT握手。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   If the expected_arrival_time is in the window, then the server checks   to see if it has recorded a matching ClientHello.  If one is found,   it either aborts the handshake with an "illegal_parameter" alert or   accepts the PSK but rejects 0-RTT.  If no matching ClientHello is   found, then it accepts 0-RTT and then stores the ClientHello for as   long as the expected_arrival_time is inside the window.  Servers MAY   also implement data stores with false positives, such as Bloom   filters, in which case they MUST respond to apparent replay by   rejecting 0-RTT but MUST NOT abort the handshake.
+   如果expected_arrival_time 在窗口中，那么服务器检查它是否记录了匹配的
+   ClientHello。如果找到一个，它要么中止握手并发出“illegal_parameter”警报，
+   要么接受PSK但拒绝0-RTT。如果没有找到匹配的 ClientHello，那么它接受0-RTT，
+   然后只要expected_arrival_time 在窗口内就存储ClientHello。服务器还可以实现
+   具有假阳性的数据存储，例如Bloom过滤器，在这种情况下，它们必须通过拒绝0-RTT来
+   响应明显的重放，但不能中止握手。
  
-   The server MUST derive the storage key only from validated sections   of the ClientHello.  If the ClientHello contains multiple PSK   identities, then an attacker can create multiple ClientHellos with   different binder values for the less-preferred identity on the   assumption that the server will not verify it (as recommended by   Section 4.2.11).  I.e., if the client sends PSKs A and B but the   server prefers A, then the attacker can change the binder for B   without affecting the binder for A.  If the binder for B is part of   the storage key, then this ClientHello will not appear as a   duplicate, which will cause the ClientHello to be accepted, and may   cause side effects such as replay cache pollution, although any 0-RTT   data will not be decryptable because it will use different keys.  If   the validated binder or the ClientHello.random is used as the storage   key, then this attack is not possible.
+   服务器必须仅从ClientHello的已验证部分派生存储密钥。如果ClientHello包含多个
+   PSK身份，则攻击者可以为不太首选的身份创建具有不同绑定器值的多个ClientHello，
+   前提是服务器不会对其进行验证(如第4.2.11节所建议的)。即，如果客户端发送
+   PSK A和B，但服务器偏好 A，则攻击者可以在不影响A的绑定器的情况下改变B的绑定器。
+   如果B的绑定器是存储密钥的一部分，则该ClientHello将不会出现为副本，这将导致
+   ClientHello 被接受，并且可能导致诸如重放高速缓存污染之类的副作用，尽管任何
+   0-RTT数据都将是不可解密的，因为它将使用不同的密钥。如果将经过验证的绑定器或
+   ClientHello.random用作存储密钥，则不可能进行这种攻击。
  
-   Because this mechanism does not require storing all outstanding   tickets, it may be easier to implement in distributed systems with   high rates of resumption and 0-RTT, at the cost of potentially weaker   anti-replay defense because of the difficulty of reliably storing and   retrieving the received ClientHello messages.  In many such systems,   it is impractical to have globally consistent storage of all the   received ClientHellos.  In this case, the best anti-replay protection   is provided by having a single storage zone be authoritative for a   given ticket and refusing 0-RTT for that ticket in any other zone.   This approach prevents simple replay by the attacker because only one   zone will accept 0-RTT data.  A weaker design is to implement   separate storage for each zone but allow 0-RTT in any zone.  This   approach limits the number of replays to once per zone.  Application   message duplication of course remains possible with either design.
+   因为这种机制不需要存储所有未完成的票据，所以它可能更容易在具有高恢复速率和0-RTT
+   的分布式系统中实现，而代价是由于可靠地存储和检索所接收的ClientHello消息的困难，
+   潜在的较弱的反重放防御。在许多这样的系统中，对所有接收到的ClientHellos进行全局
+   一致的存储是不切实际的。在这种情况下，通过使单个存储区域对给定票证具有权威性，并在
+   任何其他区域中拒绝该票证的0-RTT，来提供最佳的防重放保护。这种方法可以防止攻击者
+   进行简单的重播，因为只有一个区域会接受0-RTT数据。较弱的设计是为每个区域实现单独
+   的存储，但允许在任何区域中使用0-RTT。这种方法将每个区域的重放次数限制为一次。
+   当然，无论采用哪种设计，应用程序消息复制都是可能的。
  
-   When implementations are freshly started, they SHOULD reject 0-RTT as   long as any portion of their recording window overlaps the startup   time.  Otherwise, they run the risk of accepting replays which were   originally sent during that period.</pre>
+   当实施刚刚开始时，只要他们的记录窗口的任何部分与启动时间重叠，他们就应该拒绝
+   0-RTT。否则，他们将面临接受在此期间最初发送的回放的风险。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   Note: If the client's clock is running much faster than the server's,   then a ClientHello may be received that is outside the window in the   future, in which case it might be accepted for 1-RTT, causing a   client retry, and then acceptable later for 0-RTT.  This is another   variant of the second form of attack described in Section 8.
+   注意：如果客户端的时钟比服务器的时钟运行得快得多，那么将来可能会收到一个在窗口
+   之外的ClientHello，在这种情况下，它可能会被1-RTT接受，导致客户端重试，然后再被
+   0-RTT接受。这是第8节中描述的第二种攻击形式的另一种变体。
  
 8.3.  Freshness Checks
  
