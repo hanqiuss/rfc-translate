@@ -529,9 +529,9 @@ Auth | {CertificateVerify*}
                           图3：恢复和PSK的消息流
  
    由于服务器通过PSK进行身份验证，因此它不会发送Certificate或CertificateVerify
-   消息。当客户端通过PSK提供恢复时，它还应该向服务器提供“KEY_SHARE”扩展，以允许
-   服务器拒绝恢复并回退到完全握手(如果需要)。服务器用“PRE_SHARED_KEY”扩展响应以
-   协商PSK密钥建立的使用，并且可以(如此处所示)用“KEY_SHARE”扩展响应以进行(EC)DHE
+   消息。当客户端通过PSK提供恢复时，它还应该向服务器提供“key_share”扩展，以允许
+   服务器拒绝恢复并回退到完全握手(如果需要)。服务器用“pre_shared_key”扩展响应以
+   协商PSK密钥建立的使用，并且可以(如此处所示)用“key_share”扩展响应以进行(EC)DHE
    密钥建立，从而提供前向保密性。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
@@ -3507,41 +3507,65 @@ Auth | {CertificateVerify*}
    之外的ClientHello，在这种情况下，它可能会被1-RTT接受，导致客户端重试，然后再被
    0-RTT接受。这是第8节中描述的第二种攻击形式的另一种变体。
  
-8.3.  Freshness Checks
+8.3.  新鲜度检查
  
-   Because the ClientHello indicates the time at which the client sent   it, it is possible to efficiently determine whether a ClientHello was   likely sent reasonably recently and only accept 0-RTT for such a   ClientHello, otherwise falling back to a 1-RTT handshake.  This is   necessary for the ClientHello storage mechanism described in   Section 8.2 because otherwise the server needs to store an unlimited   number of ClientHellos, and is a useful optimization for self-   contained single-use tickets because it allows efficient rejection of   ClientHellos which cannot be used for 0-RTT.
+   因为ClientHello指示客户端发送它的时间，所以可以有效地确定ClientHello是否可能是
+   最近合理发送的，并且只接受这种ClientHello 的0-RTT，否则回退到1-RTT握手。这对于
+   第8.2节中描述的ClientHello 存储机制是必要的，因为否则服务器需要存储无限数量的
+   ClientHello，并且对于自包含的一次性票证是有用的优化，因为它允许高效拒绝不能
+   用于0-RTT 的 ClientHello。
  
-   In order to implement this mechanism, a server needs to store the   time that the server generated the session ticket, offset by an   estimate of the round-trip time between client and server.  I.e.,
+   为了实现这一机制，服务器需要存储服务器生成会话票证的时间，由客户端和服务器之间的
+   往返时间的估计值偏移。即，
  
        adjusted_creation_time = creation_time + estimated_RTT
  
-   This value can be encoded in the ticket, thus avoiding the need to   keep state for each outstanding ticket.  The server can determine the   client's view of the age of the ticket by subtracting the ticket's   "ticket_age_add" value from the "obfuscated_ticket_age" parameter in   the client's "pre_shared_key" extension.  The server can determine   the expected_arrival_time of the ClientHello as:
+   这个值可以编码在票证中，从而避免了为每个未完成的票证保持状态的需要。服务器可以通过
+   从客户端的“pre_shared_key”扩展中的“obfuscated_ticket_age”参数减去票证的
+   “ticket_age_add”值来确定客户端对票龄的看法。服务端可以将ClientHello的
+   expected_arrival_time 确定为：
  
      expected_arrival_time = adjusted_creation_time + clients_ticket_age
  
-   When a new ClientHello is received, the expected_arrival_time is then   compared against the current server wall clock time and if they   differ by more than a certain amount, 0-RTT is rejected, though the   1-RTT handshake can be allowed to complete.</pre>
+   当接收到新的ClientHello时，然后将expected_arrival_time 与当前的服务器时钟
+   时间进行比较，如果它们相差超过某一量，则拒绝0-RTT，但允许完成1-RTT握手。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   There are several potential sources of error that might cause   mismatches between the expected_arrival_time and the measured time.   Variations in client and server clock rates are likely to be minimal,   though potentially the absolute times may be off by large values.   Network propagation delays are the most likely causes of a mismatch   in legitimate values for elapsed time.  Both the NewSessionTicket and   ClientHello messages might be retransmitted and therefore delayed,   which might be hidden by TCP.  For clients on the Internet, this   implies windows on the order of ten seconds to account for errors in   clocks and variations in measurements; other deployment scenarios may   have different needs.  Clock skew distributions are not symmetric, so   the optimal tradeoff may involve an asymmetric range of permissible   mismatch values.
+   有几个潜在的误差源可能会导致expected_arrival_time 和测量时间之间的不匹配。
+   客户端和服务器时钟频率的变化可能是最小的，尽管潜在的绝对时间可能会偏离较大的值。
+   网络传播延迟是导致经过时间的合法值不匹配的最有可能的原因。NewSessionTicket和
+   ClientHello消息都可能被重新传输，因此会被延迟，这可能被TCP隐藏。对于Internet上
+   的客户端，这意味着窗口在10秒左右，以说明时钟中的错误和测量中的变化；其他部署方案
+   可能有不同的需求。时钟偏斜分布不是对称的，因此最佳权衡可能涉及允许不匹配值的
+   不对称范围。
  
-   Note that freshness checking alone is not sufficient to prevent   replays because it does not detect them during the error window,   which -- depending on bandwidth and system capacity -- could include   billions of replays in real-world settings.  In addition, this   freshness checking is only done at the time the ClientHello is   received and not when subsequent early Application Data records are   received.  After early data is accepted, records may continue to be   streamed to the server over a longer time period.
+   请注意，仅进行新鲜度检查不足以防止重放，因为它不会在错误窗口期间检测到它们，根据
+   带宽和系统容量，错误窗口可能包含数十亿次真实环境中的重播。此外，这种新鲜性检查仅在
+   接收到ClientHello时进行，而不是在接收到后续的早期应用程序数据记录时进行。在接受
+   早期数据之后，可以在更长的时间段内继续将记录流式传输到服务器。
  
-9.  Compliance Requirements
+9.  合规性要求
  
-9.1.  Mandatory-to-Implement Cipher Suites
+9.1.  强制实施密码套件
  
-   In the absence of an application profile standard specifying   otherwise:
+   在没有另有规定的应用程序配置文件标准的情况下：
  
-   A TLS-compliant application MUST implement the TLS_AES_128_GCM_SHA256   [GCM] cipher suite and SHOULD implement the TLS_AES_256_GCM_SHA384   [GCM] and TLS_CHACHA20_POLY1305_SHA256 [RFC8439] cipher suites (see   Appendix B.4).
+   符合TLS的应用程序必须实现TLS_AES_128_GCM_SHA256[GCM]密码套件，并应实现
+   TLS_AES_256_GCM_SHA384[GCM]和TLS_CHACHA20_POLY1305_SHA256[RFC8439]
+   密码套件(参见附录B.4)。
  
-   A TLS-compliant application MUST support digital signatures with   rsa_pkcs1_sha256 (for certificates), rsa_pss_rsae_sha256 (for   CertificateVerify and certificates), and ecdsa_secp256r1_sha256.  A   TLS-compliant application MUST support key exchange with secp256r1   (NIST P-256) and SHOULD support key exchange with X25519 [RFC7748].</pre>
+   符合TLS的应用程序必须支持rsa_pkcs1_sha256(用于证书)、
+   rsa_pss_rsae_sha256(用于CertificateVerify和证书)和
+   ecdsa_secp256r1_sha256的数字签名。符合TLS的应用程序必须支持与
+   secp256r1(NIST P-256)进行密钥交换，并应支持与 X25519[RFC7748]进行密钥交换。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-9.2.  Mandatory-to-Implement Extensions
+9.2.  强制实施扩展
  
-   In the absence of an application profile standard specifying   otherwise, a TLS-compliant application MUST implement the following   TLS extensions:
+   在没有另外指定的应用程序配置文件标准的情况下，符合TLS的应用程序必须实现以下TLS
+   扩展：
  
    -  Supported Versions ("supported_versions"; Section 4.2.1)
  
@@ -3549,439 +3573,682 @@ Auth | {CertificateVerify*}
  
    -  Signature Algorithms ("signature_algorithms"; Section 4.2.3)
  
-   -  Signature Algorithms Certificate ("signature_algorithms_cert";      Section 4.2.3)
+   -  Signature Algorithms Certificate ("signature_algorithms_cert";
+      Section 4.2.3)
  
    -  Negotiated Groups ("supported_groups"; Section 4.2.7)
  
    -  Key Share ("key_share"; Section 4.2.8)
  
-   -  Server Name Indication ("server_name"; Section&nbsp;3 of [RFC6066])
+   -  Server Name Indication ("server_name"; Section 3 of [RFC6066])
  
-   All implementations MUST send and use these extensions when offering   applicable features:
+   在提供适用的功能时，所有实施都必须发送和使用这些扩展：
  
-   -  "supported_versions" is REQUIRED for all ClientHello, ServerHello,      and HelloRetryRequest messages.
+   -  所有ClientHello、ServerHello和HelloRetryRequest消息都
+      需要 "supported_versions" 。
  
-   -  "signature_algorithms" is REQUIRED for certificate authentication.
+   -  证书认证需要“signature_algorithms”。
  
-   -  "supported_groups" is REQUIRED for ClientHello messages using DHE      or ECDHE key exchange.
+   -  使用DHE或ECDHE密钥交换的ClientHello消息需要“supported_groups”。
  
-   -  "key_share" is REQUIRED for DHE or ECDHE key exchange.
+   -  DHE或ECDHE密钥交换需要“key_share”。
  
-   -  "pre_shared_key" is REQUIRED for PSK key agreement.
+   -  PSK密钥协商需要“pre_shared_key”。
  
-   -  "psk_key_exchange_modes" is REQUIRED for PSK key agreement.</pre>
+   -  PSK密钥协商需要“psk_key_exchange_modes”。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   A client is considered to be attempting to negotiate using this   specification if the ClientHello contains a "supported_versions"   extension with 0x0304 contained in its body.  Such a ClientHello   message MUST meet the following requirements:
+   如果ClientHello包含“supported_versions”扩展，且其内容中包含0x0304，则认为
+   客户端试图使用此规范进行协商。此类ClientHello消息必须满足以下要求：
  
-   -  If not containing a "pre_shared_key" extension, it MUST contain      both a "signature_algorithms" extension and a "supported_groups"      extension.
+   -  如果不包含“pre_shared_key”扩展，则必须同时包含“signature_algorithms”
+      扩展和“supported_groups”扩展。
  
-   -  If containing a "supported_groups" extension, it MUST also contain      a "key_share" extension, and vice versa.  An empty
-      KeyShare.client_shares vector is permitted.
+   -  如果包含“supported_groups”扩展，则还必须包含“key_share”扩展，反之亦然。
+      允许空的KeyShare.client_share向量。
  
-   Servers receiving a ClientHello which does not conform to these   requirements MUST abort the handshake with a "missing_extension"   alert.
+   接收不符合这些要求的ClientHello的服务器必须中止握手并发出“missing_extension”
+   警报。
  
-   Additionally, all implementations MUST support the use of the   "server_name" extension with applications capable of using it.   Servers MAY require clients to send a valid "server_name" extension.   Servers requiring this extension SHOULD respond to a ClientHello   lacking a "server_name" extension by terminating the connection with   a "missing_extension" alert.
+   此外，所有实现都必须支持使用“server_name”扩展，使应用程序能够使用它。服务器可能
+   要求客户端发送有效的“server_name”扩展。需要此扩展的服务器应通过使用
+   “missing_extension”警报终止连接来响应缺少“server_name”扩展的ClientHello。
  
-9.3.  Protocol Invariants
+
+
+
+
+
+
+
+9.3.  协议不变量
  
-   This section describes invariants that TLS endpoints and middleboxes   MUST follow.  It also applies to earlier versions of TLS.
+   本节描述TLS端点和中间件必须遵循的不变量。它也适用于TLS的早期版本。
  
-   TLS is designed to be securely and compatibly extensible.  Newer   clients or servers, when communicating with newer peers, should   negotiate the most preferred common parameters.  The TLS handshake   provides downgrade protection: Middleboxes passing traffic between a   newer client and newer server without terminating TLS should be   unable to influence the handshake (see Appendix E.1).  At the same   time, deployments update at different rates, so a newer client or   server MAY continue to support older parameters, which would allow it   to interoperate with older endpoints.</pre>
+   TLS设计为安全且兼容可扩展。较新的客户端或服务器在与较新的对等体通信时，应协商
+   最首选的公共参数。TLS握手提供降级保护：在不终止TLS的情况下在较新的客户端和较新的
+   服务器之间传递流量的中间件应该不能影响握手(参见附录E.1)。同时，部署以不同的速率
+   更新，因此较新的客户端或服务器可能会继续支持较旧的参数，这将允许其与较旧的端点
+   进行互操作。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   For this to work, implementations MUST correctly handle extensible   fields:
+   为此，实现必须正确处理可扩展字段：
  
-   -  A client sending a ClientHello MUST support all parameters      advertised in it.  Otherwise, the server may fail to interoperate      by selecting one of those parameters.
+   -  发送ClientHello的客户端必须支持其中通告的所有参数。否则，服务器可能无法通过
+      选择这些参数之一进行互操作。
  
-   -  A server receiving a ClientHello MUST correctly ignore all      unrecognized cipher suites, extensions, and other parameters.      Otherwise, it may fail to interoperate with newer clients.  In      TLS 1.3, a client receiving a CertificateRequest or
-      NewSessionTicket MUST also ignore all unrecognized extensions.
+   -  接收ClientHello的服务器必须正确忽略所有无法识别的密码套件、扩展名和其他参数。
+      否则，它可能无法与较新的客户端进行互操作。在TLS 1.3中，接收
+      CertificateRequest或NewSessionTicket的客户端还必须忽略所有无法识别的
+      扩展。
  
-   -  A middlebox which terminates a TLS connection MUST behave as a      compliant TLS server (to the original client), including having a      certificate which the client is willing to accept, and also as a      compliant TLS client (to the original server), including verifying      the original server's certificate.  In particular, it MUST      generate its own ClientHello containing only parameters it      understands, and it MUST generate a fresh ServerHello random      value, rather than forwarding the endpoint's value.
+   -  终止TLS连接的中间件必须表现为兼容的TLS服务器(对于原始客户端)，包括具有客户端
+      愿意接受的证书，也必须作为兼容的TLS客户端(对原始服务器)，包括验证原始服务器的
+      证书。特别是，它必须生成自己的ClientHello，其中只包含它理解的参数，并且它
+      必须生成一个新的ServerHello随机值，而不是转发端点的值。
  
-      Note that TLS's protocol requirements and security analysis only      apply to the two connections separately.  Safely deploying a TLS      terminator requires additional security considerations which are      beyond the scope of this document.
+      请注意，TLS的协议要求和安全性分析仅分别适用于两个连接。安全地部署TLS终结器
+      需要额外的安全注意事项，这超出了本文档的范围。
  
-   -  A middlebox which forwards ClientHello parameters it does not      understand MUST NOT process any messages beyond that ClientHello.      It MUST forward all subsequent traffic unmodified.  Otherwise, it      may fail to interoperate with newer clients and servers.
+   -  转发其不理解的ClientHello参数的中间件不得处理超出该ClientHello的任何消息。
+      它必须转发所有后续流量而不进行修改。否则，它可能无法与较新的客户端和服务器进行
+      互操作。
  
-      Forwarded ClientHellos may contain advertisements for features not      supported by the middlebox, so the response may include future TLS      additions the middlebox does not recognize.  These additions MAY      change any message beyond the ClientHello arbitrarily.  In      particular, the values sent in the ServerHello might change, the      ServerHello format might change, and the TLSCiphertext format      might change.
+      转发的ClientHello可能包含中间件不支持的功能的广告，因此响应可能包括中间件
+      不识别的未来TLS添加。这些添加可能会任意更改ClientHello之外的任何消息。特别
+      是，ServerHello中发送的值可能会更改，ServerHello格式可能会更改，
+      TLSCiphertext格式可能会更改。
  
-   The design of TLS 1.3 was constrained by widely deployed   non-compliant TLS middleboxes (see Appendix D.4); however, it does   not relax the invariants.  Those middleboxes continue to be   non-compliant.</pre>
+   TLS 1.3的设计受到了广泛部署的不兼容TLS中间件的限制(参见附录D.4)；然而，它并没有
+   放松不变量。这些中间件仍然是不兼容的。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-10.  Security Considerations
+10.  安全注意事项
  
-   Security issues are discussed throughout this memo, especially in   Appendices C, D, and E.
+   本备忘录将讨论安全问题，尤其是在附录 C、D 和 E 中。
  
-11.  IANA Considerations
+11.  IANA 注意事项
  
-   This document uses several registries that were originally created in   [RFC4346] and updated in [RFC8447].  IANA has updated these to   reference this document.  The registries and their allocation   policies are below:
+   本文档使用几个最初在 [RFC4346] 中创建并在 [RFC8447] 中更新的注册表。 IANA 
+   已更新这些文件以引用本文档。 注册及其分配政策如下：
  
-   -  TLS Cipher Suites registry: values with the first byte in the      range 0-254 (decimal) are assigned via Specification Required      [RFC8126].  Values with the first byte 255 (decimal) are reserved      for Private Use [RFC8126].
+   -  TLS密码套件注册表：第一个字节在0-254(十进制)范围内的值通过[RFC8126]分配。
+      第一个字节255(十进制)的值保留供私人使用[RFC8126]。
  
-      IANA has added the cipher suites listed in Appendix B.4 to the      registry.  The "Value" and "Description" columns are taken from      the table.  The "DTLS-OK" and "Recommended" columns are both      marked as "Y" for each new cipher suite.
+      IANA 将附录 B.4 中列出的密码套件添加到注册表中。"Value"和"Description"列
+      取自表。 对于每个新密码套件，"DTLS-OK"和"Recommended"列都标记为"Y"。
  
-   -  TLS ContentType registry: Future values are allocated via      Standards Action [RFC8126].
+   -  TLS Content Type注册表：未来值通过标准操作[RFC8126]分配。
  
-   -  TLS Alerts registry: Future values are allocated via Standards      Action [RFC8126].  IANA has populated this registry with the      values from Appendix B.2.  The "DTLS-OK" column is marked as "Y"      for all such values.  Values marked as "_RESERVED" have comments      describing their previous usage.
+   -  TLS警报注册表：未来值通过标准操作[RFC8126]分配。IANA已使用附录B.2中的值
+      填充此注册表。对于所有这些值，“DTLS-OK”列标记为“Y”。标记为“_RESERVED”的
+      值具有描述其先前用法的注释。
  
-   -  TLS HandshakeType registry: Future values are allocated via      Standards Action [RFC8126].  IANA has updated this registry to      rename item 4 from "NewSessionTicket" to "new_session_ticket" and      populated this registry with the values from Appendix B.3.  The      "DTLS-OK" column is marked as "Y" for all such values.  Values      marked "_RESERVED" have comments describing their previous or      temporary usage.</pre>
+   -  TLS HandshakeType注册表：未来值通过标准操作[RFC8126]分配。IANA已更新此
+      注册表，将项目4从“NewSessionTicket”重命名为“new_session_ticket”，并
+      使用附录B.3中的值填充此注册表。对于所有这些值，“DTLS-OK”列标记为“Y”。
+      标记为“_Reserved”的值具有描述其先前或临时用法的注释。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   This document also uses the TLS ExtensionType Values registry   originally created in [RFC4366].  IANA has updated it to reference   this document.  Changes to the registry follow:
+   本文档还使用最初在[RFC4366]中创建的TLS ExtensionType值注册表。IANA已更新它
+   以引用此文档。对注册表的更改如下：
  
-   -  IANA has updated the registration policy as follows:
+   -  IANA已将注册政策更新如下：
  
-      Values with the first byte in the range 0-254 (decimal) are      assigned via Specification Required [RFC8126].  Values with the      first byte 255 (decimal) are reserved for Private Use [RFC8126].
+      第一个字节在0-254(十进制)范围内的值通过“要求规范”[RFC8126]分配。第一个字节
+      255(十进制)的值保留供私人使用[RFC8126]。
  
-   -  IANA has updated this registry to include the "key_share",      "pre_shared_key", "psk_key_exchange_modes", "early_data",      "cookie", "supported_versions", "certificate_authorities",      "oid_filters", "post_handshake_auth", and
-      "signature_algorithms_cert" extensions with the values defined in      this document and the "Recommended" value of "Y".
+   -  IANA已更新此注册表，以包括“key_share”、“pre_shared_key”、
+      “psk_key_exchange_modes”、“arly_data”、“cookie”、
+      “supported_versions”、“certificate_authority”、“oid_filter”、
+      “POST_HANDROWAKH_AUTH”和“Signature_Algorithms_cert”扩展，扩展为
+      本文档中定义的值，“Recommended”值为“Y”。
  
-   -  IANA has updated this registry to include a "TLS 1.3" column which      lists the messages in which the extension may appear.  This column      has been initially populated from the table in Section 4.2, with      any extension not listed there marked as "-" to indicate that it      is not used by TLS 1.3.
+   -  IANA已更新此注册表，以包含“TLS 1.3”列，列中列出了扩展可能出现的消息。此列
+      最初是从4.2节的表中填充的，其中未列出的任何扩展都标记为“-”，以表明
+      TLS 1.3未使用它。
  
-   This document updates an entry in the TLS Certificate Types registry   originally created in [RFC6091] and updated in [RFC8447].  IANA has   updated the entry for value 1 to have the name "OpenPGP_RESERVED",   "Recommended" value "N", and comment "Used in TLS versions prior   to 1.3."
+   本文档更新了最初在[RFC6091]中创建并在[RFC8447]中更新的TLS证书类型注册表中的
+   条目。IANA已更新值1的条目，使其具有名称“OpenPGP_RESERVED”、“Recommended”值
+   “N”和注释“在1.3之前的TLS版本中使用”。
  
-   This document updates an entry in the TLS Certificate Status Types   registry originally created in [RFC6961].  IANA has updated the entry   for value 2 to have the name "ocsp_multi_RESERVED" and comment "Used   in TLS versions prior to 1.3".
+   本文档更新最初在[RFC6961]中创建的TLS证书状态类型注册表中的条目。IANA已更新值2
+   的条目，使其具有名称“ocsp_multi_RESERVED”和注释
+   “Used in TLS Versions Before 1.3”(在TLS 1.3之前的版本中使用)。
  
-   This document updates two entries in the TLS Supported Groups   registry (created under a different name by [RFC4492]; now maintained   by [RFC8422]) and updated by [RFC7919] and [RFC8447].  The entries   for values 29 and 30 (x25519 and x448) have been updated to also   refer to this document.</pre>
+   本文档更新TLS Supported Groups 注册表中的两个条目(由[RFC4492]以不同的名称
+   创建；现在由[RFC8422]维护)，并由[RFC7919]和[RFC8447]更新。值29和30
+   (x25519和x448)的条目已经更新，也引用了本文档。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   In addition, this document defines two new registries that are   maintained by IANA:
+   此外，本文档还定义了两个由IANA维护的新注册表：
  
-   -  TLS SignatureScheme registry: Values with the first byte in the      range 0-253 (decimal) are assigned via Specification Required      [RFC8126].  Values with the first byte 254 or 255 (decimal) are      reserved for Private Use [RFC8126].  Values with the first byte in      the range 0-6 or with the second byte in the range 0-3 that are      not currently allocated are reserved for backward compatibility.      This registry has a "Recommended" column.  The registry has been      initially populated with the values described in Section 4.2.3.      The following values are marked as "Recommended":
-      ecdsa_secp256r1_sha256, ecdsa_secp384r1_sha384,      rsa_pss_rsae_sha256, rsa_pss_rsae_sha384, rsa_pss_rsae_sha512,      rsa_pss_pss_sha256, rsa_pss_pss_sha384, rsa_pss_pss_sha512, and      ed25519.  The "Recommended" column is assigned a value of "N"      unless explicitly requested, and adding a value with a      "Recommended" value of "Y" requires Standards Action [RFC8126].      IESG Approval is REQUIRED for a Y-&gt;N transition.
+   -  TLS SignatureScheme 注册表：第一个字节在0-253(十进制)范围内的值通过
+      Specification Required[RFC8126]分配。第一个字节254或255(十进制)的值
+      保留供私人使用[RFC8126]。当前未分配的第一个字节在0-6范围内或第二个字节在
+      0-3范围内的值保留用于向后兼容性。此注册表有一个“Recommended”列。注册表最初
+      已填充4.2.3节中描述的值。下列值标记为“Recommended”： 
+      ecdsa_secp256r1_sha256，ecdsa_secp384r1_sha384，
+      rsa_pss_rsae_sha256，rsa_pss_rsae_sha384，
+      rsa_pss_rsae_sha512，rsa_pss_sha256，rsa_pss_sha384，
+      rsa_pss_sha512，和ed25519。除非明确要求，否则会为“Recommended”列指定值
+      “N”，并且添加“Recommended”值为“Y”的值需要标准操作[RFC8126]。Y-&gt;N过渡
+      需要IESG批准。
  
-   -  TLS PskKeyExchangeMode registry: Values in the range 0-253      (decimal) are assigned via Specification Required [RFC8126].      The values 254 and 255 (decimal) are reserved for Private Use      [RFC8126].  This registry has a "Recommended" column.  The      registry has been initially populated with psk_ke (0) and      psk_dhe_ke (1).  Both are marked as "Recommended".  The      "Recommended" column is assigned a value of "N" unless explicitly      requested, and adding a value with a "Recommended" value of "Y"      requires Standards Action [RFC8126].  IESG Approval is REQUIRED      for a Y-&gt;N transition.</pre>
+   -  TLS PskKeyExchangeMode 注册表：通过Specification Required[RFC8126]
+      分配0-253(十进制)范围内的值。值254和255(十进制)保留供私人使用[RFC8126]。
+      此注册表有一个“Recommended”列。注册表最初已用psk_ke(0)和psk_dhe_ke(1)
+      填充。两者都标记为“Recommended”。除非明确要求，否则会为“Recommended”列指定
+      值“N”，并且添加“Recommended”值为“Y”的值需要标准操作[RFC8126]。Y-&gt;N过渡
+      需要IESG审批。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-12.  References
- 
+12.  参考
+
 12.1.  Normative References
- 
-   [DH76]     Diffie, W. and M. Hellman, "New directions in
-              cryptography", IEEE Transactions on Information
+
+   [DH76]     Diffie, W. and M. Hellman, "密码学的新方向", 
+              IEEE Transactions on Information
               Theory, Vol. 22 No. 6, pp. 644-654,
               DOI 10.1109/TIT.1976.1055638, November 1976.
- 
-   [ECDSA]    American National Standards Institute, "Public Key              Cryptography for the Financial Services Industry: The              Elliptic Curve Digital Signature Algorithm (ECDSA)",              ANSI ANS X9.62-2005, November 2005.
- 
-   [GCM]      Dworkin, M., "Recommendation for Block Cipher Modes of              Operation: Galois/Counter Mode (GCM) and GMAC",
+
+   [ECDSA]    American National Standards Institute, "金融服务业的公钥
+              加密：椭圆曲线数字签名算法(ECDSA)",
+              ANSI ANS X9.62-2005, November 2005.
+
+   [GCM]      Dworkin, M., "分组密码操作模式的推荐：Galois/计数器模式(GCM)和
+              GMAC",
               NIST Special Publication 800-38D,
               DOI 10.6028/NIST.SP.800-38D, November 2007.
- 
-   [RFC2104]  Krawczyk, H., Bellare, M., and R. Canetti, "HMAC: Keyed-              Hashing for Message Authentication", RFC 2104,
+
+   [RFC2104]  Krawczyk, H., Bellare, M., and R. Canetti, "HMAC：
+              用于消息验证的密钥散列", RFC 2104,
               DOI 10.17487/RFC2104, February 1997,
               <https: www.rfc-editor.org="" info="" rfc2104="">.
- 
-   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate              Requirement Levels", BCP 14, RFC 2119,
+
+   [RFC2119]  Bradner, S., "在RFC中用于指示需求级别的关键字", 
+              BCP 14, RFC 2119,
               DOI 10.17487/RFC2119, March 1997,
               <https: www.rfc-editor.org="" info="" rfc2119="">.
- 
-   [RFC5116]  McGrew, D., "An Interface and Algorithms for Authenticated              Encryption", RFC 5116, DOI 10.17487/RFC5116, January 2008,              <https: www.rfc-editor.org="" info="" rfc5116="">.
- 
-   [RFC5280]  Cooper, D., Santesson, S., Farrell, S., Boeyen, S.,              Housley, R., and W. Polk, "Internet X.509 Public Key
-              Infrastructure Certificate and Certificate Revocation List              (CRL) Profile", RFC 5280, DOI 10.17487/RFC5280, May 2008,              <https: www.rfc-editor.org="" info="" rfc5280="">.
- 
-   [RFC5705]  Rescorla, E., "Keying Material Exporters for Transport              Layer Security (TLS)", RFC 5705, DOI 10.17487/RFC5705,              March 2010, <https: www.rfc-editor.org="" info="" rfc5705="">.
- 
-   [RFC5756]  Turner, S., Brown, D., Yiu, K., Housley, R., and T. Polk,              "Updates for RSAES-OAEP and RSASSA-PSS Algorithm
-              Parameters", RFC 5756, DOI 10.17487/RFC5756, January 2010,              <https: www.rfc-editor.org="" info="" rfc5756="">.</https:></https:></https:></https:></https:></https:></pre>
+
+   [RFC5116]  McGrew, D., "认证加密的接口和算法",
+              RFC 5116, DOI 10.17487/RFC5116, January 2008,
+              <https: www.rfc-editor.org="" info="" rfc5116="">.
+
+   [RFC5280]  Cooper, D., Santesson, S., Farrell, S., Boeyen, S.,
+              Housley, R., and W. Polk, "Internet X.509公钥基础设施证书
+              和证书吊销列表(CRL)配置文件", 
+              RFC 5280, DOI 10.17487/RFC5280, May 2008,
+              <https: www.rfc-editor.org="" info="" rfc5280="">.
+
+   [RFC5705]  Rescorla, E., "用于传输层安全(TLS)的密钥材料导出器",
+              RFC 5705, DOI 10.17487/RFC5705,
+              March 2010, <https: www.rfc-editor.org="" info="" rfc5705="">.
+
+   [RFC5756]  Turner, S., Brown, D., Yiu, K., Housley, R., and T. Polk,
+              "Updates for RSAES-OAEP and RSASSA-PSS Algorithm
+              Parameters", RFC 5756, DOI 10.17487/RFC5756, January 2010,
+              <https: www.rfc-editor.org="" info="" rfc5756="">.</https:></https:></https:></https:></https:></https:></pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   [RFC5869]  Krawczyk, H. and P. Eronen, "HMAC-based Extract-and-Expand              Key Derivation Function (HKDF)", RFC 5869,
+   [RFC5869]  Krawczyk, H. and P. Eronen, "基于HMAC的提取和扩展密钥导出
+              函数(HKDF)", RFC 5869,
               DOI 10.17487/RFC5869, May 2010,
               <https: www.rfc-editor.org="" info="" rfc5869="">.
- 
-   [RFC6066]  Eastlake 3rd, D., "Transport Layer Security (TLS)              Extensions: Extension Definitions", RFC 6066,
+
+   [RFC6066]  Eastlake 3rd, D., "传输层安全(TLS)扩展：扩展定义", RFC 6066,
               DOI 10.17487/RFC6066, January 2011,
               <https: www.rfc-editor.org="" info="" rfc6066="">.
- 
-   [RFC6655]  McGrew, D. and D. Bailey, "AES-CCM Cipher Suites for              Transport Layer Security (TLS)", RFC 6655,
-              DOI 10.17487/RFC6655, July 2012,
+
+   [RFC6655]  McGrew, D. and D. Bailey, "AES-CCM传输层安全加密套件(TLS)",
+              RFC 6655, DOI 10.17487/RFC6655, July 2012,
               <https: www.rfc-editor.org="" info="" rfc6655="">.
- 
-   [RFC6960]  Santesson, S., Myers, M., Ankney, R., Malpani, A.,              Galperin, S., and C. Adams, "X.509 Internet Public Key              Infrastructure Online Certificate Status Protocol - OCSP",              RFC 6960, DOI 10.17487/RFC6960, June 2013,
+
+   [RFC6960]  Santesson, S., Myers, M., Ankney, R., Malpani, A.,
+              Galperin, S., and C. Adams, "X.509互联网公钥基础设施在线证书
+              状态协议-OCSP",
+              RFC 6960, DOI 10.17487/RFC6960, June 2013,
               <https: www.rfc-editor.org="" info="" rfc6960="">.
- 
-   [RFC6961]  Pettersen, Y., "The Transport Layer Security (TLS)              Multiple Certificate Status Request Extension", RFC 6961,              DOI 10.17487/RFC6961, June 2013,
+
+   [RFC6961]  Pettersen, Y., "传输层安全(TLS)多证书状态请求扩展", RFC 6961,
+              DOI 10.17487/RFC6961, June 2013,
               <https: www.rfc-editor.org="" info="" rfc6961="">.
- 
-   [RFC6962]  Laurie, B., Langley, A., and E. Kasper, "Certificate              Transparency", RFC 6962, DOI 10.17487/RFC6962, June 2013,              <https: www.rfc-editor.org="" info="" rfc6962="">.
- 
-   [RFC6979]  Pornin, T., "Deterministic Usage of the Digital Signature              Algorithm (DSA) and Elliptic Curve Digital Signature              Algorithm (ECDSA)", RFC 6979, DOI 10.17487/RFC6979,              August 2013, <https: www.rfc-editor.org="" info="" rfc6979="">.
- 
-   [RFC7301]  Friedl, S., Popov, A., Langley, A., and E. Stephan,              "Transport Layer Security (TLS) Application-Layer Protocol              Negotiation Extension", RFC 7301, DOI 10.17487/RFC7301,              July 2014, <https: www.rfc-editor.org="" info="" rfc7301="">.
- 
-   [RFC7507]  Moeller, B. and A. Langley, "TLS Fallback Signaling Cipher              Suite Value (SCSV) for Preventing Protocol Downgrade              Attacks", RFC 7507, DOI 10.17487/RFC7507, April 2015,              <https: www.rfc-editor.org="" info="" rfc7507="">.
- 
-   [RFC7748]  Langley, A., Hamburg, M., and S. Turner, "Elliptic Curves              for Security", RFC 7748, DOI 10.17487/RFC7748,
+
+   [RFC6962]  Laurie, B., Langley, A., and E. Kasper, "证书透明度",
+              RFC 6962, DOI 10.17487/RFC6962, June 2013,
+              <https: www.rfc-editor.org="" info="" rfc6962="">.
+
+   [RFC6979]  Pornin, T., "数字签名算法(DSA)和椭圆曲线数字签名算法(ECDSA)的
+              确定性使用", RFC 6979, DOI 10.17487/RFC6979,
+              August 2013, <https: www.rfc-editor.org="" info="" rfc6979="">.
+
+   [RFC7301]  Friedl, S., Popov, A., Langley, A., and E. Stephan,
+              "传输层安全(TLS)应用层协议协商扩展", RFC 7301,
+              DOI 10.17487/RFC7301,
+              July 2014, <https: www.rfc-editor.org="" info="" rfc7301="">.
+
+   [RFC7507]  Moeller, B. and A. Langley, "用于防止协议降级攻击的TLS回退
+              信令密码组值(SCSV)", RFC 7507, DOI 10.17487/RFC7507,
+              April 2015,
+              <https: www.rfc-editor.org="" info="" rfc7507="">.
+
+   [RFC7748]  Langley, A., Hamburg, M., and S. Turner, "Elliptic Curves
+              for Security", RFC 7748, DOI 10.17487/RFC7748,
               January 2016, <https: www.rfc-editor.org="" info="" rfc7748="">.</https:></https:></https:></https:></https:></https:></https:></https:></https:></https:></pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   [RFC7919]  Gillmor, D., "Negotiated Finite Field Diffie-Hellman              Ephemeral Parameters for Transport Layer Security (TLS)",              RFC 7919, DOI 10.17487/RFC7919, August 2016,
+   [RFC7919]  Gillmor, D., "用于传输层安全(TLS)的协商有限域Diffie-Hellman
+              临时参数", RFC 7919, DOI 10.17487/RFC7919, August 2016,
               <https: www.rfc-editor.org="" info="" rfc7919="">.
- 
-   [RFC8017]  Moriarty, K., Ed., Kaliski, B., Jonsson, J., and A. Rusch,              "PKCS #1: RSA Cryptography Specifications Version 2.2",              RFC 8017, DOI 10.17487/RFC8017, November 2016,
+
+   [RFC8017]  Moriarty, K., Ed., Kaliski, B., Jonsson, J., and A. Rusch,
+              "PKCS #1: RSA 加密规范版本 2.2",
+              RFC 8017, DOI 10.17487/RFC8017, November 2016,
               <https: www.rfc-editor.org="" info="" rfc8017="">.
- 
-   [RFC8032]  Josefsson, S. and I. Liusvaara, "Edwards-Curve Digital              Signature Algorithm (EdDSA)", RFC 8032,
+
+   [RFC8032]  Josefsson, S. and I. Liusvaara, "Edwards-Curve 数字签名算法
+              (EdDSA)", RFC 8032,
               DOI 10.17487/RFC8032, January 2017,
               <https: www.rfc-editor.org="" info="" rfc8032="">.
- 
-   [RFC8126]  Cotton, M., Leiba, B., and T. Narten, "Guidelines for              Writing an IANA Considerations Section in RFCs", BCP 26,              RFC 8126, DOI 10.17487/RFC8126, June 2017,
+
+   [RFC8126]  Cotton, M., Leiba, B., and T. Narten, "在RFC中编写
+              IANA注意事项部分的指导原则", BCP 26,
+              RFC 8126, DOI 10.17487/RFC8126, June 2017,
               <https: www.rfc-editor.org="" info="" rfc8126="">.
- 
-   [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in              RFC 2119 Key Words", BCP 14, RFC 8174,
+
+   [RFC8174]  Leiba, B., "RFC 2119关键词大小写歧义", BCP 14, RFC 8174,
               DOI 10.17487/RFC8174, May 2017,
               <https: www.rfc-editor.org="" info="" rfc8174="">.
- 
-   [RFC8439]  Nir, Y. and A. Langley, "ChaCha20 and Poly1305 for IETF              Protocols", RFC 8439, DOI 10.17487/RFC8439, June 2018,              <https: www.rfc-editor.org="" info="" rfc8439="">.
- 
-   [SHS]      Dang, Q., "Secure Hash Standard (SHS)", National Institute              of Standards and Technology report,
+
+   [RFC8439]  Nir, Y. and A. Langley, "用于IETF协议的ChaCha20和Poly1305",
+              RFC 8439, DOI 10.17487/RFC8439, June 2018,
+              <https: www.rfc-editor.org="" info="" rfc8439="">.
+
+   [SHS]      Dang, Q., "安全哈希标准(SHS)", National Institute
+              of Standards and Technology report,
               DOI 10.6028/NIST.FIPS.180-4, August 2015.
- 
-   [X690]     ITU-T, "Information technology -- ASN.1 encoding rules:              Specification of Basic Encoding Rules (BER), Canonical              Encoding Rules (CER) and Distinguished Encoding Rules              (DER)", ISO/IEC 8825-1:2015, November 2015.</https:></https:></https:></https:></https:></https:></pre>
+
+   [X690]     ITU-T, "信息技术 -- ASN.1 编码规则：基本编码规则 （BER）、
+              规范编码规则 （CER） 和可分辨编码规则 （DER） 规范", 
+              ISO/IEC 8825-1:2015, November 2015.</https:></https:></https:></https:></https:></https:></pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-12.2.  Informative References
- 
+12.2.  信息参考
+
    [AEAD-LIMITS]
               Luykx, A. and K. Paterson, "Limits on Authenticated
               Encryption Use in TLS", August 2017,
               <http: www.isg.rhul.ac.uk="" ~kp="" tls-aebounds.pdf="">.
- 
+
    [BBFGKZ16]
               Bhargavan, K., Brzuska, C., Fournet, C., Green, M.,
-              Kohlweiss, M., and S. Zanella-Beguelin, "Downgrade              Resilience in Key-Exchange Protocols", Proceedings of IEEE              Symposium on Security and Privacy (San Jose),
+              Kohlweiss, M., and S. Zanella-Beguelin, "Downgrade
+              Resilience in Key-Exchange Protocols", Proceedings of IEEE
+              Symposium on Security and Privacy (San Jose),
               DOI 10.1109/SP.2016.37, May 2016.
- 
-   [BBK17]    Bhargavan, K., Blanchet, B., and N. Kobeissi, "Verified              Models and Reference Implementations for the TLS 1.3              Standard Candidate", Proceedings of IEEE Symposium on              Security and Privacy (San Jose), DOI 10.1109/SP.2017.26,              May 2017.
- 
+
+   [BBK17]    Bhargavan, K., Blanchet, B., and N. Kobeissi, "Verified
+              Models and Reference Implementations for the TLS 1.3
+              Standard Candidate", Proceedings of IEEE Symposium on
+              Security and Privacy (San Jose), DOI 10.1109/SP.2017.26,
+              May 2017.
+
    [BDFKPPRSZZ16]
               Bhargavan, K., Delignat-Lavaud, A., Fournet, C.,
-              Kohlweiss, M., Pan, J., Protzenko, J., Rastogi, A., Swamy,              N., Zanella-Beguelin, S., and J. Zinzindohoue,
-              "Implementing and Proving the TLS 1.3 Record Layer",              Proceedings of IEEE Symposium on Security and Privacy (San              Jose), May 2017, <https: eprint.iacr.org="" 2016="" 1178="">.
- 
-   [Ben17a]   Benjamin, D., "Presentation before the TLS WG at              IETF 100", November 2017,
-              <https: datatracker.ietf.org="" meeting="" 100="" materials="" slides-100-tls-sessa-tls13=""></https:>.
- 
-   [Ben17b]   Benjamin, D., "Additional TLS 1.3 results from Chrome",              message to the TLS mailing list, 18 December 2017,
+              Kohlweiss, M., Pan, J., Protzenko, J., Rastogi, A., Swamy,
+              N., Zanella-Beguelin, S., and J. Zinzindohoue,
+              "Implementing and Proving the TLS 1.3 Record Layer",
+              Proceedings of IEEE Symposium on Security and Privacy (San
+              Jose), May 2017, <https: eprint.iacr.org="" 2016="" 1178="">.
+
+   [Ben17a]   Benjamin, D., "Presentation before the TLS WG at
+              IETF 100", November 2017,
+              <https: datatracker.ietf.org="" meeting="" 100="" materials="" slides-100-tls-sessa-tls13="">.
+
+   [Ben17b]   Benjamin, D., "Additional TLS 1.3 results from Chrome",
+              message to the TLS mailing list, 18 December 2017,
               <https: www.ietf.org="" mail-archive="" web="" tls="" current="" msg25168.html="">.
- 
-   [Blei98]   Bleichenbacher, D., "Chosen Ciphertext Attacks against              Protocols Based on RSA Encryption Standard PKCS #1",              Proceedings of CRYPTO '98, 1998.
- 
-   [BMMRT15]  Badertscher, C., Matt, C., Maurer, U., Rogaway, P., and B.              Tackmann, "Augmented Secure Channels and the Goal of the              TLS 1.3 Record Layer", ProvSec 2015, September 2015,              <https: eprint.iacr.org="" 2015="" 394="">.</https:></https:></https:></http:></pre>
+
+   [Blei98]   Bleichenbacher, D., "Chosen Ciphertext Attacks against
+              Protocols Based on RSA Encryption Standard PKCS #1",
+              Proceedings of CRYPTO '98, 1998.
+
+   [BMMRT15]  Badertscher, C., Matt, C., Maurer, U., Rogaway, P., and B.
+              Tackmann, "Augmented Secure Channels and the Goal of the
+              TLS 1.3 Record Layer", ProvSec 2015, September 2015,
+              <https: eprint.iacr.org="" 2015="" 394="">.</https:></https:></https:></https:></http:></pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   [BT16]     Bellare, M. and B. Tackmann, "The Multi-User Security of              Authenticated Encryption: AES-GCM in TLS 1.3", Proceedings              of CRYPTO 2016, July 2016,
+   [BT16]     Bellare, M. and B. Tackmann, "The Multi-User Security of
+              Authenticated Encryption: AES-GCM in TLS 1.3", Proceedings
+              of CRYPTO 2016, July 2016,
               <https: eprint.iacr.org="" 2016="" 564="">.
- 
-   [CCG16]    Cohn-Gordon, K., Cremers, C., and L. Garratt, "On              Post-compromise Security", IEEE Computer Security              Foundations Symposium, DOI 10.1109/CSF.2016.19, July 2015.
- 
+
+   [CCG16]    Cohn-Gordon, K., Cremers, C., and L. Garratt, "On
+              Post-compromise Security", IEEE Computer Security
+              Foundations Symposium, DOI 10.1109/CSF.2016.19, July 2015.
+
    [CHECKOWAY]
-              Checkoway, S., Maskiewicz, J., Garman, C., Fried, J.,              Cohney, S., Green, M., Heninger, N., Weinmann, R.,
-              Rescorla, E., and H. Shacham, "A Systematic Analysis of              the Juniper Dual EC Incident", Proceedings of the 2016 ACM              SIGSAC Conference on Computer and Communications Security              - CCS '16, DOI 10.1145/2976749.2978395, October 2016.
- 
-   [CHHSV17]  Cremers, C., Horvat, M., Hoyland, J., Scott, S., and T.              van der Merwe, "Awkward Handshake: Possible mismatch of              client/server view on client authentication in
-              post-handshake mode in Revision 18", message to the TLS              mailing list, 10 February 2017, <https: www.ietf.org="" mail-archive="" web="" tls="" current="" msg22382.html="">.
- 
-   [CHSV16]   Cremers, C., Horvat, M., Scott, S., and T. van der Merwe,              "Automated Analysis and Verification of TLS 1.3: 0-RTT,              Resumption and Delayed Authentication", Proceedings of              IEEE Symposium on Security and Privacy (San Jose),
+              Checkoway, S., Maskiewicz, J., Garman, C., Fried, J.,
+              Cohney, S., Green, M., Heninger, N., Weinmann, R.,
+              Rescorla, E., and H. Shacham, "A Systematic Analysis of
+              the Juniper Dual EC Incident", Proceedings of the 2016 ACM
+              SIGSAC Conference on Computer and Communications Security
+              - CCS '16, DOI 10.1145/2976749.2978395, October 2016.
+
+   [CHHSV17]  Cremers, C., Horvat, M., Hoyland, J., Scott, S., and T.
+              van der Merwe, "Awkward Handshake: Possible mismatch of
+              client/server view on client authentication in
+              post-handshake mode in Revision 18", message to the TLS
+              mailing list, 10 February 2017, <https: www.ietf.org="" mail-archive="" web="" tls="" current="" msg22382.html="">.
+
+   [CHSV16]   Cremers, C., Horvat, M., Scott, S., and T. van der Merwe,
+              "Automated Analysis and Verification of TLS 1.3: 0-RTT,
+              Resumption and Delayed Authentication", Proceedings of
+              IEEE Symposium on Security and Privacy (San Jose),
               DOI 10.1109/SP.2016.35, May 2016,
-              <https: ieeexplore.ieee.org="" document="" 7546518=""></https:>.
- 
-   [CK01]     Canetti, R. and H. Krawczyk, "Analysis of Key-Exchange              Protocols and Their Use for Building Secure Channels",              Proceedings of Eurocrypt 2001,
+              <https: ieeexplore.ieee.org="" document="" 7546518="">.
+
+   [CK01]     Canetti, R. and H. Krawczyk, "Analysis of Key-Exchange
+              Protocols and Their Use for Building Secure Channels",
+              Proceedings of Eurocrypt 2001,
               DOI 10.1007/3-540-44987-6_28, April 2001.
- 
-   [CLINIC]   Miller, B., Huang, L., Joseph, A., and J. Tygar, "I Know              Why You Went to the Clinic: Risks and Realization of HTTPS              Traffic Analysis", Privacy Enhancing Technologies, pp.              143-163, DOI 10.1007/978-3-319-08506-7_8, 2014.
- 
-   [DFGS15]   Dowling, B., Fischlin, M., Guenther, F., and D. Stebila,              "A Cryptographic Analysis of the TLS 1.3 Handshake
+
+   [CLINIC]   Miller, B., Huang, L., Joseph, A., and J. Tygar, "I Know
+              Why You Went to the Clinic: Risks and Realization of HTTPS
+              Traffic Analysis", Privacy Enhancing Technologies, pp.
+              143-163, DOI 10.1007/978-3-319-08506-7_8, 2014.
+
+   [DFGS15]   Dowling, B., Fischlin, M., Guenther, F., and D. Stebila,
+              "A Cryptographic Analysis of the TLS 1.3 Handshake
               Protocol Candidates", Proceedings of ACM CCS 2015,
-              October 2015, <https: eprint.iacr.org="" 2015="" 914="">.</https:></https:></https:></pre>
+              October 2015, <https: eprint.iacr.org="" 2015="" 914="">.</https:></https:></https:></https:></pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   [DFGS16]   Dowling, B., Fischlin, M., Guenther, F., and D. Stebila,              "A Cryptographic Analysis of the TLS 1.3 Full and
+   [DFGS16]   Dowling, B., Fischlin, M., Guenther, F., and D. Stebila,
+              "A Cryptographic Analysis of the TLS 1.3 Full and
               Pre-shared Key Handshake Protocol", TRON 2016,
               February 2016, <https: eprint.iacr.org="" 2016="" 081="">.
- 
+
    [DOW92]    Diffie, W., van Oorschot, P., and M. Wiener,
-              "Authentication and authenticated key exchanges", Designs,              Codes and Cryptography, DOI 10.1007/BF00124891, June 1992.
- 
-   [DSS]      National Institute of Standards and Technology, U.S.              Department of Commerce, "Digital Signature Standard              (DSS)", NIST FIPS PUB 186-4, DOI 10.6028/NIST.FIPS.186-4,              July 2013.
- 
-   [FG17]     Fischlin, M. and F. Guenther, "Replay Attacks on Zero              Round-Trip Time: The Case of the TLS 1.3 Handshake
-              Candidates", Proceedings of EuroS&amp;P 2017, April 2017,              <https: eprint.iacr.org="" 2017="" 082="">.
- 
-   [FGSW16]   Fischlin, M., Guenther, F., Schmidt, B., and B. Warinschi,              "Key Confirmation in Key Exchange: A Formal Treatment and              Implications for TLS 1.3", Proceedings of IEEE Symposium              on Security and Privacy (San Jose),
+              "Authentication and authenticated key exchanges", Designs,
+              Codes and Cryptography, DOI 10.1007/BF00124891, June 1992.
+
+   [DSS]      National Institute of Standards and Technology, U.S.
+              Department of Commerce, "Digital Signature Standard
+              (DSS)", NIST FIPS PUB 186-4, DOI 10.6028/NIST.FIPS.186-4,
+              July 2013.
+
+   [FG17]     Fischlin, M. and F. Guenther, "Replay Attacks on Zero
+              Round-Trip Time: The Case of the TLS 1.3 Handshake
+              Candidates", Proceedings of EuroS&amp;P 2017, April 2017,
+              <https: eprint.iacr.org="" 2017="" 082="">.
+
+   [FGSW16]   Fischlin, M., Guenther, F., Schmidt, B., and B. Warinschi,
+              "Key Confirmation in Key Exchange: A Formal Treatment and
+              Implications for TLS 1.3", Proceedings of IEEE Symposium
+              on Security and Privacy (San Jose),
               DOI 10.1109/SP.2016.34, May 2016,
-              <https: ieeexplore.ieee.org="" document="" 7546517=""></https:>.
- 
-   [FW15]     Weimer, F., "Factoring RSA Keys With TLS Perfect Forward              Secrecy", September 2015.
- 
-   [HCJC16]   Husak, M., Cermak, M., Jirsik, T., and P. Celeda, "HTTPS              traffic analysis and client identification using passive              SSL/TLS fingerprinting", EURASIP Journal on Information              Security, Vol. 2016, DOI 10.1186/s13635-016-0030-7,              February 2016.
- 
-   [HGFS15]   Hlauschek, C., Gruber, M., Fankhauser, F., and C. Schanes,              "Prying Open Pandora's Box: KCI Attacks against TLS",              Proceedings of USENIX Workshop on Offensive Technologies,              August 2015.
- 
+              <https: ieeexplore.ieee.org="" document="" 7546517="">.
+
+   [FW15]     Weimer, F., "Factoring RSA Keys With TLS Perfect Forward
+              Secrecy", September 2015.
+
+   [HCJC16]   Husak, M., Cermak, M., Jirsik, T., and P. Celeda, "HTTPS
+              traffic analysis and client identification using passive
+              SSL/TLS fingerprinting", EURASIP Journal on Information
+              Security, Vol. 2016, DOI 10.1186/s13635-016-0030-7,
+              February 2016.
+
+   [HGFS15]   Hlauschek, C., Gruber, M., Fankhauser, F., and C. Schanes,
+              "Prying Open Pandora's Box: KCI Attacks against TLS",
+              Proceedings of USENIX Workshop on Offensive Technologies,
+              August 2015.
+
    [IEEE1363]
               IEEE, "IEEE Standard Specifications for Public Key
               Cryptography", IEEE Std. 1363-2000,
-              DOI 10.1109/IEEESTD.2000.92292.</https:></https:></pre>
+              DOI 10.1109/IEEESTD.2000.92292.</https:></https:></https:></pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   [JSS15]    Jager, T., Schwenk, J., and J. Somorovsky, "On the              Security of TLS 1.3 and QUIC Against Weaknesses in PKCS#1              v1.5 Encryption", Proceedings of ACM CCS 2015,
+   [JSS15]    Jager, T., Schwenk, J., and J. Somorovsky, "On the
+              Security of TLS 1.3 and QUIC Against Weaknesses in PKCS#1
+              v1.5 Encryption", Proceedings of ACM CCS 2015,
               DOI 10.1145/2810103.2813657, October 2015,
               <https: www.nds.rub.de="" media="" nds="" veroeffentlichungen="" 2015="" 08="" 21="" tls13quicattacks.pdf="">.
- 
+
    [KEYAGREEMENT]
-              Barker, E., Chen, L., Roginsky, A., Vassilev, A., and R.              Davis, "Recommendation for Pair-Wise Key Establishment              Schemes Using Discrete Logarithm Cryptography", National              Institute of Standards and Technology,
+              Barker, E., Chen, L., Roginsky, A., Vassilev, A., and R.
+              Davis, "Recommendation for Pair-Wise Key Establishment
+              Schemes Using Discrete Logarithm Cryptography", National
+              Institute of Standards and Technology,
               DOI 10.6028/NIST.SP.800-56Ar3, April 2018.
- 
-   [Kraw10]   Krawczyk, H., "Cryptographic Extraction and Key              Derivation: The HKDF Scheme", Proceedings of CRYPTO 2010,              August 2010, <https: eprint.iacr.org="" 2010="" 264="">.
- 
-   [Kraw16]   Krawczyk, H., "A Unilateral-to-Mutual Authentication              Compiler for Key Exchange (with Applications to Client              Authentication in TLS 1.3", Proceedings of ACM CCS 2016,              October 2016, <https: eprint.iacr.org="" 2016="" 711="">.
- 
-   [KW16]     Krawczyk, H. and H. Wee, "The OPTLS Protocol and TLS 1.3",              Proceedings of EuroS&amp;P 2016, March 2016,
+
+   [Kraw10]   Krawczyk, H., "Cryptographic Extraction and Key
+              Derivation: The HKDF Scheme", Proceedings of CRYPTO 2010,
+              August 2010, <https: eprint.iacr.org="" 2010="" 264="">.
+
+   [Kraw16]   Krawczyk, H., "A Unilateral-to-Mutual Authentication
+              Compiler for Key Exchange (with Applications to Client
+              Authentication in TLS 1.3", Proceedings of ACM CCS 2016,
+              October 2016, <https: eprint.iacr.org="" 2016="" 711="">.
+
+   [KW16]     Krawczyk, H. and H. Wee, "The OPTLS Protocol and TLS 1.3",
+              Proceedings of EuroS&amp;P 2016, March 2016,
               <https: eprint.iacr.org="" 2015="" 978="">.
- 
-   [LXZFH16]  Li, X., Xu, J., Zhang, Z., Feng, D., and H. Hu, "Multiple              Handshakes Security of TLS 1.3 Candidates", Proceedings of              IEEE Symposium on Security and Privacy (San Jose),
+
+   [LXZFH16]  Li, X., Xu, J., Zhang, Z., Feng, D., and H. Hu, "Multiple
+              Handshakes Security of TLS 1.3 Candidates", Proceedings of
+              IEEE Symposium on Security and Privacy (San Jose),
               DOI 10.1109/SP.2016.36, May 2016,
-              <https: ieeexplore.ieee.org="" document="" 7546519=""></https:>.
- 
-   [Mac17]    MacCarthaigh, C., "Security Review of TLS1.3 0-RTT",              March 2017, <https: github.com="" tlswg="" tls13-spec="" issues="" 1001="">.
- 
-   [PS18]     Patton, C. and T. Shrimpton, "Partially specified              channels: The TLS 1.3 record layer without elision", 2018,              <https: eprint.iacr.org="" 2018="" 634="">.
- 
+              <https: ieeexplore.ieee.org="" document="" 7546519="">.
+
+   [Mac17]    MacCarthaigh, C., "Security Review of TLS1.3 0-RTT",
+              March 2017, <https: github.com="" tlswg="" tls13-spec="" issues="" 1001="">.
+
+   [PS18]     Patton, C. and T. Shrimpton, "Partially specified
+              channels: The TLS 1.3 record layer without elision", 2018,
+              <https: eprint.iacr.org="" 2018="" 634="">.
+
    [PSK-FINISHED]
-              Scott, S., Cremers, C., Horvat, M., and T. van der Merwe,              "Revision 10: possible attack if client authentication is              allowed during PSK", message to the TLS mailing list,              31 October 2015, <https: www.ietf.org="" mail-archive="" web="" tls="" current="" msg18215.html="">.</https:></https:></https:></https:></https:></https:></https:></pre>
+              Scott, S., Cremers, C., Horvat, M., and T. van der Merwe,
+              "Revision 10: possible attack if client authentication is
+              allowed during PSK", message to the TLS mailing list,
+              31 October 2015, <https: www.ietf.org="" mail-archive="" web="" tls="" current="" msg18215.html="">.</https:></https:></https:></https:></https:></https:></https:></https:></pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   [REKEY]    Abdalla, M. and M. Bellare, "Increasing the Lifetime of a              Key: A Comparative Analysis of the Security of Re-keying              Techniques", ASIACRYPT 2000, DOI 10.1007/3-540-44448-3_42,              October 2000.
- 
-   [Res17a]   Rescorla, E., "Preliminary data on Firefox TLS 1.3              Middlebox experiment", message to the TLS mailing list,              5 December 2017, <https: www.ietf.org="" mail-archive="" web="" tls="" current="" msg25091.html="">.
- 
-   [Res17b]   Rescorla, E., "More compatibility measurement results",              message to the TLS mailing list, 22 December 2017,
+   [REKEY]    Abdalla, M. and M. Bellare, "Increasing the Lifetime of a
+              Key: A Comparative Analysis of the Security of Re-keying
+              Techniques", ASIACRYPT 2000, DOI 10.1007/3-540-44448-3_42,
+              October 2000.
+
+   [Res17a]   Rescorla, E., "Preliminary data on Firefox TLS 1.3
+              Middlebox experiment", message to the TLS mailing list,
+              5 December 2017, <https: www.ietf.org="" mail-archive="" web="" tls="" current="" msg25091.html="">.
+
+   [Res17b]   Rescorla, E., "More compatibility measurement results",
+              message to the TLS mailing list, 22 December 2017,
               <https: www.ietf.org="" mail-archive="" web="" tls="" current="" msg25179.html="">.
- 
-   [RFC3552]  Rescorla, E. and B. Korver, "Guidelines for Writing RFC              Text on Security Considerations", BCP 72, RFC 3552,
+
+   [RFC3552]  Rescorla, E. and B. Korver, "Guidelines for Writing RFC
+              Text on Security Considerations", BCP 72, RFC 3552,
               DOI 10.17487/RFC3552, July 2003,
               <https: www.rfc-editor.org="" info="" rfc3552="">.
- 
-   [RFC4086]  Eastlake 3rd, D., Schiller, J., and S. Crocker,              "Randomness Requirements for Security", BCP 106, RFC 4086,              DOI 10.17487/RFC4086, June 2005,
+
+   [RFC4086]  Eastlake 3rd, D., Schiller, J., and S. Crocker,
+              "Randomness Requirements for Security", BCP 106, RFC 4086,
+              DOI 10.17487/RFC4086, June 2005,
               <https: www.rfc-editor.org="" info="" rfc4086="">.
- 
-   [RFC4346]  Dierks, T. and E. Rescorla, "The Transport Layer Security              (TLS) Protocol Version 1.1", RFC 4346,
+
+   [RFC4346]  Dierks, T. and E. Rescorla, "The Transport Layer Security
+              (TLS) Protocol Version 1.1", RFC 4346,
               DOI 10.17487/RFC4346, April 2006,
               <https: www.rfc-editor.org="" info="" rfc4346="">.
- 
-   [RFC4366]  Blake-Wilson, S., Nystrom, M., Hopwood, D., Mikkelsen, J.,              and T. Wright, "Transport Layer Security (TLS)
-              Extensions", RFC 4366, DOI 10.17487/RFC4366, April 2006,              <https: www.rfc-editor.org="" info="" rfc4366="">.
- 
-   [RFC4492]  Blake-Wilson, S., Bolyard, N., Gupta, V., Hawk, C., and B.              Moeller, "Elliptic Curve Cryptography (ECC) Cipher Suites              for Transport Layer Security (TLS)", RFC 4492,
+
+   [RFC4366]  Blake-Wilson, S., Nystrom, M., Hopwood, D., Mikkelsen, J.,
+              and T. Wright, "Transport Layer Security (TLS)
+              Extensions", RFC 4366, DOI 10.17487/RFC4366, April 2006,
+              <https: www.rfc-editor.org="" info="" rfc4366="">.
+
+   [RFC4492]  Blake-Wilson, S., Bolyard, N., Gupta, V., Hawk, C., and B.
+              Moeller, "Elliptic Curve Cryptography (ECC) Cipher Suites
+              for Transport Layer Security (TLS)", RFC 4492,
               DOI 10.17487/RFC4492, May 2006,
               <https: www.rfc-editor.org="" info="" rfc4492="">.
- 
-   [RFC5077]  Salowey, J., Zhou, H., Eronen, P., and H. Tschofenig,              "Transport Layer Security (TLS) Session Resumption without              Server-Side State", RFC 5077, DOI 10.17487/RFC5077,              January 2008, <https: www.rfc-editor.org="" info="" rfc5077="">.</https:></https:></https:></https:></https:></https:></https:></https:></pre>
+
+   [RFC5077]  Salowey, J., Zhou, H., Eronen, P., and H. Tschofenig,
+              "Transport Layer Security (TLS) Session Resumption without
+              Server-Side State", RFC 5077, DOI 10.17487/RFC5077,
+              January 2008, <https: www.rfc-editor.org="" info="" rfc5077="">.</https:></https:></https:></https:></https:></https:></https:></https:></pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   [RFC5246]  Dierks, T. and E. Rescorla, "The Transport Layer Security              (TLS) Protocol Version 1.2", RFC 5246,
+   [RFC5246]  Dierks, T. and E. Rescorla, "The Transport Layer Security
+              (TLS) Protocol Version 1.2", RFC 5246,
               DOI 10.17487/RFC5246, August 2008,
               <https: www.rfc-editor.org="" info="" rfc5246="">.
- 
-   [RFC5764]  McGrew, D. and E. Rescorla, "Datagram Transport Layer              Security (DTLS) Extension to Establish Keys for the Secure              Real-time Transport Protocol (SRTP)", RFC 5764,
+
+   [RFC5764]  McGrew, D. and E. Rescorla, "Datagram Transport Layer
+              Security (DTLS) Extension to Establish Keys for the Secure
+              Real-time Transport Protocol (SRTP)", RFC 5764,
               DOI 10.17487/RFC5764, May 2010,
               <https: www.rfc-editor.org="" info="" rfc5764="">.
- 
-   [RFC5929]  Altman, J., Williams, N., and L. Zhu, "Channel Bindings              for TLS", RFC 5929, DOI 10.17487/RFC5929, July 2010,              <https: www.rfc-editor.org="" info="" rfc5929="">.
- 
-   [RFC6091]  Mavrogiannopoulos, N. and D. Gillmor, "Using OpenPGP Keys              for Transport Layer Security (TLS) Authentication",              RFC 6091, DOI 10.17487/RFC6091, February 2011,
+
+   [RFC5929]  Altman, J., Williams, N., and L. Zhu, "Channel Bindings
+              for TLS", RFC 5929, DOI 10.17487/RFC5929, July 2010,
+              <https: www.rfc-editor.org="" info="" rfc5929="">.
+
+   [RFC6091]  Mavrogiannopoulos, N. and D. Gillmor, "Using OpenPGP Keys
+              for Transport Layer Security (TLS) Authentication",
+              RFC 6091, DOI 10.17487/RFC6091, February 2011,
               <https: www.rfc-editor.org="" info="" rfc6091="">.
- 
-   [RFC6101]  Freier, A., Karlton, P., and P. Kocher, "The Secure              Sockets Layer (SSL) Protocol Version 3.0", RFC 6101,              DOI 10.17487/RFC6101, August 2011,
+
+   [RFC6101]  Freier, A., Karlton, P., and P. Kocher, "The Secure
+              Sockets Layer (SSL) Protocol Version 3.0", RFC 6101,
+              DOI 10.17487/RFC6101, August 2011,
               <https: www.rfc-editor.org="" info="" rfc6101="">.
- 
-   [RFC6176]  Turner, S. and T. Polk, "Prohibiting Secure Sockets Layer              (SSL) Version 2.0", RFC 6176, DOI 10.17487/RFC6176,              March 2011, <https: www.rfc-editor.org="" info="" rfc6176="">.
- 
-   [RFC6347]  Rescorla, E. and N. Modadugu, "Datagram Transport Layer              Security Version 1.2", RFC 6347, DOI 10.17487/RFC6347,              January 2012, <https: www.rfc-editor.org="" info="" rfc6347="">.
- 
-   [RFC6520]  Seggelmann, R., Tuexen, M., and M. Williams, "Transport              Layer Security (TLS) and Datagram Transport Layer Security              (DTLS) Heartbeat Extension", RFC 6520,
+
+   [RFC6176]  Turner, S. and T. Polk, "Prohibiting Secure Sockets Layer
+              (SSL) Version 2.0", RFC 6176, DOI 10.17487/RFC6176,
+              March 2011, <https: www.rfc-editor.org="" info="" rfc6176="">.
+
+   [RFC6347]  Rescorla, E. and N. Modadugu, "Datagram Transport Layer
+              Security Version 1.2", RFC 6347, DOI 10.17487/RFC6347,
+              January 2012, <https: www.rfc-editor.org="" info="" rfc6347="">.
+
+   [RFC6520]  Seggelmann, R., Tuexen, M., and M. Williams, "Transport
+              Layer Security (TLS) and Datagram Transport Layer Security
+              (DTLS) Heartbeat Extension", RFC 6520,
               DOI 10.17487/RFC6520, February 2012,
               <https: www.rfc-editor.org="" info="" rfc6520="">.
- 
-   [RFC7230]  Fielding, R., Ed. and J. Reschke, Ed., "Hypertext Transfer              Protocol (HTTP/1.1): Message Syntax and Routing",
+
+   [RFC7230]  Fielding, R., Ed. and J. Reschke, Ed., "Hypertext Transfer
+              Protocol (HTTP/1.1): Message Syntax and Routing",
               RFC 7230, DOI 10.17487/RFC7230, June 2014,
               <https: www.rfc-editor.org="" info="" rfc7230="">.</https:></https:></https:></https:></https:></https:></https:></https:></https:></pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   [RFC7250]  Wouters, P., Ed., Tschofenig, H., Ed., Gilmore, J.,              Weiler, S., and T. Kivinen, "Using Raw Public Keys in
-              Transport Layer Security (TLS) and Datagram Transport              Layer Security (DTLS)", RFC 7250, DOI 10.17487/RFC7250,              June 2014, <https: www.rfc-editor.org="" info="" rfc7250="">.
- 
-   [RFC7465]  Popov, A., "Prohibiting RC4 Cipher Suites", RFC 7465,              DOI 10.17487/RFC7465, February 2015,
+   [RFC7250]  Wouters, P., Ed., Tschofenig, H., Ed., Gilmore, J.,
+              Weiler, S., and T. Kivinen, "Using Raw Public Keys in
+              Transport Layer Security (TLS) and Datagram Transport
+              Layer Security (DTLS)", RFC 7250, DOI 10.17487/RFC7250,
+              June 2014, <https: www.rfc-editor.org="" info="" rfc7250="">.
+
+   [RFC7465]  Popov, A., "Prohibiting RC4 Cipher Suites", RFC 7465,
+              DOI 10.17487/RFC7465, February 2015,
               <https: www.rfc-editor.org="" info="" rfc7465="">.
- 
-   [RFC7568]  Barnes, R., Thomson, M., Pironti, A., and A. Langley,              "Deprecating Secure Sockets Layer Version 3.0", RFC 7568,              DOI 10.17487/RFC7568, June 2015,
+
+   [RFC7568]  Barnes, R., Thomson, M., Pironti, A., and A. Langley,
+              "Deprecating Secure Sockets Layer Version 3.0", RFC 7568,
+              DOI 10.17487/RFC7568, June 2015,
               <https: www.rfc-editor.org="" info="" rfc7568="">.
- 
-   [RFC7627]  Bhargavan, K., Ed., Delignat-Lavaud, A., Pironti, A.,              Langley, A., and M. Ray, "Transport Layer Security (TLS)              Session Hash and Extended Master Secret Extension",              RFC 7627, DOI 10.17487/RFC7627, September 2015,
+
+   [RFC7627]  Bhargavan, K., Ed., Delignat-Lavaud, A., Pironti, A.,
+              Langley, A., and M. Ray, "Transport Layer Security (TLS)
+              Session Hash and Extended Master Secret Extension",
+              RFC 7627, DOI 10.17487/RFC7627, September 2015,
               <https: www.rfc-editor.org="" info="" rfc7627="">.
- 
-   [RFC7685]  Langley, A., "A Transport Layer Security (TLS) ClientHello              Padding Extension", RFC 7685, DOI 10.17487/RFC7685,              October 2015, <https: www.rfc-editor.org="" info="" rfc7685="">.
- 
-   [RFC7924]  Santesson, S. and H. Tschofenig, "Transport Layer Security              (TLS) Cached Information Extension", RFC 7924,
+
+   [RFC7685]  Langley, A., "A Transport Layer Security (TLS) ClientHello
+              Padding Extension", RFC 7685, DOI 10.17487/RFC7685,
+              October 2015, <https: www.rfc-editor.org="" info="" rfc7685="">.
+
+   [RFC7924]  Santesson, S. and H. Tschofenig, "Transport Layer Security
+              (TLS) Cached Information Extension", RFC 7924,
               DOI 10.17487/RFC7924, July 2016,
               <https: www.rfc-editor.org="" info="" rfc7924="">.
- 
-   [RFC8305]  Schinazi, D. and T. Pauly, "Happy Eyeballs Version 2:              Better Connectivity Using Concurrency", RFC 8305,
+
+   [RFC8305]  Schinazi, D. and T. Pauly, "Happy Eyeballs Version 2:
+              Better Connectivity Using Concurrency", RFC 8305,
               DOI 10.17487/RFC8305, December 2017,
               <https: www.rfc-editor.org="" info="" rfc8305="">.
- 
-   [RFC8422]  Nir, Y., Josefsson, S., and M. Pegourie-Gonnard, "Elliptic              Curve Cryptography (ECC) Cipher Suites for Transport Layer              Security (TLS) Versions 1.2 and Earlier", RFC 8422,
+
+   [RFC8422]  Nir, Y., Josefsson, S., and M. Pegourie-Gonnard, "Elliptic
+              Curve Cryptography (ECC) Cipher Suites for Transport Layer
+              Security (TLS) Versions 1.2 and Earlier", RFC 8422,
               DOI 10.17487/RFC8422, August 2018,
               <https: www.rfc-editor.org="" info="" rfc8422="">.
- 
-   [RFC8447]  Salowey, J. and S. Turner, "IANA Registry Updates for TLS              and DTLS", RFC 8447, DOI 10.17487/RFC8447, August 2018,              <https: www.rfc-editor.org="" info="" rfc8447="">.
- 
-   [RFC8449]  Thomson, M., "Record Size Limit Extension for TLS",              RFC 8449, DOI 10.17487/RFC8449, August 2018,
+
+   [RFC8447]  Salowey, J. and S. Turner, "IANA Registry Updates for TLS
+              and DTLS", RFC 8447, DOI 10.17487/RFC8447, August 2018,
+              <https: www.rfc-editor.org="" info="" rfc8447="">.
+
+   [RFC8449]  Thomson, M., "Record Size Limit Extension for TLS",
+              RFC 8449, DOI 10.17487/RFC8449, August 2018,
               <https: www.rfc-editor.org="" info="" rfc8449="">.</https:></https:></https:></https:></https:></https:></https:></https:></https:></https:></pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   [RSA]      Rivest, R., Shamir, A., and L. Adleman, "A Method for              Obtaining Digital Signatures and Public-Key
-              Cryptosystems", Communications of the ACM, Vol. 21 No. 2,              pp. 120-126, DOI 10.1145/359340.359342, February 1978.
- 
-   [SIGMA]    Krawczyk, H., "SIGMA: The 'SIGn-and-MAc' Approach to              Authenticated Diffie-Hellman and its Use in the IKE
+   [RSA]      Rivest, R., Shamir, A., and L. Adleman, "A Method for
+              Obtaining Digital Signatures and Public-Key
+              Cryptosystems", Communications of the ACM, Vol. 21 No. 2,
+              pp. 120-126, DOI 10.1145/359340.359342, February 1978.
+
+   [SIGMA]    Krawczyk, H., "SIGMA: The 'SIGn-and-MAc' Approach to
+              Authenticated Diffie-Hellman and its Use in the IKE
               Protocols", Proceedings of CRYPTO 2003,
               DOI 10.1007/978-3-540-45146-4_24, August 2003.
- 
-   [SLOTH]    Bhargavan, K. and G. Leurent, "Transcript Collision              Attacks: Breaking Authentication in TLS, IKE, and SSH",              Network and Distributed System Security
-              Symposium (NDSS 2016), DOI 10.14722/ndss.2016.23418,              February 2016.
- 
+
+   [SLOTH]    Bhargavan, K. and G. Leurent, "Transcript Collision
+              Attacks: Breaking Authentication in TLS, IKE, and SSH",
+              Network and Distributed System Security
+              Symposium (NDSS 2016), DOI 10.14722/ndss.2016.23418,
+              February 2016.
+
    [SSL2]     Hickman, K., "The SSL Protocol", February 1995.
- 
-   [TIMING]   Boneh, D. and D. Brumley, "Remote Timing Attacks Are              Practical", USENIX Security Symposium, August 2003.
- 
+
+   [TIMING]   Boneh, D. and D. Brumley, "Remote Timing Attacks Are
+              Practical", USENIX Security Symposium, August 2003.
+
    [TLS13-TRACES]
-              Thomson, M., "Example Handshake Traces for TLS 1.3", Work              in Progress, draft-ietf-tls-tls13-vectors-06, July 2018.
- 
-   [X501]     ITU-T, "Information Technology - Open Systems              Interconnection - The Directory: Models", ITU-T X.501,              October 2016, <https: www.itu.int="" rec="" t-rec-x.501="" en="">.</https:></pre>
+              Thomson, M., "Example Handshake Traces for TLS 1.3", Work
+              in Progress, draft-ietf-tls-tls13-vectors-06, July 2018.
+
+   [X501]     ITU-T, "Information Technology - Open Systems
+              Interconnection - The Directory: Models", ITU-T X.501,
+              October 2016, <https: www.itu.int="" rec="" t-rec-x.501="" en="">.</https:></pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-Appendix A.  State Machine
+附录 A.  状态机
  
-   This appendix provides a summary of the legal state transitions for   the client and server handshakes.  State names (in all capitals,   e.g., START) have no formal meaning but are provided for ease of   comprehension.  Actions which are taken only in certain circumstances   are indicated in [].  The notation "K_{send,recv} = foo" means "set   the send/recv key to the given key".
+   本附录提供了客户端和服务器握手的合法状态转换的摘要。状态名称(所有大写，
+   例如，start)没有正式意义，但为便于理解而提供。仅在某些情况下采取的行动在[]中
+   指明。符号“K_{send，recv}=foo”表示“将发送/接收密钥设置为给定密钥”。
  
 A.1.  Client
  
@@ -4016,7 +4283,9 @@ A.1.  Client
     after here                v
                           CONNECTED
  
-   Note that with the transitions as shown above, clients may send   alerts that derive from post-ServerHello messages in the clear or   with the early data keys.  If clients need to send such alerts, they   SHOULD first rekey to the handshake keys if possible.</pre>
+   请注意，通过如上所示的转换，客户端可以明文发送从post-ServerHello消息派生的
+   警报，或使用早期数据密钥发送警报。如果客户端需要发送此类警报，则应在可能的情况下
+   首先将密钥重新设置为握手密钥。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
@@ -4065,11 +4334,13 @@ A.2.  Server
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-Appendix B.  Protocol Data Structures and Constant Values
+附录B.  协议数据结构和常量值
  
-   This appendix provides the normative protocol types and the   definitions for constants.  Values listed as "_RESERVED" were used in   previous versions of TLS and are listed here for completeness.   TLS 1.3 implementations MUST NOT send them but might receive them   from older TLS implementations.
+   本附录提供了规范的协议类型和常量的定义。列为“_Reserved”的值在以前版本的TLS中
+   使用，此处列出是为了完整性。TLS 1.3实现不能发送它们，但可能会从较旧的TLS实现
+   接收它们。
  
-B.1.  Record Layer
+B.1.  记录层
  
       enum {
           invalid(0),
@@ -4095,12 +4366,15 @@ B.1.  Record Layer
       } TLSInnerPlaintext;
  
       struct {
-          ContentType opaque_type = application_data; /* 23 */          ProtocolVersion legacy_record_version = 0x0303; /* TLS v1.2 */          uint16 length;
-          opaque encrypted_record[TLSCiphertext.length];      } TLSCiphertext;</pre>
+          ContentType opaque_type = application_data; /* 23 */
+          ProtocolVersion legacy_record_version = 0x0303; /* TLS v1.2 */
+          uint16 length;
+          opaque encrypted_record[TLSCiphertext.length];
+      } TLSCiphertext;</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-B.2.  Alert Messages
+B.2.  警告消息
  
       enum { warning(1), fatal(2), (255) } AlertLevel;
  
@@ -4149,7 +4423,7 @@ B.2.  Alert Messages
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-B.3.  Handshake Protocol
+B.3.  握手协议
  
       enum {
           hello_request_RESERVED(0),
@@ -4182,7 +4456,8 @@ B.3.  Handshake Protocol
               case client_hello:          ClientHello;
               case server_hello:          ServerHello;
               case end_of_early_data:     EndOfEarlyData;
-              case encrypted_extensions:  EncryptedExtensions;              case certificate_request:   CertificateRequest;
+              case encrypted_extensions:  EncryptedExtensions;
+              case certificate_request:   CertificateRequest;
               case certificate:           Certificate;
               case certificate_verify:    CertificateVerify;
               case finished:              Finished;
@@ -4193,7 +4468,7 @@ B.3.  Handshake Protocol
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-B.3.1.  Key Exchange Messages
+B.3.1.  密钥交换消息
  
     uint16 ProtocolVersion;
     opaque Random[32];
@@ -4201,7 +4476,8 @@ B.3.1.  Key Exchange Messages
     uint8 CipherSuite[2];    /* Cryptographic suite selector */
  
     struct {
-        ProtocolVersion legacy_version = 0x0303;    /* TLS v1.2 */        Random random;
+        ProtocolVersion legacy_version = 0x0303;    /* TLS v1.2 */
+        Random random;
         opaque legacy_session_id&lt;0..32&gt;;
         CipherSuite cipher_suites&lt;2..2^16-2&gt;;
         opaque legacy_compression_methods&lt;1..2^8-1&gt;;
@@ -4209,7 +4485,8 @@ B.3.1.  Key Exchange Messages
     } ClientHello;
  
     struct {
-        ProtocolVersion legacy_version = 0x0303;    /* TLS v1.2 */        Random random;
+        ProtocolVersion legacy_version = 0x0303;    /* TLS v1.2 */
+        Random random;
         opaque legacy_session_id_echo&lt;0..32&gt;;
         CipherSuite cipher_suite;
         uint8 legacy_compression_method = 0;
@@ -4231,7 +4508,8 @@ B.3.1.  Key Exchange Messages
         signature_algorithms(13),                   /* RFC 8446 */
         use_srtp(14),                               /* RFC 5764 */
         heartbeat(15),                              /* RFC 6520 */
-        application_layer_protocol_negotiation(16), /* RFC 7301 */        signed_certificate_timestamp(18),           /* RFC 6962 */
+        application_layer_protocol_negotiation(16), /* RFC 7301 */
+        signed_certificate_timestamp(18),           /* RFC 6962 */
         client_certificate_type(19),                /* RFC 7250 */
         server_certificate_type(20),                /* RFC 7250 */
         padding(21),                                /* RFC 7685 */
@@ -4287,7 +4565,8 @@ B.3.1.  Key Exchange Messages
  
     struct {
         select (Handshake.msg_type) {
-            case new_session_ticket:   uint32 max_early_data_size;            case client_hello:         Empty;
+            case new_session_ticket:   uint32 max_early_data_size;
+            case client_hello:         Empty;
             case encrypted_extensions: Empty;
         };
     } EarlyDataIndication;
@@ -4346,7 +4625,8 @@ B.3.1.3.  Signature Algorithm Extension
           ecdsa_secp384r1_sha384(0x0503),
           ecdsa_secp521r1_sha512(0x0603),
  
-          /* RSASSA-PSS algorithms with public key OID rsaEncryption */          rsa_pss_rsae_sha256(0x0804),
+          /* RSASSA-PSS algorithms with public key OID rsaEncryption */
+          rsa_pss_rsae_sha256(0x0804),
           rsa_pss_rsae_sha384(0x0805),
           rsa_pss_rsae_sha512(0x0806),
  
@@ -4354,7 +4634,8 @@ B.3.1.3.  Signature Algorithm Extension
           ed25519(0x0807),
           ed448(0x0808),
  
-          /* RSASSA-PSS algorithms with public key OID RSASSA-PSS */          rsa_pss_pss_sha256(0x0809),
+          /* RSASSA-PSS algorithms with public key OID RSASSA-PSS */
+          rsa_pss_pss_sha256(0x0809),
           rsa_pss_pss_sha384(0x080a),
           rsa_pss_pss_sha512(0x080b),
  
@@ -4377,7 +4658,8 @@ B.3.1.3.  Signature Algorithm Extension
       } SignatureScheme;
  
       struct {
-          SignatureScheme supported_signature_algorithms&lt;2..2^16-2&gt;;      } SignatureSchemeList;</pre>
+          SignatureScheme supported_signature_algorithms&lt;2..2^16-2&gt;;
+      } SignatureSchemeList;</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
@@ -4388,11 +4670,13 @@ B.3.1.4.  Supported Groups Extension
  
           /* Elliptic Curve Groups (ECDHE) */
           obsolete_RESERVED(0x0001..0x0016),
-          secp256r1(0x0017), secp384r1(0x0018), secp521r1(0x0019),          obsolete_RESERVED(0x001A..0x001C),
+          secp256r1(0x0017), secp384r1(0x0018), secp521r1(0x0019),
+          obsolete_RESERVED(0x001A..0x001C),
           x25519(0x001D), x448(0x001E),
  
           /* Finite Field Groups (DHE) */
-          ffdhe2048(0x0100), ffdhe3072(0x0101), ffdhe4096(0x0102),          ffdhe6144(0x0103), ffdhe8192(0x0104),
+          ffdhe2048(0x0100), ffdhe3072(0x0101), ffdhe4096(0x0102),
+          ffdhe6144(0x0103), ffdhe8192(0x0104),
  
           /* Reserved Code Points */
           ffdhe_private_use(0x01FC..0x01FF),
@@ -4405,7 +4689,10 @@ B.3.1.4.  Supported Groups Extension
           NamedGroup named_group_list&lt;2..2^16-1&gt;;
       } NamedGroupList;
  
-   Values within "obsolete_RESERVED" ranges are used in previous   versions of TLS and MUST NOT be offered or negotiated by TLS 1.3   implementations.  The obsolete curves have various known/theoretical   weaknesses or have had very little usage, in some cases only due to   unintentional server configuration issues.  They are no longer   considered appropriate for general use and should be assumed to be   potentially unsafe.  The set of curves specified here is sufficient   for interoperability with all currently deployed and properly   configured TLS implementations.</pre>
+   “obsolete_RESERVED”范围内的值在以前版本的TLS中使用，不能由TLS 1.3实现提供或
+   协商。过时的曲线有各种已知/理论上的弱点，或者只有很少的用途，在某些情况下只是由于
+   无意的服务器配置问题。它们不再被认为适合一般使用，应该被认为是潜在的不安全的。这里
+   指定的曲线集足以与所有当前部署和正确配置的TLS实现进行互操作性。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
@@ -4419,7 +4706,8 @@ B.3.2.  Server Parameters Messages
  
       struct {
           opaque certificate_extension_oid&lt;1..2^8-1&gt;;
-          opaque certificate_extension_values&lt;0..2^16-1&gt;;      } OIDFilter;
+          opaque certificate_extension_values&lt;0..2^16-1&gt;;
+      } OIDFilter;
  
       struct {
           OIDFilter filters&lt;0..2^16-1&gt;;
@@ -4490,7 +4778,8 @@ B.3.5.  Updating Keys
       struct {} EndOfEarlyData;
  
       enum {
-          update_not_requested(0), update_requested(1), (255)      } KeyUpdateRequest;
+          update_not_requested(0), update_requested(1), (255)
+      } KeyUpdateRequest;
  
       struct {
           KeyUpdateRequest request_update;
@@ -4498,7 +4787,8 @@ B.3.5.  Updating Keys
  
 B.4.  Cipher Suites
  
-   A symmetric cipher suite defines the pair of the AEAD algorithm and   hash algorithm to be used with HKDF.  Cipher suite names follow the   naming convention:
+   对称密码套件定义要与HKDF一起使用的AEAD算法和散列算法对。加密套件名称遵循命名
+   约定：
  
       CipherSuite TLS_AEAD_HASH = VALUE;
  
@@ -4514,7 +4804,7 @@ B.4.  Cipher Suites
       | VALUE     | The two-byte ID assigned for this cipher suite |
       +-----------+------------------------------------------------+
  
-   This specification defines the following cipher suites for use with   TLS 1.3.
+   本规范定义了以下与TLS 1.3一起使用的密码套件。
  
               +------------------------------+-------------+
               | Description                  | Value       |
@@ -4532,348 +4822,596 @@ B.4.  Cipher Suites
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   The corresponding AEAD algorithms AEAD_AES_128_GCM, AEAD_AES_256_GCM,   and AEAD_AES_128_CCM are defined in [RFC5116].
-   AEAD_CHACHA20_POLY1305 is defined in [RFC8439].  AEAD_AES_128_CCM_8   is defined in [RFC6655].  The corresponding hash algorithms are   defined in [SHS].
+   相应的AEAD 算法AEAD_AES_128_GCM、AEAD_AES_256_GCM和AEAD_AES_128_CCM 
+   在[RFC5116]中定义。AEAD_CHACHA20_POLY1305 在[RFC8439]中定义。
+   AEAD_AES_128_CCM_8在[RFC6655]中定义。相应的散列算法在[SHS]中定义。
  
-   Although TLS 1.3 uses the same cipher suite space as previous   versions of TLS, TLS 1.3 cipher suites are defined differently, only   specifying the symmetric ciphers, and cannot be used for TLS 1.2.   Similarly, cipher suites for TLS 1.2 and lower cannot be used with   TLS 1.3.
+   尽管TLS 1.3使用与以前版本TLS相同的密码套件空间，但TLS 1.3密码套件的定义有所
+   不同，仅指定对称密码，不能用于 TLS 1.2。同样，TLS 1.2及更低版本的加密套件不能
+   与TLS 1.3一起使用。
  
-   New cipher suite values are assigned by IANA as described in   Section 11.
+   新的密码套值由IANA分配，如第11节所述。
  
-Appendix C.  Implementation Notes
+Appendix C.  实现说明
  
-   The TLS protocol cannot prevent many common security mistakes.  This   appendix provides several recommendations to assist implementors.   [TLS13-TRACES] provides test vectors for TLS 1.3 handshakes.
+   TLS协议不能防止许多常见的安全错误。本附录提供了几项建议，以帮助实施者。
+   [TLS13-traces]提供TLS 1.3握手的测试向量。
  
 C.1.  Random Number Generation and Seeding
  
-   TLS requires a cryptographically secure pseudorandom number generator   (CSPRNG).  In most cases, the operating system provides an   appropriate facility such as /dev/urandom, which should be used   absent other (e.g., performance) concerns.  It is RECOMMENDED to use   an existing CSPRNG implementation in preference to crafting a new   one.  Many adequate cryptographic libraries are already available   under favorable license terms.  Should those prove unsatisfactory,   [RFC4086] provides guidance on the generation of random values.
+   TLS需要加密安全的伪随机数生成器(CSPRNG)。在大多数情况下，操作系统提供了适当的
+   工具，例如/dev/urandom，应该在没有其他(例如，性能)问题的情况下使用这些工具。
+   建议使用现有的CSPRNG实现，而不是创建新的CSPRNG实现。许多足够的加密库已经在有利的
+   许可条款下可用。如果这些不能满足需求，[RFC4086]提供了关于生成随机值的指导。
  
-   TLS uses random values (1) in public protocol fields such as the   public Random values in the ClientHello and ServerHello and (2) to   generate keying material.  With a properly functioning CSPRNG, this   does not present a security problem, as it is not feasible to   determine the CSPRNG state from its output.  However, with a broken   CSPRNG, it may be possible for an attacker to use the public output   to determine the CSPRNG internal state and thereby predict the keying   material, as documented in [CHECKOWAY].  Implementations can provide   extra security against this form of attack by using separate CSPRNGs   to generate public and private values.</pre>
+   TLS使用公共协议字段中的随机值(1)，例如ClientHello和ServerHello中的公共
+   随机值，以及生成密钥材料(2)。使用正常运行的CSPRNG，这不会出现安全问题，因为从其
+   输出确定CSPRNG状态是不可行的。但是，使用损坏的CSPRNG，攻击者可能会使用公共输出
+   来确定CSPRNG内部状态，从而预测密钥材料，如[Checkoway]中所述。通过使用单独的
+   CSPRNG生成公共和私有值，实现可以针对这种形式的攻击提供额外的安全性。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-C.2.  Certificates and Authentication
+C.2.  证书和身份验证
  
-   Implementations are responsible for verifying the integrity of   certificates and should generally support certificate revocation   messages.  Absent a specific indication from an application profile,   certificates should always be verified to ensure proper signing by a   trusted certificate authority (CA).  The selection and addition of   trust anchors should be done very carefully.  Users should be able to   view information about the certificate and trust anchor.   Applications SHOULD also enforce minimum and maximum key sizes.  For   example, certification paths containing keys or signatures weaker   than 2048-bit RSA or 224-bit ECDSA are not appropriate for secure   applications.
+   实现负责验证证书的完整性，并且通常应该支持证书撤销消息。在应用程序配置文件中没有
+   特定指示的情况下，应始终对证书进行验证，以确保受信任的证书颁发机构(CA)正确签名。
+   信任锚的选择和添加应该非常小心。用户应该能够查看有关证书和信任锚的信息。应用程序
+   还应强制执行最小和最大密钥大小。例如，包含弱于2048位RSA或224位ECDSA的密钥或签名
+   的证书路径不适用于安全应用程序。
  
-C.3.  Implementation Pitfalls
+C.3.  实施陷阱
  
-   Implementation experience has shown that certain parts of earlier TLS   specifications are not easy to understand and have been a source of   interoperability and security problems.  Many of these areas have   been clarified in this document, but this appendix contains a short   list of the most important things that require special attention from   implementors.
+   实现经验表明，早期TLS规范的某些部分不容易理解，并且已经成为互操作性和安全问题的
+   根源。这些领域中的许多已经在本文档中进行了澄清，但本附录包含了需要实施者特别注意
+   的最重要事项的简短列表。
  
-   TLS protocol issues:
+   TLS协议问题：
  
-   -  Do you correctly handle handshake messages that are fragmented to      multiple TLS records (see Section 5.1)?  Do you correctly handle      corner cases like a ClientHello that is split into several small      fragments?  Do you fragment handshake messages that exceed the      maximum fragment size?  In particular, the Certificate and      CertificateRequest handshake messages can be large enough to      require fragmentation.
+   -  您是否正确处理分成多个TLS记录的握手消息(参见5.1节)？您是否正确地处理了像
+      ClientHello这样被拆分成几个小片段的边缘情况？您是否对超过最大片段大小的握手
+      消息进行分段？特别是，Certificate和CertificateRequest握手消息可能足够大，
+      需要分段。
  
-   -  Do you ignore the TLS record layer version number in all      unencrypted TLS records (see Appendix D)?
+   -  是否忽略所有未加密TLS记录中的TLS记录层版本号(参见附录D)？
  
-   -  Have you ensured that all support for SSL, RC4, EXPORT ciphers,      and MD5 (via the "signature_algorithms" extension) is completely      removed from all possible configurations that support TLS 1.3 or      later, and that attempts to use these obsolete capabilities fail      correctly (see Appendix D)?
+   -  您是否确保从支持TLS 1.3或更高版本的所有可能配置中完全删除对SSL、RC4、导出
+      密码和MD5(通过“Signature_Algorithms”扩展)的所有支持，并且尝试使用这些
+      过时功能的尝试正确失败(参见附录D)？
  
-   -  Do you handle TLS extensions in ClientHellos correctly, including      unknown extensions?</pre>
+   -  您是否正确处理ClientHellos中的TLS扩展，包括未知扩展？</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   -  When the server has requested a client certificate but no suitable      certificate is available, do you correctly send an empty      Certificate message, instead of omitting the whole message (see      Section 4.4.2)?
+   -  当服务器请求客户证书但没有合适的证书可用时，您是否正确地发送了一个空的证书
+      消息，而不是忽略整个消息(参见4.4.2节)？
  
-   -  When processing the plaintext fragment produced by AEAD-Decrypt      and scanning from the end for the ContentType, do you avoid      scanning past the start of the cleartext in the event that the      peer has sent a malformed plaintext of all zeros?
+   -  在处理aead-decrypt生成的明文片段并从末尾扫描contentType时，如果对等体
+      发送了格式错误的全为零的明文，您是否避免扫描超过明文的开头？
  
-   -  Do you properly ignore unrecognized cipher suites (Section 4.1.2),      hello extensions (Section 4.2), named groups (Section 4.2.7), key      shares (Section 4.2.8), supported versions (Section 4.2.1), and      signature algorithms (Section 4.2.3) in the ClientHello?
+   -  您是否在ClientHello正确忽略了无法识别的密码套件(4.1.2节)，
+      hello扩展(4.2节)， 命名组(4.2.7节)，key shares(4.2.8节)，
+      supported versions(4.2.1节)，和签名算法(4.2.3节)在ClientHello？
  
-   -  As a server, do you send a HelloRetryRequest to clients which      support a compatible (EC)DHE group but do not predict it in the      "key_share" extension?  As a client, do you correctly handle a      HelloRetryRequest from the server?
+   -  作为服务器，您是否向支持Compatible(EC)DHE组但不在“Key_Share”扩展中
+      预测它的客户端发送HelloRetryRequest？作为客户端，您是否正确处理来自服务器的
+      HelloRetryRequest？
  
-   Cryptographic details:
+   加密详细信息：
  
-   -  What countermeasures do you use to prevent timing attacks      [TIMING]?
+   -  您使用什么对策来防止时序攻击 [TIMING]?
  
-   -  When using Diffie-Hellman key exchange, do you correctly preserve      leading zero bytes in the negotiated key (see Section 7.4.1)?
+   -  使用Diffie-Hellman密钥交换时，是否正确保留协商密钥中的前导零字节
+      (参见7.4.1节)？
  
-   -  Does your TLS client check that the Diffie-Hellman parameters sent      by the server are acceptable (see Section 4.2.8.1)?
+   -  您的TLS客户端是否检查服务器发送的Diffie-Hellman参数是否可接受
+      (参见第4.2.8.1节)？
  
-   -  Do you use a strong and, most importantly, properly seeded random      number generator (see Appendix C.1) when generating Diffie-Hellman      private values, the ECDSA "k" parameter, and other security-      critical values?  It is RECOMMENDED that implementations implement      "deterministic ECDSA" as specified in [RFC6979].
+   -  在生成Diffie-Hellman私有值、ECDSA“k”参数和其他安全关键值时，是否使用强大
+      且最重要的种子随机数生成器(参见附录C.1)？建议实现[RFC6979]中规定的
+      “deterministic ECDSA”。
  
-   -  Do you zero-pad Diffie-Hellman public key values and shared      secrets to the group size (see Section 4.2.8.1 and Section 7.4.1)?
+   -  您是否将Diffie-Hellman公钥值和共享密钥填充为组大小
+      (参见第4.2.8.1节和7.4.1节)？
  
-   -  Do you verify signatures after making them, to protect against      RSA-CRT key leaks [FW15]?</pre>
+   -  制作签名后是否验证签名，以防止RSA-CRT密钥泄漏[FW15]？</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-C.4.  Client Tracking Prevention
+C.4.  客户端跟踪预防
  
-   Clients SHOULD NOT reuse a ticket for multiple connections.  Reuse of   a ticket allows passive observers to correlate different connections.   Servers that issue tickets SHOULD offer at least as many tickets as   the number of connections that a client might use; for example, a web   browser using HTTP/1.1 [RFC7230] might open six connections to a   server.  Servers SHOULD issue new tickets with every connection.   This ensures that clients are always able to use a new ticket when   creating a new connection.
+   客户端不应将票证重用于多个连接。票的重用允许被动观察者关联不同的连接。发出票证的
+   服务器应至少提供与客户端可能使用的连接数量相同的票证；例如，使用
+   HTTP/1.1[RFC7230]的Web浏览器可能会打开六个到服务器的连接。服务器应该为每个
+   连接颁发新的票证。这可确保客户端在创建新连接时始终能够使用新票证。
  
-C.5.  Unauthenticated Operation
+C.5.  未经身份验证的操作
  
-   Previous versions of TLS offered explicitly unauthenticated cipher   suites based on anonymous Diffie-Hellman.  These modes have been   deprecated in TLS 1.3.  However, it is still possible to negotiate   parameters that do not provide verifiable server authentication by   several methods, including:
+   以前版本的TLS提供了基于匿名Diffie-Hellman的显式未经验证的密码套件。这些模式
+   在TLS 1.3中已被弃用。但是，仍然可以通过几种方法协商不提供可验证的服务器身份验证
+   的参数，包括：
  
-   -  Raw public keys [RFC7250].
+   -  原始公钥 [RFC7250].
  
-   -  Using a public key contained in a certificate but without      validation of the certificate chain or any of its contents.
+   -  使用证书中包含的公钥，但不验证证书链或其任何内容。
  
-   Either technique used alone is vulnerable to man-in-the-middle   attacks and therefore unsafe for general use.  However, it is also   possible to bind such connections to an external authentication   mechanism via out-of-band validation of the server's public key,   trust on first use, or a mechanism such as channel bindings (though   the channel bindings described in [RFC5929] are not defined for   TLS 1.3).  If no such mechanism is used, then the connection has no   protection against active man-in-the-middle attack; applications   MUST NOT use TLS in such a way absent explicit configuration or a   specific application profile.</pre>
+   单独使用的任何一种技术都容易受到中间人攻击，因此一般使用不安全。然而，也可以通过
+   服务器公钥的带外验证、首次使用时信任或通道绑定等机制将此类连接绑定到外部验证机制
+   (尽管[RFC5929]中描述的通道绑定没有为TLS 1.3定义)。如果没有使用这样的机制，则
+   连接没有针对主动中间人攻击的保护；应用程序不能在没有显式配置或特定应用程序配置文件
+   的情况下以这种方式使用TLS。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-Appendix D.  Backward Compatibility
+Appendix D.  向后兼容性
  
-   The TLS protocol provides a built-in mechanism for version   negotiation between endpoints potentially supporting different   versions of TLS.
+   TLS协议为可能支持不同版本的TLS的端点之间的版本协商提供了内置机制。
  
-   TLS 1.x and SSL 3.0 use compatible ClientHello messages.  Servers can   also handle clients trying to use future versions of TLS as long as   the ClientHello format remains compatible and there is at least one   protocol version supported by both the client and the server.
+   TLS 1.x和SSL 3.0使用兼容的ClientHello消息。服务器还可以处理试图使用未来版本
+   的TLS的客户端，只要ClientHello格式保持兼容，并且客户端和服务器都至少支持一个
+   协议版本。
  
-   Prior versions of TLS used the record layer version number   (TLSPlaintext.legacy_record_version and
-   TLSCiphertext.legacy_record_version) for various purposes.  As of   TLS 1.3, this field is deprecated.  The value of
-   TLSPlaintext.legacy_record_version MUST be ignored by all   implementations.  The value of TLSCiphertext.legacy_record_version is   included in the additional data for deprotection but MAY otherwise be   ignored or MAY be validated to match the fixed constant value.   Version negotiation is performed using only the handshake versions   (ClientHello.legacy_version and ServerHello.legacy_version, as well   as the ClientHello, HelloRetryRequest, and ServerHello   "supported_versions" extensions).  In order to maximize   interoperability with older endpoints, implementations that negotiate   the use of TLS 1.0-1.2 SHOULD set the record layer version number to   the negotiated version for the ServerHello and all records   thereafter.
+   TLS的早期版本使用记录层版本号(TLSPlaintext.Legacy_Record_Version和
+   TLSCiphertext.Legacy_Record_Version)用于各种目的。从TLS 1.3开始，此字段
+   已弃用。所有实现都必须忽略TLSPlaintext.Legacy_Record_Version的值。
+   TLSCiphertext.Legacy_Record_Version的值被包括在用于去保护的附加数据中，
+   但是可以被忽略，或者可以被验证以匹配固定常量值。仅使用握手版本
+   (ClientHello.Legacy_Version和ServerHello.Legacy_version，以及
+   ClientHello、HelloRetryRequest和ServerHello“Supported_Versions”扩展)
+   执行版本协商。为了最大限度地提高与较旧端点的互操作性，协商使用TLS 1.0-1.2的实现
+   应将记录层版本号设置为ServerHello和此后的所有记录的协商版本。
  
-   For maximum compatibility with previously non-standard behavior and   misconfigured deployments, all implementations SHOULD support   validation of certification paths based on the expectations in this   document, even when handling prior TLS versions' handshakes (see   Section 4.4.2.2).
+   为了最大限度地兼容以前的非标准行为和配置错误的部署，所有实施都应支持基于本文档中
+   的预期验证认证路径，即使在处理以前的TLS版本的握手时也是如此(参见第4.4.2.2节)。
  
-   TLS 1.2 and prior supported an "Extended Master Secret" [RFC7627]   extension which digested large parts of the handshake transcript into   the master secret.  Because TLS 1.3 always hashes in the transcript   up to the server Finished, implementations which support both TLS 1.3   and earlier versions SHOULD indicate the use of the Extended Master   Secret extension in their APIs whenever TLS 1.3 is used.</pre>
+   TLS 1.2和更早版本支持“Extended Master Secret”[RFC7627]扩展，该扩展将握手
+   记录的大部分消化为主秘密。由于TLS 1.3始终在文本中进行散列，直到服务器Finished，
+   因此无论何时使用TLS 1.3，同时支持TLS 1.3和更早版本的实现应指示在其API中使用
+   扩展的Master Secret扩展。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-D.1.  Negotiating with an Older Server
+D.1.  与旧服务器协商
  
-   A TLS 1.3 client who wishes to negotiate with servers that do not   support TLS 1.3 will send a normal TLS 1.3 ClientHello containing   0x0303 (TLS 1.2) in ClientHello.legacy_version but with the correct   version(s) in the "supported_versions" extension.  If the server does   not support TLS 1.3, it will respond with a ServerHello containing an   older version number.  If the client agrees to use this version, the   negotiation will proceed as appropriate for the negotiated protocol.   A client using a ticket for resumption SHOULD initiate the connection   using the version that was previously negotiated.
+   希望与不支持TLS 1.3的服务器进行协商的TLS 1.3客户端将在
+   ClientHello.Legacy_Version中发送包含0x0303(TLS 1.2)的正常
+   TLS 1.3 ClientHello，但在“Supported_Versions”扩展中包含正确的版本。如果
+   服务器不支持 TLS 1.3，它将使用包含旧版本号的ServerHello进行响应。如果客户同意
+   使用此版本，则协商将根据协商的协议进行。使用票证进行恢复的客户端应使用先前协商的
+   版本启动连接。
  
-   Note that 0-RTT data is not compatible with older servers and   SHOULD NOT be sent absent knowledge that the server supports TLS 1.3.   See Appendix D.3.
+   请注意，0-RTT数据与较旧的服务器不兼容，在不知道服务器支持TLS 1.3的情况下，
+   不应发送0-RTT数据。见附录D.3。
  
-   If the version chosen by the server is not supported by the client   (or is not acceptable), the client MUST abort the handshake with a   "protocol_version" alert.
+   如果客户端不支持服务器选择的版本(或不可接受)，则客户端必须中止握手并发出
+   “protocol_version”警报。
  
-   Some legacy server implementations are known to not implement the TLS   specification properly and might abort connections upon encountering   TLS extensions or versions which they are not aware of.   Interoperability with buggy servers is a complex topic beyond the   scope of this document.  Multiple connection attempts may be required   in order to negotiate a backward-compatible connection; however, this   practice is vulnerable to downgrade attacks and is NOT RECOMMENDED.
+   已知一些传统服务器实现不能正确实现TLS规范，并且可能在遇到它们不知道的TLS扩展或
+   版本时中止连接。与有漏洞的服务器的互操作性是一个复杂的主题，超出了本文档的范围。
+   可能需要多次连接尝试才能协商向后兼容的连接；但是，这种做法容易受到降级攻击，
+   不建议使用。
  
-D.2.  Negotiating with an Older Client
+D.2.  与旧客户端协商
  
-   A TLS server can also receive a ClientHello indicating a version   number smaller than its highest supported version.  If the   "supported_versions" extension is present, the server MUST negotiate   using that extension as described in Section 4.2.1.  If the   "supported_versions" extension is not present, the server MUST   negotiate the minimum of ClientHello.legacy_version and TLS 1.2.  For   example, if the server supports TLS 1.0, 1.1, and 1.2, and   legacy_version is TLS 1.0, the server will proceed with a TLS 1.0   ServerHello.  If the "supported_versions" extension is absent and the   server only supports versions greater than
-   ClientHello.legacy_version, the server MUST abort the handshake with   a "protocol_version" alert.
+   TLS服务器还可以接收ClientHello，该ClientHello指示小于其最高支持版本的版本号。
+   如果存在“supported_versions”扩展，则服务器必须使用该扩展进行协商，如第4.2.1节
+   所述。如果不存在“supported_versions”扩展，则服务器必须协商
+   ClientHello.legacy_version和TLS 1.2的最小值。例如，如果服务器支持TLS 1.0、
+   1.1和1.2，并且legacy_version 为TLS 1.0，则服务器将继续使用
+   TLS 1.0 ServerHello。如果不存在“supported_versions”扩展，并且服务器仅支持
+   高于ClientHello.legacy_version的版本，则服务器必须中止握手并发出
+   “protocol_version”警报。
  
-   Note that earlier versions of TLS did not clearly specify the record   layer version number value in all cases
-   (TLSPlaintext.legacy_record_version).  Servers will receive various   TLS 1.x versions in this field, but its value MUST always be ignored.</pre>
+   请注意，TLS的早期版本没有在所有情况下都明确指定记录层版本号值
+   (TLSPlaintext.legacy_record_version)。服务器将在此字段中接收各种
+   TLS 1.x版本，但必须始终忽略其值。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-D.3.  0-RTT Backward Compatibility
+D.3.  0-RTT向后兼容性
  
-   0-RTT data is not compatible with older servers.  An older server   will respond to the ClientHello with an older ServerHello, but it   will not correctly skip the 0-RTT data and will fail to complete the   handshake.  This can cause issues when a client attempts to use   0-RTT, particularly against multi-server deployments.  For example, a   deployment could deploy TLS 1.3 gradually with some servers   implementing TLS 1.3 and some implementing TLS 1.2, or a TLS 1.3   deployment could be downgraded to TLS 1.2.
+   0-RTT数据与较旧的服务器不兼容。较旧的服务器将使用较旧的ServerHello响应
+   ClientHello，但它不会正确地跳过0-RTT数据，并且将无法完成握手。当客户端尝试使用
+   0-RTT时，这可能会导致问题，特别是针对多服务器部署。例如，部署可以逐渐部署
+   TLS 1.3，其中一些服务器实现TLS 1.3，一些服务器实现TLS 1.2，或者TLS 1.3部署
+   可以降级到TLS 1.2。
  
-   A client that attempts to send 0-RTT data MUST fail a connection if   it receives a ServerHello with TLS 1.2 or older.  It can then retry   the connection with 0-RTT disabled.  To avoid a downgrade attack, the   client SHOULD NOT disable TLS 1.3, only 0-RTT.
+   尝试发送0-RTT数据的客户端如果收到带有TLS 1.2或更早版本的ServerHello，则连接
+   必须失败。然后它可以在0-RTT禁用的情况下重试连接。为了避免降级攻击，客户端不应禁用
+   TLS 1.3，只应禁用0-RTT。
  
-   To avoid this error condition, multi-server deployments SHOULD ensure   a uniform and stable deployment of TLS 1.3 without 0-RTT prior to   enabling 0-RTT.
+   为了避免这种错误情况，在启用0-RTT之前，多服务器部署应确保在没有0-RTT的情况下
+   统一且稳定地部署TLS 1.3。
  
-D.4.  Middlebox Compatibility Mode
+D.4.  中间件兼容模式
  
-   Field measurements [Ben17a] [Ben17b] [Res17a] [Res17b] have found   that a significant number of middleboxes misbehave when a TLS   client/server pair negotiates TLS 1.3.  Implementations can increase   the chance of making connections through those middleboxes by making   the TLS 1.3 handshake look more like a TLS 1.2 handshake:
+   实际测试[Ben17a][Ben17b][Res17a][Res17b]发现，当TLS客户端/服务器对协商
+   TLS 1.3时，大量中间件行为不当。通过使TLS 1.3握手看起来更像TLS 1.2握手，实现
+   可以增加通过这些中间件建立连接的机会：
  
-   -  The client always provides a non-empty session ID in the      ClientHello, as described in the legacy_session_id section of      Section 4.1.2.
+   -  客户端总是在ClientHello中提供非空的会话ID，如4.1.2节的
+      legacy_session_id 部分所述。
  
-   -  If not offering early data, the client sends a dummy
-      change_cipher_spec record (see the third paragraph of Section 5)      immediately before its second flight.  This may either be before      its second ClientHello or before its encrypted handshake flight.      If offering early data, the record is placed immediately after the      first ClientHello.
+   -  如果不提供早期数据，则客户端在其第二次发送之前立即发送一个虚拟
+      change_cipher_spec 记录(参见第5节第三段)。这可能是在它的第二个
+      ClientHello之前，或者在它的加密握手发送之前。如果提供早期数据，则记录紧跟在
+      第一个ClientHello之后。
  
-   -  The server sends a dummy change_cipher_spec record immediately      after its first handshake message.  This may either be after a      ServerHello or a HelloRetryRequest.
+   -  服务器在第一次握手消息后立即发送虚拟CHANGE_CIPHER_SPEC记录。这可能发生在
+      ServerHello或HelloRetryRequest之后。
  
-   When put together, these changes make the TLS 1.3 handshake resemble   TLS 1.2 session resumption, which improves the chance of successfully   connecting through middleboxes.  This "compatibility mode" is   partially negotiated: the client can opt to provide a session ID or   not, and the server has to echo it.  Either side can send</pre>
+   当将这些更改放在一起时，这些更改使TLS 1.3握手类似于TLS 1.2会话恢复，从而提高了
+   通过中间件成功连接的机会。这种“兼容模式”是部分协商的：客户端可以选择提供会话ID或
+   不提供，服务器必须回显它。在握手过程中，任何一方都可以随时发送
+   change_cipher_spec，因为对等方必须忽略它们，但如果客户端发送非空的会话ID，
+   则服务器必须发送change_cipher_spec，如本附录所述。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   change_cipher_spec at any time during the handshake, as they must be   ignored by the peer, but if the client sends a non-empty session ID,   the server MUST send the change_cipher_spec as described in this   appendix.
+
+
+
+
  
-D.5.  Security Restrictions Related to Backward Compatibility
+D.5.  与向后兼容性相关的安全限制
  
-   Implementations negotiating the use of older versions of TLS SHOULD   prefer forward secret and AEAD cipher suites, when available.
+   协商使用旧版本的TLS的实现应该首选forward secret和AEAD 密码套件(如果可用)。
  
-   The security of RC4 cipher suites is considered insufficient for the   reasons cited in [RFC7465].  Implementations MUST NOT offer or   negotiate RC4 cipher suites for any version of TLS for any reason.
+   由于[RFC7465]中引用的原因，RC4密码套件的安全性被认为是不够的。实现不得出于
+   任何原因为任何版本的TLS提供或协商RC4加密套件。
  
-   Old versions of TLS permitted the use of very low strength ciphers.   Ciphers with a strength less than 112 bits MUST NOT be offered or   negotiated for any version of TLS for any reason.
+   TLS的旧版本允许使用非常低强度的密码。出于任何原因，不得为TLS的任何版本提供或
+   协商强度小于112位的密码。
  
-   The security of SSL 3.0 [RFC6101] is considered insufficient for the   reasons enumerated in [RFC7568], and it MUST NOT be negotiated for   any reason.
+   由于[RFC7568]中列举的原因，SSL 3.0[RFC6101]的安全性被认为是不够的，任何原因
+   都不能进行协商。
  
-   The security of SSL 2.0 [SSL2] is considered insufficient for the   reasons enumerated in [RFC6176], and it MUST NOT be negotiated for   any reason.
+   由于[RFC6176]中列举的原因，SSL 2.0[SSL2]的安全性被认为是不够的，任何原因都
+   不能进行协商。
  
-   Implementations MUST NOT send an SSL version 2.0 compatible   CLIENT-HELLO.  Implementations MUST NOT negotiate TLS 1.3 or later   using an SSL version 2.0 compatible CLIENT-HELLO.  Implementations   are NOT RECOMMENDED to accept an SSL version 2.0 compatible   CLIENT-HELLO in order to negotiate older versions of TLS.
+   实现不得发送SSL 2.0版兼容的CLIENT-HELLO。实现不得使用SSL 2.0版兼容的
+   CLIENT-HELLO 协商TLS 1.3或更高版本。建议不要为了协商TLS的旧版本而接受
+   SSL 2.0版兼容的Client-Hello的实现。
  
-   Implementations MUST NOT send a ClientHello.legacy_version or   ServerHello.legacy_version set to 0x0300 or less.  Any endpoint   receiving a Hello message with ClientHello.legacy_version or   ServerHello.legacy_version set to 0x0300 MUST abort the handshake   with a "protocol_version" alert.
+   实现不得发送设置为0x0300或更小的ClientHello.Legacy_Version或
+   ServerHello.Legacy_Version。任何接收ClientHello.Legacy_Version或
+   ServerHello.Legacy_Version设置为0x0300的Hello消息的端点必须中止握手并发出
+   “protocol_version”警报。
  
-   Implementations MUST NOT send any records with a version less than   0x0300.  Implementations SHOULD NOT accept any records with a version   less than 0x0300 (but may inadvertently do so if the record version   number is ignored completely).
+   实现不得发送版本低于0x0300的任何记录。实现不应接受版本低于0x0300的任何记录
+   (但如果完全忽略记录版本号，则可能会不经意地接受)。
  
-   Implementations MUST NOT use the Truncated HMAC extension, defined in   Section&nbsp;7 of [RFC6066], as it is not applicable to AEAD algorithms   and has been shown to be insecure in some scenarios.</pre>
+   实现不得使用[RFC6066]的 ；7节中定义的截断HMAC扩展，因为它不适用于aead算法，
+   并且已被证明在某些情况下是不安全的。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-Appendix E.  Overview of Security Properties
+附录E.安全属性概述
  
-   A complete security analysis of TLS is outside the scope of this   document.  In this appendix, we provide an informal description of   the desired properties as well as references to more detailed work in   the research literature which provides more formal definitions.
+   TLS 的完整安全分析不在本文档的讨论范围之内。 在本附录中，我们提供了所需属性的
+   非正式描述，并参考了研究文献中更详细的工作，其中提供了更正式的定义。
  
-   We cover properties of the handshake separately from those of the   record layer.
+   我们将握手的属性与记录层的属性分开讨论。
  
-E.1.  Handshake
+E.1.  握手
  
-   The TLS handshake is an Authenticated Key Exchange (AKE) protocol   which is intended to provide both one-way authenticated (server-only)   and mutually authenticated (client and server) functionality.  At the   completion of the handshake, each side outputs its view of the   following values:
+   TLS握手是一种身份验证密钥交换(AKE)协议，旨在提供单向身份验证(仅服务器)和双向
+   身份验证(客户端和服务器)功能。在握手完成时，每一方输出其以下值的视图：
  
-   -  A set of "session keys" (the various secrets derived from the      master secret) from which can be derived a set of working keys.
+   -  一组“会话密钥”(从主秘密导出的各种秘密)，可以从中导出一组工作密钥。
  
-   -  A set of cryptographic parameters (algorithms, etc.).
+   -  一组加密参数(算法等)。
  
-   -  The identities of the communicating parties.
+   -  通信双方的身份。
  
-   We assume the attacker to be an active network attacker, which means   it has complete control over the network used to communicate between   the parties [RFC3552].  Even under these conditions, the handshake   should provide the properties listed below.  Note that these   properties are not necessarily independent, but reflect the protocol   consumers' needs.
+   我们假设攻击者是一个活跃的网络攻击者，这意味着它可以完全控制用于双方之间通信的
+   网络[RFC3552]。即使在这些条件下，握手也应该提供下面列出的属性。请注意，这些属性
+   不一定是独立的，但反映了协议消费者的需求。
  
-   Establishing the same session keys:  The handshake needs to output      the same set of session keys on both sides of the handshake,      provided that it completes successfully on each endpoint (see      [CK01], Definition 1, part 1).
+   建立相同的会话密钥：握手需要在握手的两侧输出相同的会话密钥集，前提是它在每个端点
+      上成功完成(参见[CK01]，定义1，第1部分)。
  
-   Secrecy of the session keys:  The shared session keys should be known      only to the communicating parties and not to the attacker (see      [CK01], Definition 1, part 2).  Note that in a unilaterally      authenticated connection, the attacker can establish its own      session keys with the server, but those session keys are distinct      from those established by the client.
+   会话密钥的保密性：共享会话密钥应该只对通信方是已知的，而攻击者不知道(参见[CK01]，
+      定义1，第2部分)。请注意，在单向身份验证的连接中，攻击者可以与服务器建立自己
+      的会话密钥，但这些会话密钥与客户端建立的会话密钥不同。
  
-   Peer authentication:  The client's view of the peer identity should      reflect the server's identity.  If the client is authenticated,      the server's view of the peer identity should match the client's      identity.</pre>
+   对等身份验证：客户端的对等身份视图应该反映服务器的身份。如果客户端经过身份验证，
+      则服务器的对等身份视图应与客户端的身份匹配。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   Uniqueness of the session keys:  Any two distinct handshakes should      produce distinct, unrelated session keys.  Individual session keys      produced by a handshake should also be distinct and independent.
+   会话密钥的唯一性：任何两个不同的握手都应该产生不同的、不相关的会话密钥。通过握手
+      产生的各个会话密钥也应该是不同的和独立的。
  
-   Downgrade protection:  The cryptographic parameters should be the      same on both sides and should be the same as if the peers had been      communicating in the absence of an attack (see [BBFGKZ16],      Definitions 8 and 9).
+   降级保护：两端的加密参数应该相同，并且应该与对等端在没有攻击的情况下进行通信
+      一样(参见[BBFGKZ16]，定义8和9)。
  
-   Forward secret with respect to long-term keys:  If the long-term      keying material (in this case the signature keys in certificate-      based authentication modes or the external/resumption PSK in PSK      with (EC)DHE modes) is compromised after the handshake is      complete, this does not compromise the security of the session key      (see [DOW92]), as long as the session key itself has been erased.      The forward secrecy property is not satisfied when PSK is used in      the "psk_ke" PskKeyExchangeMode.
+   关于长期密钥的前向保密：如果在握手完成之后长期密钥材料(在这种情况下是基于证书的
+      认证模式中的签名密钥或具有(EC)DHE模式的PSK中的外部/恢复PSK)被泄露，这不会
+      损害会话密钥的安全性(参见[DOW92])，只要会话密钥本身已被擦除即可。当PSK在
+      “psk_ke”PskKeyExchangeMode中使用时，前向保密属性不满足。
  
-   Key Compromise Impersonation (KCI) resistance:  In a mutually      authenticated connection with certificates, compromising the      long-term secret of one actor should not break that actor's      authentication of their peer in the given connection (see      [HGFS15]).  For example, if a client's signature key is      compromised, it should not be possible to impersonate arbitrary      servers to that client in subsequent handshakes.
+   密钥泄露模拟(KCI)抵抗：在具有证书的相互认证的连接中，泄露一个参与者的长期秘密
+      不应破坏该参与者在给定连接中对其对等体的身份验证(参见[HGFS15])。例如，如果
+      客户端的签名密钥被泄露，则不可能在随后的握手中向该客户端模拟任意服务器。
  
-   Protection of endpoint identities:  The server's identity      (certificate) should be protected against passive attackers.  The      client's identity should be protected against both passive and      active attackers.
+   端点身份的保护：应该保护服务器的身份(证书)免受被动攻击者的攻击。应该保护客户端的
+      身份免受被动和主动攻击者的攻击。
  
-   Informally, the signature-based modes of TLS 1.3 provide for the   establishment of a unique, secret, shared key established by an   (EC)DHE key exchange and authenticated by the server's signature over   the handshake transcript, as well as tied to the server's identity by   a MAC.  If the client is authenticated by a certificate, it also   signs over the handshake transcript and provides a MAC tied to both   identities.  [SIGMA] describes the design and analysis of this type   of key exchange protocol.  If fresh (EC)DHE keys are used for each   connection, then the output keys are forward secret.
+   非正式地，TLS 1.3的基于签名的模式提供了由(EC)DHE密钥交换建立的唯一的、秘密的、
+   共享的密钥的建立，并且通过握手transcript上的服务器的签名进行认证，以及通过MAC
+   绑定到服务器的身份。如果客户端通过证书进行身份验证，它还会对握手记录进行签名，并
+   提供绑定到两个身份的MAC。[Sigma]描述了这种类型的密钥交换协议的设计和分析。如果
+   每个连接都使用Fresh(EC)DHE密钥，则输出密钥是向前保密的。
  
-   The external PSK and resumption PSK bootstrap from a long-term shared   secret into a unique per-connection set of short-term session keys.   This secret may have been established in a previous handshake.  If   PSK with (EC)DHE key establishment is used, these session keys will   also be forward secret.  The resumption PSK has been designed so that   the resumption master secret computed by connection N and needed to   form connection N+1 is separate from the traffic keys used by</pre>
+   外部PSK和恢复PSK从长期共享秘密引导到每个连接的唯一短期会话密钥集。这个秘密可能是
+   在之前的握手中建立的。如果使用具有(EC)DHE密钥建立的PSK，则这些会话密钥也将是前向
+   保密的。恢复PSK被设计成使得由连接N计算并形成连接N+1所需的恢复主秘密与连接N所使用
+   的业务密钥分开，从而在连接之间提供前向保密。此外，如果在同一连接上建立了多个票证，
+   则它们与不同的密钥相关联，因此与一个票证相关联的PSK的泄露不会导致与其他票证相关联
+   的PSK建立的连接的泄露。如果票证存储在数据库中(因此可以删除)，而不是自加密，则
+   此属性最有趣。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   connection N, thus providing forward secrecy between the connections.   In addition, if multiple tickets are established on the same   connection, they are associated with different keys, so compromise of   the PSK associated with one ticket does not lead to the compromise of   connections established with PSKs associated with other tickets.   This property is most interesting if tickets are stored in a database   (and so can be deleted) rather than if they are self-encrypted.
+
+
+
+
+
  
-   The PSK binder value forms a binding between a PSK and the current   handshake, as well as between the session where the PSK was   established and the current session.  This binding transitively   includes the original handshake transcript, because that transcript   is digested into the values which produce the resumption master   secret.  This requires that both the KDF used to produce the   resumption master secret and the MAC used to compute the binder be   collision resistant.  See Appendix E.1.1 for more on this.  Note: The   binder does not cover the binder values from other PSKs, though they   are included in the Finished MAC.
+   PSK绑定器值形成PSK和当前握手之间的绑定，以及建立PSK的会话和当前会话之间的绑定。
+   此绑定可传递地包括原始握手transcript，因为该transcript被消化为产生恢复主秘密的
+   值。这要求用于产生恢复主秘密的KDF和用于计算绑定器的MAC都是抗冲突的。有关这方面的
+   更多信息，请参见附录E.1.1。注意：绑定器不包括来自其他PSK的绑定器值，尽管它们包含
+   在 Finished 的MAC中。
  
-   TLS does not currently permit the server to send a
-   certificate_request message in non-certificate-based handshakes   (e.g., PSK).  If this restriction were to be relaxed in future, the   client's signature would not cover the server's certificate directly.   However, if the PSK was established through a NewSessionTicket, the   client's signature would transitively cover the server's certificate   through the PSK binder.  [PSK-FINISHED] describes a concrete attack   on constructions that do not bind to the server's certificate (see   also [Kraw16]).  It is unsafe to use certificate-based client   authentication when the client might potentially share the same   PSK/key-id pair with two different endpoints.  Implementations   MUST NOT combine external PSKs with certificate-based authentication   of either the client or the server unless negotiated by some   extension.
+   TLS当前不允许服务器在非基于证书的握手(例如PSK)中发送certificate_request 
+   消息(服务器只能在基于证书的握手中发送certificate_request )。如果将来放宽
+   这一限制，客户端的签名将不会直接覆盖服务器的证书。但是，如果PSK
+   是通过NewSessionTicket建立的，则客户端的签名将通过PSK绑定器过渡覆盖服务器的
+   证书。[PSK-Finish]描述了对未绑定服务器证书的构造的具体攻击
+   (另请参阅[Kraw16])。当客户端可能与两个不同的端点共享相同的PSK/key-id对时，使用
+   基于证书的客户端身份验证是不安全的。实现不得将外部PSK与客户端或服务器的基于证书的
+   身份验证相结合，除非通过某些扩展进行协商。
  
-   If an exporter is used, then it produces values which are unique and   secret (because they are generated from a unique session key).   Exporters computed with different labels and contexts are   computationally independent, so it is not feasible to compute one   from another or the session secret from the exported value.   Note: Exporters can produce arbitrary-length values; if exporters are   to be used as channel bindings, the exported value MUST be large   enough to provide collision resistance.  The exporters provided in   TLS 1.3 are derived from the same Handshake Contexts as the early   traffic keys and the application traffic keys, respectively, and thus   have similar security properties.  Note that they do not include the   client's certificate; future applications which wish to bind to the   client's certificate may need to define a new exporter that includes   the full handshake transcript.</pre>
+   如果使用导出器，那么它会产生唯一的和保密的值(因为它们是从唯一的会话密钥生成的)。
+   使用不同的标签和上下文计算的导出器在计算上是独立的，因此从另一个计算一个或从导出的
+   值计算会话机密是不可行的。注意：导出器可以产生任意长度值；如果导出器用作通道绑定，
+   则导出值必须足够大，以提供抗冲突能力。TLS 1.3中提供的导出器分别来自与早期业务密钥
+   和应用业务密钥相同的握手上下文，因此具有类似的安全属性。请注意，它们不包括客户的
+   证书；将来希望绑定到客户的证书的应用程序可能需要定义一个新的导出器，该导出器包含
+   完整的握手记录。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   For all handshake modes, the Finished MAC (and, where present, the   signature) prevents downgrade attacks.  In addition, the use of   certain bytes in the random nonces as described in Section 4.1.3   allows the detection of downgrade to previous TLS versions.  See   [BBFGKZ16] for more details on TLS 1.3 and downgrade.
+   对于所有握手模式，Finished 的MAC(以及签名，如果存在)可以防止降级攻击。此外，
+   如第4.1.3节所述，在随机数中使用某些字节允许检测降级到以前的TLS版本。有关
+   TLS 1.3和降级的更多详细信息，请参见[BBFGKZ16]。
  
-   As soon as the client and the server have exchanged enough   information to establish shared keys, the remainder of the handshake   is encrypted, thus providing protection against passive attackers,   even if the computed shared key is not authenticated.  Because the   server authenticates before the client, the client can ensure that if   it authenticates to the server, it only reveals its identity to an   authenticated server.  Note that implementations must use the   provided record-padding mechanism during the handshake to avoid   leaking information about the identities due to length.  The client's   proposed PSK identities are not encrypted, nor is the one that the   server selects.
+   一旦客户端和服务器交换了足够的信息以建立共享密钥，握手的其余部分就会被加密，从而
+   提供针对被动攻击者的保护，即使计算出的共享密钥没有经过身份验证也是如此。因为服务器
+   在客户端之前进行身份验证，所以客户端可以确保如果它向服务器进行身份验证，它只向经过
+   身份验证的服务器显示其身份。请注意，实现必须在握手期间使用提供的记录填充机制，以
+   避免由于长度而泄漏有关身份的信息。客户端建议的PSK身份没有加密，服务器选择的PSK
+   身份也没有加密。
  
-E.1.1.  Key Derivation and HKDF
+E.1.1.  密钥推导和HKDF
  
-   Key derivation in TLS 1.3 uses HKDF as defined in [RFC5869] and its   two components, HKDF-Extract and HKDF-Expand.  The full rationale for   the HKDF construction can be found in [Kraw10] and the rationale for   the way it is used in TLS 1.3 in [KW16].  Throughout this document,   each application of HKDF-Extract is followed by one or more   invocations of HKDF-Expand.  This ordering should always be followed   (including in future revisions of this document); in particular, one   SHOULD NOT use an output of HKDF-Extract as an input to another   application of HKDF-Extract without an HKDF-Expand in between.   Multiple applications of HKDF-Expand to some of the same inputs are   allowed as long as these are differentiated via the key and/or the   labels.
+   TLS 1.3中的密钥派生使用[RFC5869]中定义的HKDF及其两个组件，HKDF-Extract和
+   HKDF-Expand。HKDF构建的完整理由可以在[Kraw10]中找到，并且在[KW16]中TLS 1.3
+   中使用它的方式的理由也可以在[Kww10]中找到。在整个文档中，HKDF-Extract的每个
+   应用程序后面都有一个或多个HKDF-Expand的调用。应始终遵循此顺序(包括在本文档的
+   未来修订版中)；特别是，在没有HKDF-Expand的情况下，不应将HKDF-Extract的输出
+   用作另一个HKDF-Extract应用程序的输入。允许HKDF-Expand的多个应用到一些相同的
+   输入，只要这些输入是通过密钥和/或标签来区分的。
  
-   Note that HKDF-Expand implements a pseudorandom function (PRF) with   both inputs and outputs of variable length.  In some of the uses of   HKDF in this document (e.g., for generating exporters and the   resumption_master_secret), it is necessary that the application of   HKDF-Expand be collision resistant; namely, it should be infeasible   to find two different inputs to HKDF-Expand that output the same   value.  This requires the underlying hash function to be collision   resistant and the output length from HKDF-Expand to be of size at   least 256 bits (or as much as needed for the hash function to prevent   finding collisions).</pre>
+   请注意，HKDF-Expand实现了具有可变长度的输入和输出的伪随机函数(PRF)。在本文档
+   HKDF的一些用法中(例如，用于生成导出器和恢复主秘密)，HKDF-Expand的应用必须是
+   抗冲突的；即，找到输出相同值的HKDF-Expand的两个不同输入应该是不可行的。这要求
+   基础散列函数是抗冲突的，并且来自HKDF-Expand的输出长度的大小至少为256位
+   (或者与散列函数所需的长度一样多，以防止发现冲突)。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-E.1.2.  Client Authentication
+E.1.2.  客户端身份验证
  
-   A client that has sent authentication data to a server, either during   the handshake or in post-handshake authentication, cannot be sure   whether the server afterwards considers the client to be   authenticated or not.  If the client needs to determine if the server   considers the connection to be unilaterally or mutually   authenticated, this has to be provisioned by the application layer.   See [CHHSV17] for details.  In addition, the analysis of   post-handshake authentication from [Kraw16] shows that the client   identified by the certificate sent in the post-handshake phase   possesses the traffic key.  This party is therefore the client that   participated in the original handshake or one to whom the original   client delegated the traffic key (assuming that the traffic key has   not been compromised).
+   已经在握手期间或握手后认证中向服务器发送认证数据的客户端不能确定服务器之后是否
+   认为该客户端被认证。如果客户端需要确定服务器认为连接是单方面的还是相互验证的，
+   这必须由应用层提供。详见[CHHSV17]。此外，[Kraw16]对握手后身份验证的分析表明，
+   在握手后阶段发送的证书所标识的客户端拥有流量密钥。因此，这一方是参与原始握手的
+   客户端，或者是原始客户端将业务密钥委托给的客户端(假设业务密钥没有被泄露)。
  
 E.1.3.  0-RTT
  
-   The 0-RTT mode of operation generally provides security properties   similar to those of 1-RTT data, with the two exceptions that the   0-RTT encryption keys do not provide full forward secrecy and that   the server is not able to guarantee uniqueness of the handshake   (non-replayability) without keeping potentially undue amounts of   state.  See Section 8 for mechanisms to limit the exposure to replay.
+   0-RTT操作模式通常提供类似于1-RTT数据的安全属性，除了0-RTT加密密钥不提供前向
+   保密性和服务器不能保证握手的唯一性(不可重放性)而不保持潜在的不适当的状态量。有关
+   限制重放暴露的机制，请参见第8节。
  
-E.1.4.  Exporter Independence
+E.1.4.  导出器独立性
  
-   The exporter_master_secret and early_exporter_master_secret are   derived to be independent of the traffic keys and therefore do not   represent a threat to the security of traffic encrypted with those   keys.  However, because these secrets can be used to compute any   exporter value, they SHOULD be erased as soon as possible.  If the   total set of exporter labels is known, then implementations SHOULD   pre-compute the inner Derive-Secret stage of the exporter computation   for all those labels, then erase the [early_]exporter_master_secret,   followed by each inner value as soon as it is known that it will not   be needed again.
+   导出的exporter_master_secret 和exporter_master_secret 独立于流量密钥，
+   因此不会对使用这些密钥加密的流量的安全性构成威胁。但是，由于这些机密可用于计算任何
+   导出器值，因此应尽快擦除它们。如果导出器标签的总集合是已知的，那么实现应该为所有
+   这些标签预先计算导出器计算的内部派生秘密阶段，然后擦除
+   [Early_]exporter_master_secret，然后在知道不再需要时立即擦除
+   [Early_]exporter_master_secret。
  
 E.1.5.  Post-Compromise Security
  
-   TLS does not provide security for handshakes which take place after   the peer's long-term secret (signature key or external PSK) is   compromised.  It therefore does not provide post-compromise security   [CCG16], sometimes also referred to as backward or future secrecy.   This is in contrast to KCI resistance, which describes the security   guarantees that a party has after its own long-term secret has been   compromised.</pre>
+   TLS不为在对等体的长期密码(签名密钥或外部PSK)被泄露后发生的握手提供安全性。因此，
+   它不提供后妥协安全[CCG16]，有时也被称为后向保密或未来保密。这与KCI抵抗形成了
+   对比，KCI抵抗描述了一方在其自己的长期秘密被泄露后所具有的安全保证。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-E.1.6.  External References
+E.1.6.  外部参考
  
-   The reader should refer to the following references for analysis of   the TLS handshake: [DFGS15], [CHSV16], [DFGS16], [KW16], [Kraw16],   [FGSW16], [LXZFH16], [FG17], and [BBK17].
+   读者应参考以下参考资料来分析TLS握手: [DFGS15], [CHSV16], [DFGS16], [KW16],
+   [Kraw16],   [FGSW16], [LXZFH16], [FG17], and [BBK17].
  
-E.2.  Record Layer
+E.2.  记录层
  
-   The record layer depends on the handshake producing strong traffic   secrets which can be used to derive bidirectional encryption keys and   nonces.  Assuming that is true, and the keys are used for no more   data than indicated in Section 5.5, then the record layer should   provide the following guarantees:
+   记录层依赖于产生强通信密码的握手，该通信密码可用于导出双向加密密钥和随机数。假设
+   这是真的，并且关键字用于的数据不超过第5.5节所示，则记录层应提供以下保证：
  
-   Confidentiality:  An attacker should not be able to determine the      plaintext contents of a given record.
+   保密性:  攻击者不应该能够确定给定记录的明文内容。
  
-   Integrity:  An attacker should not be able to craft a new record      which is different from an existing record which will be accepted      by the receiver.
+   完整性:  攻击者不应该能够手工制作不同于接收方将接受的现有记录的新记录。
  
-   Order protection/non-replayability:  An attacker should not be able      to cause the receiver to accept a record which it has already      accepted or cause the receiver to accept record N+1 without having      first processed record N.
+   顺序保护/不可重放性:  攻击者不应该能够使接收者接受它已经接受的记录，或者在没有
+      首先处理记录N的情况下使接收者接受记录N+1。
  
-   Length concealment:  Given a record with a given external length, the      attacker should not be able to determine the amount of the record      that is content versus padding.
+   长度隐藏:  给定具有给定外部长度的记录，攻击者应该无法确定内容与填充的记录量。
  
-   Forward secrecy after key change:  If the traffic key update      mechanism described in Section 4.6.3 has been used and the      previous generation key is deleted, an attacker who compromises      the endpoint should not be able to decrypt traffic encrypted with      the old key.
+   密钥更改后的前向保密:  如果使用了4.6.3节中描述的流量密钥更新机制，并且删除了
+      上一代密钥，则危害端点的攻击者应该无法解密使用旧密钥加密的流量。
  
-   Informally, TLS 1.3 provides these properties by AEAD-protecting the   plaintext with a strong key.  AEAD encryption [RFC5116] provides   confidentiality and integrity for the data.  Non-replayability is   provided by using a separate nonce for each record, with the nonce   being derived from the record sequence number (Section 5.3), with the   sequence number being maintained independently at both sides; thus,   records which are delivered out of order result in AEAD deprotection   failures.  In order to prevent mass cryptanalysis when the same   plaintext is repeatedly encrypted by different users under the same   key (as is commonly the case for HTTP), the nonce is formed by mixing</pre>
+   非正式地，TLS 1.3通过使用强密钥保护明文来提供这些属性。AEAD加密[RFC5116]为
+   数据提供机密性和完整性。通过对每个记录使用单独的随机数来提供不可重放性，其中随机数
+   来自记录序列号(第5.3节)，序列号在两侧独立维护；因此，无序递送的记录导致AEAD失去
+   保护。为了防止当相同的明文被不同的用户在相同的密钥下重复加密时的大量密码分析
+   (对于HTTP来说通常是这样的情况)，通过将序列号与业务密钥一起导出的每个连接的秘密
+   初始化向量混合来形成随机数。有关此结构的分析，请参见[BT16]。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   the sequence number with a secret per-connection initialization   vector derived along with the traffic keys.  See [BT16] for analysis   of this construction.
+
  
-   The rekeying technique in TLS 1.3 (see Section 7.2) follows the   construction of the serial generator as discussed in [REKEY], which   shows that rekeying can allow keys to be used for a larger number of   encryptions than without rekeying.  This relies on the security of   the HKDF-Expand-Label function as a pseudorandom function (PRF).  In   addition, as long as this function is truly one way, it is not   possible to compute traffic keys from prior to a key change (forward   secrecy).
+   TLS 1.3中的密钥更新技术(参见第7.2节)遵循[ReKey]中讨论的串行生成器的构造，这表明
+   与不使用密钥更新相比，密钥更新可以允许密钥用于更多的加密。这依赖于
+    HKDF-Expand-Label 函数作为伪随机函数(PRF)的安全性。此外，只要这个函数是真正
+   单向的，就不可能从密钥改变之前计算流量密钥(前向保密)。
  
-   TLS does not provide security for data which is communicated on a   connection after a traffic secret of that connection is compromised.   That is, TLS does not provide post-compromise security/future   secrecy/backward secrecy with respect to the traffic secret.  Indeed,   an attacker who learns a traffic secret can compute all future   traffic secrets on that connection.  Systems which want such   guarantees need to do a fresh handshake and establish a new   connection with an (EC)DHE exchange.
+   TLS不为在连接的通信秘密被泄露后在该连接上通信的数据提供安全性。也就是说，TLS
+   不提供关于交通秘密的后置安全/未来保密/后向保密。实际上，获知流量密码的攻击者可以
+   计算该连接上的所有未来流量密码。需要这种保证的系统需要进行新的握手，并与(EC)DHE
+   交换建立新的连接。
  
-E.2.1.  External References
+E.2.1.  外部参考
  
-   The reader should refer to the following references for analysis of   the TLS record layer: [BMMRT15], [BT16], [BDFKPPRSZZ16], [BBK17], and   [PS18].
+   读者在分析TLS记录层时应参考以下参考资料： [BMMRT15], [BT16], BDFKPPRSZZ16],
+   [BBK17], and   [PS18].
  
-E.3.  Traffic Analysis
+E.3.  流量分析
  
-   TLS is susceptible to a variety of traffic analysis attacks based on   observing the length and timing of encrypted packets [CLINIC]   [HCJC16].  This is particularly easy when there is a small set of   possible messages to be distinguished, such as for a video server   hosting a fixed corpus of content, but still provides usable   information even in more complicated scenarios.
+   TLS容易受到基于观察加密数据包的长度和定时的各种流量分析攻击[Clinic][HCJC16]。
+   这在存在要区分的可能消息的小集合时特别容易，例如对于托管固定内容语料库的视频
+   服务器，但即使在更复杂的情况下仍然提供可用信息。
  
-   TLS does not provide any specific defenses against this form of   attack but does include a padding mechanism for use by applications:   The plaintext protected by the AEAD function consists of content plus   variable-length padding, which allows the application to produce   arbitrary-length encrypted records as well as padding-only cover   traffic to conceal the difference between periods of transmission and   periods of silence.  Because the padding is encrypted alongside the   actual content, an attacker cannot directly determine the length of   the padding but may be able to measure it indirectly by the use of   timing channels exposed during record processing (i.e., seeing how   long it takes to process a record or trickling in records to see</pre>
+   TLS不提供针对这种形式的攻击的任何特定防御，但包括供应用程序使用的填充机制：
+   由AEAD功能保护的明文由内容加上可变长度填充组成，这允许应用程序产生任意长度的加密
+   记录以及仅填充覆盖业务，以隐藏传输时段和静默时段之间的差异。因为填充是与实际内容
+   一起加密的，所以攻击者不能直接确定填充的长度，但可以通过使用记录处理期间暴露的
+   定时通道间接测量它(即，查看处理记录需要多长时间，或者在记录中滴入以查看哪些记录
+   引发了服务器的响应)。一般而言，不知道如何移除所有这些频道，因为即使是固定时间的
+   填充移除函数也可能将内容馈送到依赖于数据的函数中。至少，完全恒定时间的服务器或
+   客户端需要与应用层协议实现密切合作，包括在更高级别的协议中恒定时间。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   which ones elicit a response from the server).  In general, it is not   known how to remove all of these channels because even a   constant-time padding removal function will likely feed the content   into data-dependent functions.  At minimum, a fully constant-time   server or client would require close cooperation with the   application-layer protocol implementation, including making that   higher-level protocol constant time.
+
  
-   Note: Robust traffic analysis defenses will likely lead to inferior   performance due to delays in transmitting packets and increased   traffic volume.
+  注意：强大的流量分析防御可能会由于传输数据包的延迟和增加的流量而导致性能下降。
  
-E.4.  Side-Channel Attacks
+E.4.  旁路攻击
  
-   In general, TLS does not have specific defenses against side-channel   attacks (i.e., those which attack the communications via secondary   channels such as timing), leaving those to the implementation of the   relevant cryptographic primitives.  However, certain features of TLS   are designed to make it easier to write side-channel resistant code:
+   通常，TLS没有针对旁路攻击的特定防御(即，那些通过辅助信道(例如定时)攻击通信的
+   攻击)，而留给相关加密原语的实现。但是，TLS的某些功能旨在使编写旁路攻击防御代码
+   变得更容易：
  
-   -  Unlike previous versions of TLS which used a composite MAC-then-      encrypt structure, TLS 1.3 only uses AEAD algorithms, allowing      implementations to use self-contained constant-time      implementations of those primitives.
+   -  与使用复合MAC-THEN-ENCRYPT结构的先前版本的TLS不同，TLS 1.3仅使用AEAD 
+      算法，允许实现使用这些原语的自含式恒定时间实现。
  
-   -  TLS uses a uniform "bad_record_mac" alert for all decryption      errors, which is intended to prevent an attacker from gaining      piecewise insight into portions of the message.  Additional      resistance is provided by terminating the connection on such      errors; a new connection will have different cryptographic      material, preventing attacks against the cryptographic primitives      that require multiple trials.
+   -  TLS对所有解密错误使用统一的“bad_record_mac”警报，旨在防止攻击者获得对消息
+      部分的分段洞察。通过在这种错误时终止连接来提供额外的阻力；新的连接将具有不同的
+      加密材料，从而防止对需要多次试验的加密原语的攻击。
  
-   Information leakage through side channels can occur at layers above   TLS, in application protocols and the applications that use them.   Resistance to side-channel attacks depends on applications and   application protocols separately ensuring that confidential   information is not inadvertently leaked.</pre>
+   通过旁路攻击信息泄漏可能发生在TLS之上的层，在应用协议和使用它们的应用中。对
+   旁路攻击的抵抗力取决于应用程序和应用程序协议，分别确保机密信息不会无意中泄露。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-E.5.  Replay Attacks on 0-RTT
+E.5.  对0-RTT的重放攻击
  
-   Replayable 0-RTT data presents a number of security threats to TLS-   using applications, unless those applications are specifically   engineered to be safe under replay (minimally, this means idempotent,   but in many cases may also require other stronger conditions, such as   constant-time response).  Potential attacks include:
+   可重放的0-RTT数据给使用TLS的应用程序带来了许多安全威胁，除非这些应用程序被专门
+   设计为在重放下是安全的(这至少意味着幂等，但在许多情况下可能还需要其他更强的条件，
+   例如恒定时间响应)。潜在的攻击包括：
  
-   -  Duplication of actions which cause side effects (e.g., purchasing      an item or transferring money) to be duplicated, thus harming the      site or the user.
+   -  重复造成副作用（例如，购买物品或转移资金）的操作，从而损害网站或用户的利益。
  
-   -  Attackers can store and replay 0-RTT messages in order to reorder      them with respect to other messages (e.g., moving a delete to      after a create).
+   -  攻击者可以存储和重放0-RTT消息，以便相对于其他消息对它们进行重新排序
+      (例如，将删除移动到创建后)。
  
-   -  Exploiting cache timing behavior to discover the content of 0-RTT      messages by replaying a 0-RTT message to a different cache node      and then using a separate connection to measure request latency,      to see if the two requests address the same resource.
+   -  利用高速缓存定时行为，通过向不同的高速缓存节点重放0-RTT消息，然后使用单独的
+      连接来测量请求延迟，以查看两个请求是否寻址相同的资源，来发现0-RTT消息的内容。
  
-   If data can be replayed a large number of times, additional attacks   become possible, such as making repeated measurements of the speed of   cryptographic operations.  In addition, they may be able to overload   rate-limiting systems.  For a further description of these attacks,   see [Mac17].
+   如果数据可以多次重放，则可能会发生额外的攻击，例如重复测量加密操作的速度。此外，
+   他们可能会使速率限制系统过载。有关这些攻击的进一步说明，请参阅[Mac17]。
  
-   Ultimately, servers have the responsibility to protect themselves   against attacks employing 0-RTT data replication.  The mechanisms   described in Section 8 are intended to prevent replay at the TLS   layer but do not provide complete protection against receiving   multiple copies of client data.  TLS 1.3 falls back to the 1-RTT   handshake when the server does not have any information about the   client, e.g., because it is in a different cluster which does not   share state or because the ticket has been deleted as described in   Section 8.1.  If the application-layer protocol retransmits data in   this setting, then it is possible for an attacker to induce message   duplication by sending the ClientHello to both the original cluster   (which processes the data immediately) and another cluster which will   fall back to 1-RTT and process the data upon application-layer   replay.  The scale of this attack is limited by the client's   willingness to retry transactions and therefore only allows a limited   amount of duplication, with each copy appearing as a new connection   at the server.</pre>
+   最终，服务器有责任保护自己免受使用0-RTT数据复制的攻击。第8节中描述的机制旨在防止
+   在TLS层重放，但不提供针对接收客户端数据的多个副本的完整保护。当服务器没有关于
+   客户端的任何信息时，TLS 1.3退回到1-RTT握手，例如，因为它在不共享状态的不同集群
+   中，或者票证已被删除，如8.1节所述。如果应用层协议在此设置中重新传输数据，则攻击者
+   可能会通过将ClientHello发送到原始群集(立即处理数据)和另一个群集(将回退到1-RTT
+   并在应用层重放时处理数据)来诱导消息复制。此攻击的规模受到客户端重试事务的限制，
+   因此仅允许有限数量的复制，每个副本在服务器上显示为新连接。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-   If implemented correctly, the mechanisms described in Sections 8.1   and 8.2 prevent a replayed ClientHello and its associated 0-RTT data   from being accepted multiple times by any cluster with consistent   state; for servers which limit the use of 0-RTT to one cluster for a   single ticket, then a given ClientHello and its associated 0-RTT data   will only be accepted once.  However, if state is not completely   consistent, then an attacker might be able to have multiple copies of   the data be accepted during the replication window.  Because clients   do not know the exact details of server behavior, they MUST NOT send   messages in early data which are not safe to have replayed and which   they would not be willing to retry across multiple 1-RTT connections.
+   如果正确实施8.1和8.2节中描述的机制,可以防止重放ClientHello及其关联的0-RTT数据
+   被任何具有一致状态的集群多次接受；对于将0-RTT的使用限制在单个票证的一个集群中的
+   服务器，则给定的ClientHello及其关联的0-RTT数据将只接受一次。但是，如果状态
+   不完全一致，则攻击者可能能够在复制窗口期间接受数据的多个副本。因为客户端不知道
+   服务器行为的确切细节，所以他们不能在早期数据中发送消息，这些数据对于重放是不安全
+   的，并且它们不愿意跨多个1-RTT连接重试。
  
-   Application protocols MUST NOT use 0-RTT data without a profile that   defines its use.  That profile needs to identify which messages or   interactions are safe to use with 0-RTT and how to handle the   situation when the server rejects 0-RTT and falls back to 1-RTT.
+   如果没有定义0-RTT数据使用的配置文件，则应用程序协议不得使用0-RTT数据。该配置文件
+   需要确定哪些消息或交互可以安全地与0-RTT一起使用，以及当服务器拒绝0-RTT并退回到
+   1-RTT时如何处理这种情况。
  
-   In addition, to avoid accidental misuse, TLS implementations MUST NOT   enable 0-RTT (either sending or accepting) unless specifically   requested by the application and MUST NOT automatically resend 0-RTT   data if it is rejected by the server unless instructed by the   application.  Server-side applications may wish to implement special   processing for 0-RTT data for some kinds of application traffic   (e.g., abort the connection, request that data be resent at the   application layer, or delay processing until the handshake   completes).  In order to allow applications to implement this kind of   processing, TLS implementations MUST provide a way for the   application to determine if the handshake has completed.
+   此外，为了避免意外误用，除非应用程序特别请求，否则TLS实现不得启用0-RTT
+   (发送或接受)，并且除非应用程序指示，否则如果0-RTT数据被服务器拒绝，则不得自动重新
+   发送0-RTT数据。服务器侧应用可能希望为某些类型的应用业务实现对0-RTT数据的特殊处理
+   (例如，中止连接，请求在应用层重新发送数据，或者延迟处理直到握手完成)。为了允许
+   应用程序实现这种处理，TLS实现必须为应用程序提供一种方法来确定握手是否已完成。
  
-E.5.1.  Replay and Exporters
+E.5.1.  重播和导出器
  
-   Replays of the ClientHello produce the same early exporter, thus   requiring additional care by applications which use these exporters.   In particular, if these exporters are used as an authentication   channel binding (e.g., by signing the output of the exporter), an   attacker who compromises the PSK can transplant authenticators   between connections without compromising the authentication key.
+   ClientHello的重播会产生相同的早期导出器，因此需要使用这些导出器的应用程序进行
+   额外的处理。特别地，如果这些导出器被用作验证通道绑定(例如，通过对导出器的输出
+   进行签名)，则危害PSK的攻击者可以在不损害验证密钥的情况下在连接之间移植验证器。
  
-   In addition, the early exporter SHOULD NOT be used to generate   server-to-client encryption keys because that would entail the reuse   of those keys.  This parallels the use of the early application   traffic keys only in the client-to-server direction.</pre>
+   此外，早期导出器不应用于生成服务器到客户端的加密密钥，因为这将需要重用这些密钥。
+   这与早期应用程序流量密钥仅在客户端到服务器方向上的使用类似。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
-E.6.  PSK Identity Exposure
+E.6.  PSK身份泄露
  
-   Because implementations respond to an invalid PSK binder by aborting   the handshake, it may be possible for an attacker to verify whether a   given PSK identity is valid.  Specifically, if a server accepts both   external-PSK handshakes and certificate-based handshakes, a valid PSK   identity will result in a failed handshake, whereas an invalid   identity will just be skipped and result in a successful certificate   handshake.  Servers which solely support PSK handshakes may be able   to resist this form of attack by treating the cases where there is no   valid PSK identity and where there is an identity but it has an   invalid binder identically.
+   因为实现通过中止握手来响应无效的PSK绑定器，所以攻击者可能会验证给定的PSK身份
+   是否有效。具体地说，如果服务器既接受外部PSK握手又接受基于证书的握手，有效的PSK
+   身份将导致握手失败，而无效的身份将被跳过并导致成功的证书握手。仅支持PSK握手的
+   服务器可能能够通过相同地对待不存在有效PSK身份和存在身份但其具有无效绑定器的情况
+   来抵抗这种形式的攻击。
  
-E.7.  Sharing PSKs
+E.7.  共享PSK
  
-   TLS 1.3 takes a conservative approach to PSKs by binding them to a   specific KDF.  By contrast, TLS 1.2 allows PSKs to be used with any   hash function and the TLS 1.2 PRF.  Thus, any PSK which is used with   both TLS 1.2 and TLS 1.3 must be used with only one hash in TLS 1.3,   which is less than optimal if users want to provision a single PSK.   The constructions in TLS 1.2 and TLS 1.3 are different, although they   are both based on HMAC.  While there is no known way in which the   same PSK might produce related output in both versions, only limited   analysis has been done.  Implementations can ensure safety from   cross-protocol related output by not reusing PSKs between TLS 1.3 and   TLS 1.2.
+   TLS 1.3通过将PSK绑定到特定的KDF来对PSK采取保护的方法。相比之下，TLS 1.2允许
+   PSK与任何散列函数和TLS 1.2 PRF一起使用。因此，与TLS 1.2和TLS 1.3一起使用的
+   任何PSK必须仅与TLS 1.3中的一个散列一起使用，如果用户想要提供单个PSK，则这不是
+   最优的。TLS 1.2和TLS 1.3中的结构是不同的，尽管它们都基于HMAC。虽然没有已知的
+   方式相同的PSK可能在两个版本中产生相关的输出，但仅进行了有限的分析。通过不在
+   TLS 1.3和TLS 1.2之间重用PSK，实现可以确保跨协议相关输出的安全性。
  
-E.8.  Attacks on Static RSA
+E.8.  对静态RSA的攻击
  
-   Although TLS 1.3 does not use RSA key transport and so is not   directly susceptible to Bleichenbacher-type attacks [Blei98], if TLS   1.3 servers also support static RSA in the context of previous   versions of TLS, then it may be possible to impersonate the server   for TLS 1.3 connections [JSS15].  TLS 1.3 implementations can prevent   this attack by disabling support for static RSA across all versions   of TLS.  In principle, implementations might also be able to separate   certificates with different keyUsage bits for static RSA decryption   and RSA signature, but this technique relies on clients refusing to   accept signatures using keys in certificates that do not have the   digitalSignature bit set, and many clients do not enforce this   restriction.</pre>
+   尽管TLS 1.3不使用RSA密钥传输，因此不会直接受到Bleichenbacher类型的攻击
+   [Blei98]，但如果TLS 1.3服务器在以前版本的TLS环境中也支持静态RSA，则可能会模拟
+   服务器进行TLS 1.3连接[JSS15]。TLS 1.3实现可以通过禁用对所有TLS版本的静态RSA
+   的支持来防止这种攻击。原则上，实现也可以将具有不同密钥的证书分开用于静态RSA解密
+   和RSA签名，但此技术依赖于客户端拒绝使用未设置digitalSignature位的
+   证书中的密钥接受签名，并且许多客户端不强制实施此限制。</pre>
 <hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
 
  
