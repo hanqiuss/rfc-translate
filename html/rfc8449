@@ -1,0 +1,316 @@
+<div class="content" style="float: left; margin: 0px 30%; width: 579px; font-size: 10pt;">
+   <div style="height: 13px;">
+      <div onmouseover="this.style.cursor='pointer';" onclick="showElem('legend');" onmouseout="hideElem('legend')" style="height: 6px; position: absolute; cursor: pointer;" class="pre noprint docinfo bgblue" title="Click for colour legend.">                                                                        </div>
+      <div id="legend" class="docinfo noprint pre legend" style="position:absolute; top: 4px; left: 4ex; visibility:hidden; background-color: white; padding: 4px 9px 5px 7px; border: solid #345 1px; " onmouseover="showElem('legend');" onmouseout="hideElem('legend');">
+      </div>
+   </div>
+<span class="pre noprint docinfo top">[<a href="../html/" title="Document search and retrieval page">Docs</a>] [<a href="/rfc/rfc8449.txt" title="Plaintext version of this document">txt</a>|<a href="/pdf/rfc8449" title="PDF version of this document">pdf</a>] [<a href="./draft-ietf-tls-record-limit" title="draft-ietf-tls-record-limit">draft-ietf-tls-...</a>] [<a href="https://datatracker.ietf.org/doc/rfc8449" title="IESG Datatracker information for this document">Tracker</a>] [<a href="/rfcdiff?difftype=--hwdiff&amp;url2=rfc8449" title="Inline diff (wdiff)">Diff1</a>] [<a href="/rfcdiff?url2=rfc8449" title="Side-by-side diff">Diff2</a>]         </span><br>
+<span class="pre noprint docinfo">                                                                        </span><br>
+<span class="pre noprint docinfo">                                                       PROPOSED STANDARD</span><br>
+<span class="pre noprint docinfo">                                                                        </span><br>
+<pre style="height: 780px; white-space: pre-wrap;">Internet Engineering Task Force (IETF)                        M. Thomson
+Request for Comments: 8449                                       Mozilla
+Updates: 6066                                                August 2018
+Category: Standards Track
+ISSN: 2070-1721
+ 
+
+                         TLS的记录大小限制扩展
+ 
+摘要
+ 
+   定义了对传输层安全(TLS)的扩展，允许端点协商彼此将发送的受保护记录的最大大小。
+ 
+   这取代了RFC 6066中定义的最大片段长度扩展。
+ 
+此备忘录的状态
+ 
+   这是Internet标准跟踪文档.
+ 
+   本文档是Internet工程任务组(IETF)的产品。它代表了IETF社区的共识。它已经接受了
+   公众的审查，并已被互联网工程指导小组(IESG)批准出版。有关Internet标准的更多信息，
+   请参阅RFC 7841的第2节。
+ 
+   有关本文档的当前状态、任何勘误表以及如何提供反馈的信息，请访问。
+   https://www.rfc-editor.org/info/rfc8449.
+ 
+Copyright Notice
+ 
+   Copyright (c) 2018 IETF Trust and the persons identified as the   document authors.  All rights reserved.
+ 
+   This document is subject to BCP 78 and the IETF Trust's Legal   Provisions Relating to IETF Documents
+   (https://trustee.ietf.org/license-info) in effect on the date of   publication of this document.  Please review these documents   carefully, as they describe your rights and restrictions with respect   to this document.  Code Components extracted from this document must   include Simplified BSD License text as described in Section 4.e of   the Trust Legal Provisions and are provided without warranty as   described in the Simplified BSD License.</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ <p style="font-family:新宋体;">
+目录
+ 
+   1.  简介. . . . . . . . . . . . . . . . . . . . . . . .             2
+   2.  定义和约定 . . . . . . . . . . . . . . . . .                    3
+   3.  "max_fragment_length"扩展的限制  . . . . .                      3
+   4.  "record_size_limit" 扩展. . . . . . . . . . . . . .             4
+     4.1.  记录扩展限制 . . . . . . . . . . . . . . . . .              6
+   5.  废弃"max_fragment_length" . . . . . . . . . . . . . .           6
+   6.  安全注意事项 . . . . . . . . . . . . . . . . . . .              7
+   7.  IANA 注意事项 . . . . . . . . . . . . . . . . . . . . .         7
+   8.  参考. . . . . . . . . . . . . . . . . . . . . . . . .           7
+     8.1.  标准参考              . . . . . . . . . . . . . . . . . .   7
+     8.2.  信息参考                . . . . . . . . . . . . . . . . .   8
+   Acknowledgments . . . . . . . . . . . . . . . . . . . . . . . . .   8
+   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .   8
+ </p>
+1.  简介
+ 
+   为受限设备实施传输层安全(TLS)[TLS]或数据报TLS(DTLS)[DTLS]可能具有挑战性。然而，
+   最近对加密算法设计和实现的改进使得TLS可以被一些高度受限的设备访问(例如，
+   参见[RFC7925])。
+ 
+   对于具有有限操作内存的设备来说，接收大的受保护记录可能特别困难。TLS1.2版
+   [RFC5246]和更早的版本允许发送者生成大小为16384个八位字节的记录，外加压缩和
+   保护最大2048 个八位字节的扩展(尽管这种扩展通常只有16个八位字节)。TLS 1.3将
+   扩展余量减少到256个二进制八位数。为密文分配高达18K的内存超出了某些实现的能力。
+ 
+   具有附加数据密码的身份验证加密(AEAD)API(参见[RFC5116])要求存在整个记录以对其
+   进行解密和身份验证。同样，在整个记录存在之前，其他密码不能产生经过身份验证的
+   数据。记录的增量处理会使端点面临伪造数据的风险。
+ 
+   “max_fragment_length”扩展[RFC6066]旨在使受约束的客户端能够协商较低的记录
+   大小。然而，“max_fragment_length”有几个设计问题(见第3节)。
+ 
+   本文档定义了“record_size_limit”扩展(第4节)。此扩展取代了本文档已弃用的
+   “max_Fragment_length”[RFC6066]。此扩展在TLS的所有版本中均有效。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   较小的受保护记录大小只是受约束的实现可能需要解决的许多问题之一。
+   “record_size_limit”扩展只解决内存分配问题；它不解决代码大小、处理能力或带宽
+   容量的限制。
+ 
+2.  约定和定义
+ 
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",   "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and   "OPTIONAL" in this document are to be interpreted as described in   BCP 14 [RFC2119] [RFC8174] when, and only when, they appear in all   capitals, as shown here.
+ 
+3.  "max_fragment_length" 扩展的限制
+ 
+   “max_Fragment_length”扩展有几个限制，使其不适合使用。
+ 
+   没有限制条件阻止其接受大记录的客户端不能在不减少记录大小的情况下使用
+   “max_Fragment_length”。扩展允许的最大值为2^12，远远小于协议允许的最大记录
+   大小2^14。
+ 
+   对于大型数据传输，较小的记录大小可能会对性能产生实质性影响。每条记录都会产生额外的
+   成本，既包括记录标头的额外八位字节，也包括由于加密而扩展的二进制八位数。处理更多的
+   记录还会增加计算开销，对于更大的记录大小，可以更有效地摊销这些开销。因此，能够接收
+   大型记录的客户端可能不愿意冒险通过提供扩展来降低性能，特别是在很少需要扩展的
+   情况下。
+ 
+   如果codepoint 可用，或者可以为2^14个八位字节的片段添加codepoint ，这将不会是
+   一个问题。然而，RFC 6066 要求服务器在接收到带有不理解的值的扩展时中止握手，并
+   发出“illegal_parameter”警报。这使得不可能在没有连接尝试失败的风险的情况下向
+   扩展添加新值。
+ 
+   需要 协商“max_fragment_length”的服务器来回显客户端选择的值。服务器无法请求比
+   客户端提供的下限更低的限制。如果服务器比其服务的客户端更受约束，则这是一个严重的
+   问题。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   “max_Fragment_length” 扩展也不适合客户端和服务器的能力不对称的情况。对记录大小
+   的约束通常是接收器约束。
+ 
+   相比之下，实现可能能够以增量方式发送数据。加密没有相同的原子性要求。一些密码可以
+   被加密并逐步发送。因此，端点可能愿意发送大于其接收限制的记录。
+ 
+   如果这些阻碍足以阻止客户端部署“max_fragment_length”扩展，则受约束的服务器
+   无法限制记录大小。
+ 
+4.  “record_size_limit”扩展
+ 
+   record_size_limit扩展的ExtensionData 为RecordSizeLimit：
+ 
+      uint16 RecordSizeLimit;
+ 
+   RecordSizeLimit的值是端点愿意接收的记录的最大大小(以八位字节为单位)。此值用于
+   限制在将应用程序数据和受保护的握手消息编码为记录时创建的记录的大小。
+ 
+   协商“record_size_limit”扩展时，端点不得生成明文大于其从对等端接收的
+   RecordSizeLimit值的受保护记录。未受保护的邮件不受此限制。
+ 
+   此值是受保护记录的明文的长度。该值包括TLS 1.3中添加的内容类型和填充
+   (即TLSInnerPlaintext的完整长度)。在TLS 1.2及更早版本中，限制包括压缩和加密的
+   所有输入(即最终生成TLSCiphertext.Fragment的数据)。作为加密的一部分添加的填充，
+   例如通过块密码添加的填充，不包括在此计数中(参见第4.1节)。
+ 
+   支持所有记录大小的端点可以包括协议定义的最大记录大小限制的任何限制。对于TLS 1.2
+   及更早版本，限制为2^14个二进制八位数。TLS 1.3使用2^14+1个二进制八位数的限制。
+   当前为可能允许更大记录的协议的未来版本保留更高的值；端点不得发送高于协议定义的
+   最大记录大小的值，除非未来版本或扩展明确允许。服务器不能强制执行此限制；客户端
+   可能会通告由服务器不理解的扩展或版本启用的更高限制。如果record_size_limit扩展
+   包含的值大于协商的协议版本和扩展所允许的最大记录大小，则客户端可以中止握手，并发出
+   “illegal_parameter”警报。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+
+ 
+   即使对等端提供了更大的记录大小限制，端点也不得发送大于协议定义的限制的记录，除非
+   未来的TLS版本或扩展明确允许。
+ 
+   记录大小限制仅适用于发送到通告限制的端点的记录。端点可以发送大于其自身限制的记录。
+   接收大于其通告限制的记录的TLS端点必须生成致命的“record_overflow”警报；接收到
+   大于其通告限制的记录的DTLS端点可能会生成致命的“record_overflow”警报或丢弃该
+   记录。
+ 
+   端点应该通告“record_size_limit”扩展，即使它们不需要限制记录的大小。对于客户端，
+   这允许服务器根据自己的判断公布限制。对于服务器，这允许客户端知道他们的限制将得到
+   尊重。如果未协商此扩展，则端点可以发送协议或其他协商的扩展所允许的任何大小的记录。
+ 
+   端点不得发送值小于64的“record_size_limit”扩展。端点必须将收到较小的值视为致命
+   错误，并生成“illegal_parameter”警报。
+ 
+   在TLS 1.3中，服务器在EncryptedExtensions消息中发送“record_size_limit”
+   扩展。
+ 
+   在重新协商或恢复期间，将重新协商记录大小限制。记录受制于在握手中设置的限制，握手
+   生成用于保护这些记录的密钥。这允许在重新协商或恢复连接时不协商扩展的可能性。
+ 
+   DTLS中的路径最大传输单元(PMTU)也限制记录的大小。记录大小限制不影响PMTU发现，应
+   独立设置。记录大小限制在握手期间是固定的，因此应该基于端点的约束而不是基于当前网络
+   环境来设置。相比之下，PMTU由网络路径确定，并且可以随时间动态变化。有关PMTU发现的
+   更多详细信息，请参阅[PMTU]和[DTLS]的第4.1.1.1节。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   PMTU控制UDP数据报的大小，这会限制记录的大小，但不会阻止记录变小。发送小记录的端点
+   仍然能够在单个UDP数据报中发送多个记录。
+ 
+4.1.  记录扩展限制
+ 
+   “record_size_limit”扩展中表示的大小限制不考虑由于压缩或记录保护而导致的增加。
+   预计受约束的设备将禁用压缩，以避免记录大小的不可预测的增加。流密码和现有的AEAD
+   密码不允许可变的扩充量，但分组密码允许可变的扩充量。
+ 
+   在TLS 1.2中，分组密码允许1到256个八位字节的填充。当通告低于协议定义的限制时，
+   第二个限制适用于使用块密码的记录的长度。端点不得将填充添加到会导致受保护记录超过
+   包含最大明文量和最小允许填充量的受保护记录的大小的记录中。
+ 
+   例如，TLS_RSA_WITH_AES_128_CBC_SHA具有16个二进制八位数的数据块和一个20个
+   二进制八位数的 MAC 。给定256的记录大小限制，该长度的记录将需要最少11个八位字节
+   的填充(对于[RFC5246]，其中MAC被加密覆盖)；或者如果协商了“encrypt_then_mac”
+   扩展[RFC7366]，则需要15个八位字节。有了这个限制，具有250个八位字节的明文的记录
+   可以通过最多包括17个八位字节的填充来填充到相同的长度，或者使用
+   “encrypt_then_mac”包括21个八位字节。
+ 
+   始终添加最小填充量的实现将始终符合此要求。
+ 
+5.  废弃"max_fragment_length"
+ 
+   “record_size_limit”扩展取代了“max_fragment_length”扩展[RFC6066]。如果
+   两个扩展都出现，则支持“record_size_limit”扩展的服务器必须忽略ClientHello中
+   出现的“max_fragment_length”。客户端必须将收到“max_fragment_length”和
+   “record_size_limit”视为致命错误，并应生成“illegal_parameter”警报。
+ 
+   依赖于具有较小记录大小的客户端可以继续广播“max_fragment_length”。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+6.  安全注意事项
+ 
+   非常小的记录大小可能会为发送者和接收者产生额外的工作，从而限制吞吐量并增加拒绝服务
+   的风险。
+ 
+7.  IANA 注意事项
+ 
+   本文档在[RFC5246]中建立的“TLS ExtensionType Values”注册表中注册
+   “record_size_limit”扩展。已为“record_size_limit”扩展分配了编码 28。IANA
+   注册表[TLS-REGISTRY]将此扩展列为“推荐”(即“Y”)，并指示它可能出现在
+   TLS 1.3[TLS]中的ClientHello(CH)或EncryptedExtensions(EE)消息中。
+ 
+   在同一注册表中，“max_fragment_length”已更改为不推荐(即“N”)。
+ 
+8.  参考
+ 
+8.1.  标准参考
+ 
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119,
+              DOI 10.17487/RFC2119, March 1997,
+              <https: www.rfc-editor.org="" info="" rfc2119="">.
+
+   [RFC5246]  Dierks, T. and E. Rescorla, "The Transport Layer Security
+              (TLS) Protocol Version 1.2", RFC 5246,
+              DOI 10.17487/RFC5246, August 2008,
+              <https: www.rfc-editor.org="" info="" rfc5246="">.
+
+   [RFC6066]  Eastlake 3rd, D., "Transport Layer Security (TLS)
+              Extensions: Extension Definitions", RFC 6066,
+              DOI 10.17487/RFC6066, January 2011,
+              <https: www.rfc-editor.org="" info="" rfc6066="">.
+
+   [RFC7366]  Gutmann, P., "Encrypt-then-MAC for Transport Layer
+              Security (TLS) and Datagram Transport Layer Security
+              (DTLS)", RFC 7366, DOI 10.17487/RFC7366, September 2014,
+              <https: www.rfc-editor.org="" info="" rfc7366="">.
+
+   [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
+              2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
+              May 2017, <https: www.rfc-editor.org="" info="" rfc8174="">.</https:></https:></https:></https:></https:></pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   [TLS]      Rescorla, E., "The Transport Layer Security (TLS) Protocol
+              Version 1.3", RFC 8446, DOI 10.17487/RFC8446, August 2018,
+              <https: www.rfc-editor.org="" info="" rfc8446="">.
+
+8.2.  Informative References
+
+   [DTLS]     Rescorla, E. and N. Modadugu, "Datagram Transport Layer
+              Security Version 1.2", RFC 6347, DOI 10.17487/RFC6347,
+              January 2012, <https: www.rfc-editor.org="" info="" rfc6347="">.
+
+   [PMTU]     McCann, J., Deering, S., Mogul, J., and R. Hinden, Ed.,
+              "Path MTU Discovery for IP version 6", STD 87, RFC 8201,
+              DOI 10.17487/RFC8201, July 2017,
+              <https: www.rfc-editor.org="" info="" rfc8201="">.
+
+   [RFC5116]  McGrew, D., "An Interface and Algorithms for Authenticated
+              Encryption", RFC 5116, DOI 10.17487/RFC5116, January 2008,
+              <https: www.rfc-editor.org="" info="" rfc5116="">.
+
+   [RFC7925]  Tschofenig, H., Ed. and T. Fossati, "Transport Layer
+              Security (TLS) / Datagram Transport Layer Security (DTLS)
+              Profiles for the Internet of Things", RFC 7925,
+              DOI 10.17487/RFC7925, July 2016,
+              <https: www.rfc-editor.org="" info="" rfc7925="">.
+
+   [TLS-REGISTRY]
+              Salowey, J. and S. Turner, "IANA Registry Updates for TLS
+              and DTLS", RFC 8447, DOI 10.17487/RFC8447, August 2018,
+              <https: www.rfc-editor.org="" info="" rfc8447="">.
+
+Acknowledgments
+
+   Thomas Pornin and Hannes Tschofenig provided significant input to
+   this document.  Alan DeKok identified an issue with the interaction
+   between record size limits and PMTU.
+
+Author's Address
+
+   Martin Thomson
+   Mozilla
+
+   Email: martin.thomson@gmail.com
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+</https:></https:></https:></https:></https:></https:></pre><br>
+    <span class="noprint"><small><small>Html markup produced by rfcmarkup 1.129b, available from
+      <a href="https://tools.ietf.org/tools/rfcmarkup/">https://tools.ietf.org/tools/rfcmarkup/</a>
+    </small></small></span>
+  </div>
