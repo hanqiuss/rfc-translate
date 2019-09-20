@@ -1,0 +1,768 @@
+<div class="content" style="float: left; margin: 0px 30%; width: 579px; font-size: 10pt;">
+   <div style="height: 13px;">
+      <div onmouseover="this.style.cursor='pointer';" onclick="showElem('legend');" onmouseout="hideElem('legend')" style="height: 6px; position: absolute; cursor: pointer;" class="pre noprint docinfo bgblue" title="Click for colour legend.">                                                                        </div>
+      <div id="legend" class="docinfo noprint pre legend" style="position:absolute; top: 4px; left: 4ex; visibility:hidden; background-color: white; padding: 4px 9px 5px 7px; border: solid #345 1px; " onmouseover="showElem('legend');" onmouseout="hideElem('legend');">
+      </div>
+   </div>
+<span class="pre noprint docinfo top">[<a href="../html/" title="Document search and retrieval page">Docs</a>] [<a href="/rfc/rfc5116.txt" title="Plaintext version of this document">txt</a>|<a href="/pdf/rfc5116" title="PDF version of this document">pdf</a>] [<a href="./draft-mcgrew-auth-enc" title="draft-mcgrew-auth-enc">draft-mcgrew-au...</a>] [<a href="https://datatracker.ietf.org/doc/rfc5116" title="IESG Datatracker information for this document">Tracker</a>] [<a href="/rfcdiff?difftype=--hwdiff&amp;url2=rfc5116" title="Inline diff (wdiff)">Diff1</a>] [<a href="/rfcdiff?url2=rfc5116" title="Side-by-side diff">Diff2</a>] [<a href="https://www.rfc-editor.org/errata_search.php?rfc=5116">Errata</a>]</span><br>
+<span class="pre noprint docinfo">                                                                        </span><br>
+<span class="pre noprint docinfo">                                                       PROPOSED STANDARD</span><br>
+<span class="pre noprint docinfo">                                                            <span style="color: #C00;">Errata Exist</span></span><br>
+<pre style="height: 780px; white-space: pre-wrap;">Network Working Group                                          D. McGrew
+Request for Comments: 5116                           Cisco Systems, Inc.
+Category: Standards Track                                   January 2008
+ 
+
+                             认证加密的接口和算法
+ 
+此备忘录的状态
+ 
+   本文档指定了互联网社区的互联网标准跟踪协议，并要求进行讨论并提出改进建议。有关
+   本协议的标准化状况和状态，请参考当前版本的“互联网官方协议标准”(STD1)。这份备忘录
+   的分发是无限制的。
+ 
+摘要
+ 
+   本文档定义了具有关联数据的身份验证加密(EAAD)的算法，并定义了用于此类算法的统一
+   接口和注册表。接口和注册表可以用作一组与应用程序无关的加密算法套件。这种方法在效率
+   和安全性方面具有优势，并促进了加密实现的重用。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ <p style="font-family: 新宋体;">
+目录
+ 
+   1.  简介         . . . . . . . . . . . . . . . . . . . . . . . . .  3
+     1.1.  背景       . . . . . . . . . . . . . . . . . . . . . . . .  3
+     1.2.  范围   . . . . . . . . . . . . . . . . . . . . . . . . . .  3
+     1.3.  优点     . . . . . . . . . . . . . . . . . . . . . . . . .  4
+     1.4.  本文档中使用的约定                 . . . . . . . . . . . .  4
+   2.  AEAD 接口      . . . . . . . . . . . . . . . . . . . . . . . .  5
+     2.1.  经过身份验证的加密       . . . . . . . . . . . . . . . . .  5
+     2.2.  经过验证的解密           . . . . . . . . . . . . . . . . .  7
+     2.3.  数据格式         . . . . . . . . . . . . . . . . . . . . .  7
+   3.  AEAD算法使用指南                       . . . . . . . . . . . .  8
+     3.1.  对随机数生成的要求               . . . . . . . . . . . . .  8
+     3.2.  建议的随机数格式             . . . . . . . . . . . . . . .  9
+       3.2.1.  部分隐含的随机数           . . . . . . . . . . . . . . 10
+     3.3.  AEAD 输入的构建              . . . . . . . . . . . . . . . 11
+     3.4.  用法示例       . . . . . . . . . . . . . . . . . . . . . . 11
+   4.  对 AEAD 算法规范的要求                         . . . . . . . . 12
+   5.  AEAD 算法        . . . . . . . . . . . . . . . . . . . . . . . 14
+     5.1.  AEAD_AES_128_GCM . . . . . . . . . . . . . . . . . . . . . 14
+       5.1.1.  随机数重用   . . . . . . . . . . . . . . . . . . . . . 14
+     5.2.  AEAD_AES_256_GCM . . . . . . . . . . . . . . . . . . . . . 15
+     5.3.  AEAD_AES_128_CCM . . . . . . . . . . . . . . . . . . . . . 15
+       5.3.1.  随机数重用   . . . . . . . . . . . . . . . . . . . . . 16
+     5.4.  AEAD_AES_256_CCM . . . . . . . . . . . . . . . . . . . . . 16
+   6.  IANA 注意事项        . . . . . . . . . . . . . . . . . . . . . 16
+   7.  其他注意事项         . . . . . . . . . . . . . . . . . . . . . 17
+   8.  安全注意事项             . . . . . . . . . . . . . . . . . . . 18
+   9.  Acknowledgments  . . . . . . . . . . . . . . . . . . . . . . . 18
+   10. 参考       . . . . . . . . . . . . . . . . . . . . . . . . . . 19
+     10.1. 规范参考             . . . . . . . . . . . . . . . . . . . 19
+     10.2. 信息参考               . . . . . . . . . . . . . . . . . . 19
+</p></pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+1.  简介
+ 
+   Authenticated encryption[BN00]是一种加密形式，除了为加密的明文提供机密性外，
+   还提供了一种检查其完整性和真实性的方法。关联数据的身份验证加密(或称AEAD [R02])
+   增加了检查某些未加密的关联数据(AD)(也称为“其他身份验证数据”)的完整性和真实性的
+   能力。
+ 
+1.1.  背景
+ 
+   许多加密应用程序都需要机密性和消息身份验证。机密性是一种安全服务，它确保只有获得
+   授权的人才能获得数据；通常通过加密来实现。消息身份验证是确保数据没有被未经授权的
+   实体篡改或伪造的服务；它可以通过使用消息身份验证代码(MAC)来实现。此服务也称为数据
+   完整性。许多应用程序一起使用加密方法和MAC来提供这两种安全服务，每个算法都使用一个
+   独立的密钥。最近，使用单一加密算法提供两种安全服务的想法已被接受。在此概念中，
+   密码和MAC被身份验证的关联数据加密(AEAD)算法取代。
+ 
+   已经定义了几种实现 AEAD 算法的密码算法，包括块密码操作模式和专用算法。这些算法中
+   的一些已经被采用，并且在实践中被证明是有用的。此外，AEAD 接近加密的“理想化”观点，
+   例如用于密码协议的自动分析(例如，参见[Boyd]的第2.5节)。
+ 
+   AEAD 算法和此接口的优点在第1.3节中概述。
+ 
+1.2.  范围
+ 
+   在本文档中，我们通过指定AEAD的接口并定义AEAD算法的IANA注册表，将AEAD算法定义为
+   abstraction。我们使用四种基于 Galois/Counter Mode[GCM](128位和256位密钥)
+   下的高级加密标准(AES)以及计数器和 CBC MAC模式[CCM](128位和256位密钥)下的
+   AEAD算法填充此注册表。
+ 
+   在下面，我们定义了AEAD 接口(第2节)，然后提供了有关AEAD 算法使用的指导(第3节)，
+   并概述了每个AEAD 算法必须满足的要求(第4节)。然后我们定义了几种AEAD算法(第5节)，
+   并建立了AEAD算法的IANA注册表(第6节)。最后，我们讨论一些其他考虑事项(第7节)。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   
+
+   AEAD接口规范不解决安全协议问题，例如对经认证的数据作出的反重放服务或访问控制决定。
+   相反，该规范旨在将密码学从这些问题中抽象出来。接口以及有关如何使用该接口的指南与
+   [EEM04] 中的建议一致。
+ 
+1.3.  优点
+ 
+   AEAD方法使需要加密安全服务的应用程序能够更容易地采用这些服务。它使应用程序设计人员
+   能够专注于安全服务、规范化和数据封送处理等重要问题，从而使应用程序设计人员受益，
+   并使他们不必设计满足其安全目标的加密机制。重要的是，可以独立于其在特定应用中的使用
+   来分析AEAD算法的安全性。这一特性使AEAD的用户不必考虑安全方面，例如认证和加密的
+   相对顺序以及密码和MAC的特定组合的安全性，例如通过MAC的机密性的潜在损失。使用AEAD
+   接口的应用设计者不需要在设计阶段选择特定的AEAD算法。此外，AEAD的接口相对简单，
+   因为它只需要单个关键字作为输入，并且只需要单个标识符来指示在特定情况下使用的算法。
+ 
+   AEAD 方法通过提供无法减少计算量、实现成本和/或存储要求的可用优化，使加密算法的
+   实现者受益。更简单的接口使得测试更容易；这对于加密算法实现来说是一个相当大的好处。
+   通过提供访问加密服务的统一接口，AEAD方法允许单个加密实现更容易地支持多个应用。
+   例如，支持AEAD接口的硬件模块可以容易地向使用该接口的任何应用程序提供加密加速，
+   甚至对于在构建模块时尚未设计的应用程序也是如此。
+ 
+1.4.  本文档中使用的约定
+ 
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+   document are to be interpreted as described in [RFC2119].</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+2.  AEAD 接口
+ 
+   AEAD算法有两个操作，认证加密和认证解密。这些算法的输入和输出在下面以八位字节
+   字符串的形式定义。
+ 
+   实现可以接受额外的输入。例如，可以提供输入以允许用户在不同的实现策略之间进行选择。
+   然而，这样的扩展不能影响与其他实现的互操作性。
+ 
+2.1.  认证加密
+ 
+   经过身份验证的加密操作有四个输入，每个输入都是一个八位字节字符串：
+ 
+      密钥K，必须以均匀随机或伪随机的方式生成。
+ 
+      随机数N。对于密钥的任何特定值，提供给经认证的加密操作的不同调用的每个随机数
+      必须是不同的，除非每个随机数都是零长度。可以生成不同随机数的应用程序应使用
+      第3.2节中定义的随机数形成方法，并且可以使用满足唯一性要求的任何其他方法。
+      其他应用程序应使用零长度随机数。
+ 
+      明文P，包含要加密和认证的数据。
+ 
+      关联数据A，包含要验证但未加密的数据。
+ 
+   只有一个输出：
+ 
+      密文C，其至少与明文一样长，或者是不能执行所请求的加密操作的指示。
+ 
+   所有输入和输出都是可变长度的八位字节字符串，其长度遵守以下限制：
+ 
+      密钥K中的二进制八位数介于1和255之间。对于每个AEAD 算法，K的长度必须是固定的。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+      对于密钥的任何特定值，或者 1)提供给经认证的加密操作的不同调用的每个随机数必须
+      是不同的，或者 2)每个随机数必须是零长度。如果将零长度随机数与特定密钥一起
+      使用，则与该密钥一起使用的每个随机数的长度必须为零。否则，nonce 中的八位
+      字节数应为 12。具有不同长度的随机数可以与特定密钥一起使用。有些算法不能与零
+      长度随机数一起使用，但其他算法可以；请参阅第4节。符合建议的随机数长度的应用程序
+      将避免必须构造具有不同长度的随机数，具体取决于正在使用的算法。本指南有助于将
+      特定于算法的逻辑排除在应用程序之外。
+ 
+      明文P中的二进制八位数可以是零。
+ 
+      关联数据A中的二进制八位数可以是零。
+ 
+      密文C中的二进制八位数可以是零。
+ 
+   该规范没有对随机数、明文、密文或附加的认证数据设置最大长度。然而，特定的AEAD算法
+   可能进一步限制这些输入和输出的长度。特定的AEAD 实现可能进一步限制其输入和输出的
+   长度。如果请求AEAD算法的特定实现来处理超出可接受长度范围的输入，或者处理超出该实现
+   所支持的长度范围的输入，则其必须返回错误代码，并且不得输出任何其他信息。特别是，
+   不能返回部分加密或部分解密的数据。
+ 
+   在明文P上提供机密性和消息认证。当P的长度为零时，AEAD算法在输入A上充当消息认证码。
+ 
+   关联数据A用于保护需要认证但不需要保密的信息。例如，当使用AEAD来保护网络协议时，
+   该输入可以包括地址、端口、序列号、协议版本号以及指示应当如何处理、转发或处理明文
+   或密文的其他字段。在许多情况下，需要对这些字段进行身份验证，尽管它们必须保持透明，
+   以允许网络或系统正常工作。当该数据包括在输入A中时，在不将数据复制到明文中的情况下
+   提供认证。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   秘密密钥K不得包括在任何其他输入(N、P和A)中。(此限制并不意味着必须检查这些输入的
+   值，以确保它们不包括与K匹配的子字符串；相反，它意味着不能显式地将键复制到这些输入
+   中)。
+ 
+   随机数在算法内部进行身份验证，没有必要将其包括在AD输入中。如果应用程序方便，可以
+   将随机数包括在P或A中。
+ 
+   随机数可以与密文一起存储或传输，或者可以在认证解密操作之前立即重构。向解密模块提供
+   足够的信息以允许其构造随机数就足够了。(例如，系统可以使用由特定格式的序列号组成的
+   随机数，在这种情况下，可以从密文的顺序推断出随机数。)。由于经过身份验证的解密过程
+   检测到不正确的 nonce 值，因此如果 nonce 被错误地重建并输入到经过身份验证的解密
+   操作中，则不会导致安全失败。 任何 nonce 重建方法都需要考虑加密和解密过程之间密码
+   丢失或重新排序的可能性。
+ 
+   应用程序不得假定密文的任何特定结构或格式。
+ 
+2.2.  认证解密
+ 
+   验证的解密操作有四个输入：K、N、A 和 C，如上所述。 它只有一个输出，明文 P 或表示
+   输入不正确的特殊符号 FAIL。 对于N、P和A的某些值，当通过具有输入K、N、P和A的加密
+   操作生成C时，密文C、随机数N和相关联的数据A对于密钥K是可信的。只要输入 N、P 和 A 
+   是由一个不了解密钥的受 nonce 尊重的攻击者精心设计的，则经过身份验证的解密操作将
+   很可能返回 FAIL（假定 AEAD 算法是安全的）。
+ 
+2.3.  数据格式
+ 
+   由于编码不影响AEAD算法提供的安全服务，因此本文档没有为AEAD输入和输出指定任何
+   特定的编码。
+ 
+   当选择应用程序数据的格式时，应用程序应该定位密文C，以便它出现在构建认证解密操作的
+   其他输入所需的任何其他数据之后。例如，如果随机数和密文都出现在数据包中，则前者的
+   值应在后者之前。该规则便于高效和简单的实现AEAD算法。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+
+ 
+3.  AEAD算法使用指南
+ 
+   本节提供了安全使用AEAD 算法必须遵循的建议。
+ 
+   如果应用程序无法满足随机数生成的唯一性要求，则它必须使用零长度随机数。下面定义的
+   随机化或有状态算法适合与这样的应用程序一起使用。否则，应用程序应该使用长度为12个
+   八位字节的随机数。由于鼓励算法支持该长度，应用程序应该使用该长度来帮助互操作性。
+ 
+3.1.  随机数生成要求
+ 
+   对于安全性而言，对于密钥的任何固定值，以这样的方式构造随机数是至关重要的，该方式
+   尊重对于认证加密操作的每次调用每个随机数值都是不同的要求。在本节中，我们呼吁注意
+   此要求在不同场景中的一些后果。
+ 
+   当有多个设备使用单个密钥执行加密时，这些设备必须协调以确保随机数是唯一的。一种简单
+   的方法是使用随机数格式，该格式包含对于每个设备都是不同的字段，如第3.2节所述。
+   注意，不需要在加密器和解密器之间协调随机数格式的细节，只要整个随机数与密文一起发送
+   或存储，从而对解密器可用。如果解密器无法获得完整的随机数，则解密器将需要知道随机数
+   是如何构造的，以便它可以重建它。应用程序应该为加密引擎提供一些选择随机数的自由；
+   例如，随机数可以包含计数器和由加密器设置但接收器不处理的字段。这种自由度允许一组
+   加密设备更容易地进行协调，以确保其随机数的独特性。
+ 
+   如果秘密密钥将被使用很长一段时间，例如在多次重启期间，那么随机数将需要被存储在
+   非易失性存储器中。在这种情况下，必须使用随机数的检查点；也就是说，应该存储当前的
+   随机数，以提供在意外失败的情况下恢复加密所需的状态信息。提供不会重复使用随机数值
+   的高保证的一种简单方式是等待直到加密过程从存储过程接收到指示后续随机数值已经被存储
+   的确认。因为这种方法可能会增加显著的等待时间，所以可能希望存储序列中前面几个值的
+   随机数值。例如，可以存储随机数100，之后可以使用随机数1到99进行加密。可以在使用
+   随机数1到99的同时存储随机数值200，依此类推。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+
+
+
+
+
+
+ 
+   通过在随机数协调困难的情况下改变密钥，可以避免随机数重用的许多问题。
+ 
+   每个 AEAD 算法都应描述由于无意中重用 nonce 值而导致的安全降级。
+ 
+3.2.  建议的随机数格式
+ 
+   建议使用以下方法来构造随机数。随机数的格式如图1 所示，初始八位字节由固定字段组成，
+   最后八位字节由计数器字段组成。对于每个固定的关键字，这些字段中的每个字段的长度都是
+   固定的，因此随机数的长度是固定的。实现应支持计数器字段为四个八位字节长度的12个八位
+   字节随机数。
+ 
+       &lt;----- variable ----&gt; &lt;----------- variable -----------&gt;
+      +---------------------+----------------------------------+
+      |        Fixed        |              Counter             |
+      +---------------------+----------------------------------+
+ 
+                    Figure 1: 推荐的随机数格式
+ 
+   当连续随机数的计数器域被视为网络字节顺序中的无符号整数时，这些计数器域形成单调递增
+   序列。对于为给定加密设备生成的所有随机数，计数器字段的长度必须保持恒定。对于第一个
+   随机数，计数器部分应该等于零，并且对于所生成的每个连续的随机数，计数器部分应该递增
+   1。然而，如果方便的话，可以跳过任何特定的计数器值，并将其排除在所使用的值序列
+   之外。例如，应用程序可以选择跳过初始计数器=0的值，并将初始随机数的计数器字段设置
+   为1。因此，当计数器字段的长度为C个八位字节时，最多可以生成2^(8*C)个随机数。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   对于为给定加密设备生成的所有随机数，固定字段必须保持恒定。如果不同的设备使用单个
+   密钥执行加密，则每个不同的设备必须使用不同的固定字段，以确保随机数的唯一性。因此，
+   当固定字段的长度为F个八位字节时，最多2^(8*F)个不同的加密者可以共享一个密钥。
+ 
+3.2.1.  部分隐式随机数
+ 
+   在一些情况下，希望不发送或存储整个随机数，而是从紧接在解密之前的上下文信息中重构
+   该值。例如，密文可以顺序地存储在盘上，并且可以从其位置推断出特定密文的随机数，只要
+   用于生成随机数的规则为解密器所知。我们将随密文一起存储或发送的随机数部分称为显式
+   部分。我们将随机数中推断出的部分称为隐式部分。当随机数的一部分是隐式时，建议对上述
+   格式进行以下专门化。固定字段分为两个子字段：Fixed-Common字段和Fixed-Distinct
+   字段。此格式如图2所示。如果不同的设备使用单个密钥执行加密，则每个不同的设备必须
+   使用不同的 Fixed-Distinct字段。Fixed-Common 字段对所有随机数都是公用的。
+   Fixed-DISTINCT 字段和COUNTER字段必须位于随机数的显式部分。Fixed-Common字段
+   可以在随机数的隐式部分中。这些约定确保了随机数很容易从显式数据中重构。
+ 
+      +-------------------+--------------------+---------------+
+      |    Fixed-Common   |   Fixed-Distinct   |    Counter    |
+      +-------------------+--------------------+---------------+
+       &lt;---- implicit ---&gt; &lt;------------ explicit ------------&gt;
+ 
+                 Figure 2: Partially implicit nonce format
+ 
+      部分隐式随机数格式的基本原理如下。这种随机数构造方法结合了最著名的实践；它由
+      GCM Encapuslating Security Payload(ESP)[RFC4106]和CCM ESP[RFC4309]
+      使用，其中固定字段包含Salt值，随机数的最低八个八位字节显式携带在ESP数据包中。
+      在GCM ESP中，固定字段的长度必须至少为四个八位字节，以便它可以包含Salt值。
+      在CCM ESP中，由于相同的原因，固定字段的长度必须至少为三个二进制八位数。这种
+      随机数生成方法也被几个计数器模式变体使用，包括CTR ESP。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+3.3.  AEAD输入的构造
+ 
+   如果AD输入是由多个数据元素构成的，那么它必须可以明确地解析为其组成元素，而不需要
+   在解析过程中使用任何未经身份验证的数据。(用数学术语来说，AD 必须是数据元素的单射
+   函数)。如果应用程序以这样一种方式构造其AD输入，即有两组不同的数据元素产生相同的AD
+   值，那么攻击者可以通过用一组替换另一组来使接收者接受伪造的集合。AD是唯一可解析的
+   要求确保了这种攻击是不可能的。如果AD由固定宽度的元素组成，则可以轻松满足此要求。
+   例如，如果AD包含可变长度字符串，则还可以通过在AD中包含字符串的长度来满足此要求。
+ 
+   类似地，如果明文是由多个数据元素构成的，那么它必须可以明确地解析为其组成元素，而
+   不需要在解析过程中使用任何未经验证的数据。注意，包括在AD中的数据可以在解析明文时
+   使用，当然，由于AD没有加密，所以当关于明文的信息被包括在AD中时，存在潜在的机密性
+   损失。
+ 
+3.4.  示例用法
+ 
+   为了使用 AEAD 算法，应用程序必须定义如何根据应用程序数据定义加密算法的输入，以及
+   如何传送密文和随机数。做到这一点的最清楚的方式是按照形成它的数据来表达每个输入，
+   然后按照AEAD加密操作的输出来表达应用数据。
+ 
+   例如，AES-GCM ESP[RFC4106]可以表示如下。AEAD 输入是
+ 
+      P = RestOfPayloadData||TFCpadd||Padding||PadLength||NextHeader
+ 
+      N = Salt || IV
+ 
+      A = SPI || SequenceNumber
+ 
+   其中符号“||”表示拼接操作，字段RestOfPayloadData、TFCpadd、Padding、
+   PadLength、NextHeader、SPI和SequenceNumber如[RFC4303]中定义，Salt和IV
+   字段如[RFC4106]中定义。字段RestOfPayloadData包含由NextHeader字段描述的明文
+   数据，而不包含其他数据。(回想一下，PayloadData字段包含IV和
+   RestOfPayloadData；有关说明，请参见[RFC4303]的图2。)。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+
+ 
+   ESP数据包的格式可以表示为
+ 
+      ESP = SPI || SequenceNumber || IV || C
+ 
+   其中C是AEAD 密文(在这种情况下其结合了认证标签)。请注意，这里我们没有描述ESP扩展
+   序列号的使用。
+ 
+4.  对AEAD算法规范的要求
+ 
+   每个AEAD 算法必须仅接受具有固定密钥长度的密钥，并且对于作为输入提供的密钥不得要求
+   任何特定的数据格式。需要这种结构的算法(例如，具有特定奇偶校验格式的子密钥的算法)
+   将需要在内部提供它。
+ 
+   每个AEAD 算法必须接受长度介于0和P_Max八位字节之间的任何明文(包括0和P_Max八位
+   字节)，其中值P_Max是特定于该算法的。P_Max的值必须大于零，并且应至少为
+   65，536(2^16)个二进制八位数。此大小是网络数据包的典型上限。其他应用程序可能使用
+   更大的P_MAX值，因此通用算法需要支持更高的值。
+ 
+   每个AEAD 算法必须接受长度在0和A_MAX八位字节之间的任何关联数据(包括0和A_MAX八位
+   字节)，其中值A_MAX特定于该算法。A_Max的值必须大于零，并且应至少为65，536(2^16)
+   个二进制八位数。其他应用程序可能使用更大的A_Max值，因此通用算法需要支持更高的值。
+ 
+   每个EAAD算法必须接受长度在N_min和N_max个八位字节之间(包括N_min和N_max)的
+   任何随机数，其中N_min和N_max的值特定于该算法。N_max和N_min的值可以相等。每个
+   算法都应该接受长度为十二(12)个八位字节的随机数。下面描述的随机化或有状态算法可以
+   具有零的N_Max值。
+ 
+   AEAD算法可以任何方式构造其密文输出；例如，密文可以结合认证标签。每个算法都应该
+   选择适合高效处理的结构。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   经认证的加密算法可以合并或利用随机源，例如用于生成被合并到密文输出中的内部初始化
+   向量。这种类型的AEAD算法称为随机化；不过请注意，只有加密是随机的，并且解密总是
+   确定性的。随机化算法可以具有等于零的N_MAX的值。
+ 
+   经认证的加密算法可以合并在加密操作的调用之间保持的内部状态信息，例如，以允许构造
+   由算法用作内部随机数的不同值。这种类型的AEAD算法称为有状态。算法可以使用此方法来
+   提供良好的安全性，即使在应用程序输入零长度随机数时也是如此。有状态算法可以具有等于
+   零的N_MAX的值。
+ 
+   AEAD 算法的规范必须包括上面定义的 K_LEN、P_MAX、A_MAX、N_MIN和N_MAX的值。
+   此外，它必须指定最大可能的密文中的八位字节的数量，我们将其表示为 C_MAX。
+ 
+   每个AEAD算法必须提供将纯文本的长度与密文的长度相关联的描述。此关系必须不依赖于
+   外部参数，例如验证强度参数(例如，验证标签长度)。这种依赖性会使算法的使用复杂化，
+   因为会造成来自AEAD登记册的信息不足以确保互操作性的情况。
+ 
+   每个AEAD算法规范应该描述随机数值的无意重用将导致什么安全性降级。
+ 
+   每个AEAD算法规范都应该提供对详细安全性分析的参考。本文档没有指定特定的安全模型，
+   因为文献中使用了几种不同的模型。安全分析应该定义或引用安全模型。
+ 
+   如上所述，随机化或有状态的算法应该使用这些术语来描述自己。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+5.  AEAD 算法
+ 
+   本节定义了四个AEAD算法；两个基于AES GCM，两个基于AES CCM。每一对包括密钥大小为
+   128位的算法和密钥大小为256位的算法。
+ 
+5.1.  AEAD_AES_128_GCM
+ 
+   AEAD_AES_128_GCM 身份验证加密算法按照[GCM]中的规定工作，使用AES-128作为
+   块密码，为该操作模式提供密钥、随机数和明文以及相关数据。使用长度为16个八位字节
+   (128位)的验证标签。AEAD_AES_128_GCM 密文是通过将作为GCM加密操作的输出提供的
+   认证标签附加到由该操作输出的密文来形成的。测试用例在[GCM]的附录中提供。输入和输出
+   长度如下：
+ 
+      K_LEN is 16 octets,
+ 
+      P_MAX is 2^36 - 31 octets,
+ 
+      A_MAX is 2^61 - 1 octets,
+ 
+      N_MIN and N_MAX are both 12 octets, and
+ 
+      C_MAX is 2^36 - 15 octets.
+ 
+   AEAD_AES_128_GCM 密文恰好比其对应的明文长16个八位字节。
+ 
+   [MV04]中提供了GCM的安全分析。
+ 
+5.1.1.  随机数重用
+ 
+   GCM加密操作的两次调用(具有相同的密钥但具有不同的明文值)无意中重用相同的随机数，
+   破坏了在这两次调用中保护的明文的机密性，并破坏了由该密钥提供的所有真实性和完整性
+   保护。因此，只有在能够保证随机数唯一性的情况下，才应该使用GCM。GCM用于实现最小
+   延迟的设计功能会导致后续使用密钥时出现漏洞。注意，向解密操作多次输入相同的随机数值
+   是可接受的。
+ 
+   如果攻击者观察到使用相同的随机数和密钥值创建的两个密文，则安全后果相当严重，除非
+   加密操作的两个调用中的明文和AD值相同。首先，机密性的损失随之而来，因为他将能够重建
+   两个明文值的按位异或。其次，完整性的损失随之而来，因为攻击者将能够恢复用于提供数据
+   完整性的内部散列密钥。对这个密钥的了解使得后续的伪造变得微不足道。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+
+ 
+5.2.  AEAD_AES_256_GCM
+ 
+   此算法与 AEAD_AES_128_GCM 相同，但有以下区别：
+ 
+      K_LEN是32个八位字节，而不是16个八位字节，并且
+ 
+      使用 AES-256 GCM 而不是 AES-128 GCM
+ 
+5.3.  AEAD_AES_128_CCM
+ 
+   AEAD_AES_128_CCM 身份验证加密算法按照[CCM]中的规定工作，使用 AES-128 作为
+   块密码，向该操作模式提供密钥、随机数、关联数据和明文。格式化和计数器生成功能如该
+   参考文献附录A所述，该附录中确定的参数值如下：
+ 
+      the nonce length n is 12,
+ 
+      the tag length t is 16, and
+ 
+      the value of q is 3.
+ 
+   使用长度为16个八位字节(128位)的验证标签。AEAD_AES_128_CCM 密文是通过将作为
+   CCM加密操作的输出提供的认证标签附加到由该操作输出的密文来形成的。[CCM]中提供了
+   测试用例。输入和输出长度如下：
+ 
+      K_LEN is 16 octets,
+ 
+      P_MAX is 2^24 - 1 octets,
+ 
+      A_MAX is 2^64 - 1 octets,
+ 
+      N_MIN and N_MAX are both 12 octets, and
+ 
+      C_MAX is 2^24 + 15 octets.</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   AEAD_AES_128_CCM 密文恰好比其对应的明文长16个八位字节。
+ 
+   AES CCM的安全性分析可在[J02]中获得。
+ 
+5.3.1.  随机数重用
+ 
+   CCM加密操作的两次调用(使用相同的密钥)无意中重用了相同的随机数，会破坏用这些调用
+   处理的消息的安全性。随之而来的是机密性的损失，因为对手将能够重建两个明文值的按位
+   异或。
+ 
+5.4.  AEAD_AES_256_CCM
+ 
+   此算法与AEAD_AES_128_CCM 相同，但有以下区别：
+ 
+      K_LEN是32个二进制八位数，而不是16个，并且
+ 
+      使用AES-256 CCM而不是AES-128 CCM .
+ 
+6.  IANA 注意事项
+ 
+   互联网编号分配机构(IANA)已经定义了下面描述的“AEAD注册表”。算法设计者可以注册
+   算法以便于其使用。添加到AEAD Registry要求规范被记录在RFC或另一个永久且容易获得
+   的参考中，足够详细地保证独立实现之间的互操作性是可能的。注册表中的每个条目都包含
+   以下元素：
+ 
+      以字符串“AEAD”开头的短名称，例如“AEAD_AES_128_GCM”，
+ 
+      一个正数, 以及
+ 
+      对规范的引用，该规范完全定义了AEAD算法，并提供了可用于验证实现正确性的测试
+      用例。
+ 
+   向注册表添加条目的请求必须包括名称和引用。号码由IANA分配。这些编号分配应使用最小
+   的可用正数。提交者应该邮件cfrg@ietf.org并让 IRTF Crypto Forum Research 
+   Group(CFRG) 审核他们的请求。对IANA流程不熟悉的感兴趣的申请者请访问
+   http://www.iana.org </pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+
+
+ 
+   32，768(二进制1000000000000000)和65，535(二进制1111111111111111)之间的
+   数字(包括32，768和65，535(二进制1111111111111111)将不会由IANA分配，并保留供
+   私人使用；不会试图阻止多个站点以不同(和不兼容)的方式使用相同的值[RFC2434]。
+ 
+   IANA已将以下条目添加到aead注册表：
+ 
+          +------------------+-------------+--------------------+
+          | Name             |  Reference  | Numeric Identifier |
+          +------------------+-------------+--------------------+
+          | AEAD_AES_128_GCM | Section 5.1 |          1         |
+          | AEAD_AES_256_GCM | Section 5.2 |          2         |
+          | AEAD_AES_128_CCM | Section 5.3 |          3         |
+          | AEAD_AES_256_CCM | Section 5.4 |          4         |
+          +------------------+-------------+--------------------+
+ 
+   AEAD 的IANA注册并不构成对该算法或其安全性的认可。
+ 
+7.  其他注意事项
+ 
+   使用具有固定输入和输出的测试用例直接测试随机化的AEAD加密算法是不可能的，因为加密
+   过程是不确定的。然而，可以使用以下技术来测试随机化的AEAD算法。认证的解密算法是
+   确定性的，并且可以直接测试。可以通过加密明文，解密所得到的密文，并将原始明文与
+   解密后的明文进行比较来测试经认证的加密算法。这两个测试的组合涵盖了加密和解密算法。
+ 
+   所选择的AEAD算法反映了那些已经被标准采用的算法。至于应该添加哪些其他AEAD算法，
+   这是一个开放的问题。基本算法的许多变体都是可能的，每种算法都有自己的优点。虽然希望
+   承认在实践中发现有用的任何算法，但也希望限制注册算法的总数。当前的规范要求注册的
+   算法提供完整的规范和一组验证数据；希望这些先决条件适当地设置准入标准。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   可能希望定义使用具有加密然后MAC方法[BN00]的通用组合的AEAD算法，将诸如
+   CBC[Modes]的公共加密算法与诸如HMAC-SHA1[RFC2104]或AES CMAC[CMAC]的公共
+   消息认证码相结合。这种类型的AEAD算法将反映当前的最佳实践，并且可能更容易被缺少对
+   其他AEAD算法的支持的加密模块支持。
+ 
+8.  安全注意事项
+ 
+   本文档介绍了经过身份验证的加密算法，并提供了有关其使用的指导。虽然这些算法在某些
+   方面使设计加密应用程序变得更容易，但应该记住，很难实现强加密安全性。虽然AEAD算法
+   非常有用，但它们没有解决密钥生成[RFC4086]和密钥管理[RFC4107]的问题。
+ 
+   依赖于不同随机数的AEAD算法可能不适合某些应用程序或某些场景。应用程序设计人员应
+   理解3.1节中概述的要求。
+ 
+   由于 VM 的"回滚"到较早的状态 [GR05]，虚拟机 （VM） 环境中 AEAD 加密操作的软件
+   实现可能会无意中重用随机数。鼓励应用程序记录潜在问题，以帮助应用程序和VM的用户避免
+   此类意外错误。攻击者可能会导致VM回滚；这种情况下的威胁和缓解是一个活跃的研究领域。
+   我们注意到，能够触发这种回滚的攻击者可能已经成功地破坏了系统的安全性，
+   例如，通过引发记帐错误。
+ 
+   AEAD算法的IANA注册不能被视为对其安全性的认可。此外，由于密码分析的进步或
+   “摩尔定律”，即计算资源的成本随着时间的推移而递减，算法的感知安全级别会随着时间的
+   推移而降低。
+ 
+9.  致谢
+ 
+   许多审阅者对本文档的早期草案提供了宝贵的意见。2006年，在加密论坛研究组的电子邮件
+   列表上进行了一些富有成效的讨论。</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+10.  参考
+ 
+10.1.  标准参考
+ 
+   [CCM]      Dworkin, M., "NIST 特别出版物 800-38C：身份验证和保密的 CCM 
+              模式", 美国国家标准与技术研究所,
+              <http: csrc.nist.gov="" publications="" nistpubs="" 800-38c="" sp800-38c.pdf="">.
+
+   [GCM]      Dworkin, M., [NIST 特别出版物 800-38D：块密码操作模式的
+              建议：Galois/计数器模式 （GCM） 和 GMAC.]，美国国家标准与技术
+              研究所, November 2007,
+              <http: csrc.nist.gov="" publications="" nistpubs="" 800-38d="" sp-800-38d.pdf="">.
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119, March 1997.
+ 
+10.2.  信息参考
+ 
+   [BN00]     Bellare, M. and C. Namprempre, "Authenticated encryption:
+              Relations among notions and analysis of the generic
+              composition paradigm", Proceedings of ASIACRYPT 2000,
+              Springer-Verlag, LNCS 1976, pp. 531-545, 2002.
+
+   [BOYD]     Boyd, C. and A. Mathuria, "Protocols for Authentication
+              and Key Establishment", Springer 2003.
+
+   [CMAC]     "NIST Special Publication 800-38B", <http: csrc.nist.gov="" publications="" nistpubs="" 800-38b="" sp_800-38b.pdf="">.
+
+   [EEM04]    Bellare, M., Namprempre, C., and T. Kohno, "Breaking and
+              provably repairing the SSH authenticated encryption
+              scheme: A case study of the Encode-then-Encrypt-and-MAC
+              paradigm", ACM Transactions on Information and
+              System Security,
+              <http: www-cse.ucsd.edu="" users="" tkohno="" papers="" tissec04="">.
+
+   [GR05]     Garfinkel, T. and M. Rosenblum, "When Virtual is Harder
+              than Real: Security Challenges in Virtual Machine Based
+              Computing Environments", Proceedings of the 10th Workshop
+              on Hot Topics in Operating Systems,
+              <http: www.stanford.edu="" ~talg="" papers="" hotos05="" virtual-harder-hotos05.pdf="">.</http:></http:></http:></http:></http:></pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+   [J02]      Jonsson, J., "On the Security of CTR + CBC-MAC",
+              Proceedings of the 9th Annual Workshop on Selected Areas
+              on Cryptography, 2002, <http: csrc.nist.gov="" groups="" st="" toolkit="" bcm="" documents="" proposedmodes="" ccm="" ccm-ad1.pdf="">.
+
+   [MODES]    Dworkin, M., "NIST Special Publication 800-38:
+              Recommendation for Block Cipher Modes of Operation", U.S.
+              National Institute of Standards and Technology,
+              <http: csrc.nist.gov="" publications="" nistpubs="" 800-38a="" sp800-38a.pdf="">.
+
+   [MV04]     McGrew, D. and J. Viega, "The Security and Performance of
+              the Galois/Counter Mode (GCM)", Proceedings of
+              INDOCRYPT '04, December 2004,
+              <http: eprint.iacr.org="" 2004="" 193="">.
+
+   [R02]      Rogaway, P., "Authenticated encryption with Associated-
+              Data", ACM Conference on Computer and Communication
+              Security (CCS'02), pp. 98-107, ACM Press, 2002,
+              <http: www.cs.ucdavis.edu="" ~rogaway="" papers="" ad.html="">.
+
+   [RFC2104]  Krawczyk, H., Bellare, M., and R. Canetti, "HMAC: Keyed-
+              Hashing for Message Authentication", RFC 2104,
+              February 1997.
+
+   [RFC2434]  Narten, T. and H. Alvestrand, "Guidelines for Writing an
+              IANA Considerations Section in RFCs", BCP 26, RFC 2434,
+              October 1998.
+
+   [RFC4086]  Eastlake, D., Schiller, J., and S. Crocker, "Randomness
+              Requirements for Security", BCP 106, RFC 4086, June 2005.
+
+   [RFC4106]  Viega, J. and D. McGrew, "The Use of Galois/Counter Mode
+              (GCM) in IPsec Encapsulating Security Payload (ESP)",
+              RFC 4106, June 2005.
+
+   [RFC4107]  Bellovin, S. and R. Housley, "Guidelines for Cryptographic
+              Key Management", BCP 107, RFC 4107, June 2005.
+
+   [RFC4303]  Kent, S., "IP Encapsulating Security Payload (ESP)",
+              RFC 4303, December 2005.
+
+   [RFC4309]  Housley, R., "Using Advanced Encryption Standard (AES) CCM
+              Mode with IPsec Encapsulating Security Payload (ESP)",
+              RFC 4309, December 2005.</http:></http:></http:></http:></pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+Author's Address
+
+   David A. McGrew
+   Cisco Systems, Inc.
+   510 McCarthy Blvd.
+   Milpitas, CA  95035
+   US
+
+   Phone: (408) 525 8651
+   EMail: mcgrew@cisco.com
+   URI:   http://www.mindspring.com/~dmcgrew/dam.htm</pre>
+<hr class="noprint" style="width: 96ex;" align="left"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap;"> 
+
+ 
+Full Copyright Statement
+
+   Copyright (C) The IETF Trust (2008).
+
+   This document is subject to the rights, licenses and restrictions
+   contained in BCP 78, and except as set forth therein, the authors
+   retain all their rights.
+
+   This document and the information contained herein are provided on an
+   "AS IS" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS
+   OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND
+   THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS
+   OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF
+   THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED
+   WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+
+Intellectual Property
+
+   The IETF takes no position regarding the validity or scope of any
+   Intellectual Property Rights or other rights that might be claimed to
+   pertain to the implementation or use of the technology described in
+   this document or the extent to which any license under such rights
+   might or might not be available; nor does it represent that it has
+   made any independent effort to identify any such rights.  Information
+   on the procedures with respect to rights in RFC documents can be
+   found in BCP 78 and BCP 79.
+
+   Copies of IPR disclosures made to the IETF Secretariat and any
+   assurances of licenses to be made available, or the result of an
+   attempt made to obtain a general license or permission for the use of
+   such proprietary rights by implementers or users of this
+   specification can be obtained from the IETF on-line IPR repository at
+   http://www.ietf.org/ipr.
+
+   The IETF invites any interested party to bring to its attention any
+   copyrights, patents or patent applications, or other proprietary
+   rights that may cover technology that may be required to implement
+   this standard.  Please address the information to the IETF at
+   ietf-ipr@ietf.org.
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+McGrew                      Standards Track                    [Page 22]</pre><br>
+    <span class="noprint"><small><small>Html markup produced by rfcmarkup 1.129c, available from
+      <a href="https://tools.ietf.org/tools/rfcmarkup/">https://tools.ietf.org/tools/rfcmarkup/</a>
+    </small></small></span>
+  </div>
