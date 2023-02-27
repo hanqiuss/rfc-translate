@@ -1,0 +1,999 @@
+<div class="content" style="float: left; margin: 0px 30%; width: 579px; font-size: 14px;">
+<span class="pre noprint docinfo">[<a href="https://www.rfc-editor.org" title="RFC Editor">RFC Home</a>] [<a href="/rfc/rfc5128.txt">TEXT</a>|<a href="/rfc/pdfrfc/rfc5128.txt.pdf">PDF</a>|<a href="/rfc/rfc5128.html">HTML</a>] [<a href="https://datatracker.ietf.org/doc/rfc5128" title="IETF Datatracker information for this document">Tracker</a>] [<a href="https://datatracker.ietf.org/ipr/search/?rfc=5128&amp;submit=rfc" title="IPR disclosures related to this document">IPR</a>] [<a class="boldtext" href="/errata/rfc5128" target="_blank">Errata</a>] [<a href="https://www.rfc-editor.org/info/rfc5128" title="Info page">Info page</a>]         </span><br><span class="pre noprint docinfo">                                                                        </span><br><span class="pre noprint docinfo">                                                           INFORMATIONAL</span><br><span class="pre noprint docinfo">                                                            <span style="color: #C00;">Errata Exist</span></span><pre style="height: 780px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;">Network Working Group                                       P. Srisuresh
+Request for Comments: 5128                                Kazeon Systems
+Category: Informational                                          B. Ford
+                                                                  M.I.T.
+                                                                D. Kegel
+                                                               kegel.com
+                                                              March 2008
+ 
+
+           State of Peer-to-Peer (P2P) Communication across
+                   Network Address Translators (NATs)
+ 
+Status of This Memo
+ 
+   This memo provides information for the Internet community.  It does   not specify an Internet standard of any kind.  Distribution of this   memo is unlimited.
+ 
+Abstract
+ 
+   本备忘录记录了目前已知由应用程序在网络地址转换器(NAT)存在的情况下建立直接通信的各种方法。尽管本备忘录主要是描述性的，但安全注意事项部分就如何处理应用程序在使用所述方法时可能无意中产生的安全漏洞提出了一些纯粹的建议。本备忘录涵盖了基于TCP和基于UDP的应用程序所使用的NAT穿越方法。这份备忘录并不是对所述方法的认可，而只是试图将它们记录在一份文件中。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+目录
+ 
+   1. 引言及范围             ..........................................3
+   2. 使用的术语和惯例                 ................................4
+      2.1. 端点     ...................................................5
+      2.2. 端点映射         ...........................................5
+      2.3. Endpoint-Independent 映射    ...............................5
+      2.4. Endpoint-Dependent 映射    .................................5
+      2.5. Endpoint-Independent 过滤      .............................6
+      2.6. Endpoint-Dependent 过滤      ...............................6
+      2.7. P2P 应用程序    ............................................7
+      2.8. NAT友好的P2P应用程序         ...............................7
+      2.9. Endpoint-Independent Mapping NAT (EIM-NAT) .................7
+      2.10. Hairpinning ...............................................7
+   3. P2P应用程序用于穿越NAT的技术                         ............7
+      3.1. 中继     ...................................................8
+      3.2. 连接反转            ........................................9
+      3.3. UDP 打孔          .........................................11
+           3.3.1. 不同NAT后面的对等方         ........................12
+           3.3.2. 同一NAT后面的对等方       ..........................14
+           3.3.3. 由多个NAT分隔的对等方            ...................16
+      3.4. TCP 打孔          .........................................18
+      3.5. UDP 端口预测               ................................19
+      3.6. TCP 端口预测               ................................21
+   4. 最近有关NAT穿越的工作        ...................................22
+   5. Summary of Observations ........................................23
+      5.1. TCP/UDP 打孔          .....................................23
+      5.2. NATs Employing Endpoint-Dependent Mapping .................23
+      5.3. 对等发现       ............................................24
+      5.4. Hairpinning ...............................................24
+   6. 安全注意事项            ........................................24
+      6.1. 缺乏身份验证可能导致连接劫持                          .....24
+      6.2. 拒绝服务攻击              .................................25
+      6.3. 中间人攻击                .................................26
+      6.4. EIM-NAT设备带来的安全影响            ......................26
+   7. Acknowledgments ................................................27
+   8. 引用       .....................................................27
+      8.1. 引用标准             ......................................27
+      8.2. 参考资料               ....................................27</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+1.  引言及范围
+ 
+   在当今的互联网上，网络地址转换器(NAT)的部署无处不在。部署中使用NAT设备的网络拓扑有多种NAT设备和各种网络拓扑。这些NAT设备建立的非对称寻址和连接机制给点对点(P2P)应用和协议带来了独特的问题，例如电话会议和多人在线游戏。这些问题甚至可能持续到IPv6世界。在过渡到IPv6期间，可能需要某种形式的NAT以使仅限IPv4的节点能够与仅限IPv6的节点通信[NAT-PT]，尽管这种使用NAT的适当协议和指南仍未解决[NAT-PT-HIST]。即使是未来的“纯IPv6世界”也可能包括防火墙，它们使用与NAT类似的过滤行为，但没有地址转换[v6-CPE-SEC]。过滤行为干扰P2P应用的功能。因此，使用本文档中描述的技术进行NAT穿越的IPv6应用程序也可能与一些过滤行为类似于NAT的防火墙一起工作。
+ 
+
+
+
+
+
+
+
+
+   目前部署的NAT设备主要围绕客户端/服务器范例进行设计，在该范例中，私有网络中相对匿名的客户端机器启动到具有稳定IP地址和DNS名称的公共服务器的连接。途中遇到的NAT设备为客户端机器提供动态地址分配。NAT设备背后的内部主机的匿名性(私有IP地址)和不可访问的假象对于Web浏览器等只需要启动传出连接的应用程序来说不是问题。这种匿名和不可访问的错觉有时被视为对隐私的好处。如[RFC4941]第2.2节所述，在大多数使用小型办公室-家庭办公室(SOHO)NAT的情况下，这种感知到的隐私可能是虚幻的。
+
+
+
+ 
+   在对等模式中，通常被视为“客户端”的互联网主机不仅向对等节点发起会话，而且接受对等节点发起的会话。发起方和响应方可能位于不同的NAT设备之后，其中两个端点都不具有永久IP地址或其他形式的公共网络存在。例如，常见的在线游戏体系结构涉及所有参与的应用主机联系公共可寻址的会合服务器以注册它们自己并发现对等主机。在与会合服务器通信之后，主机彼此建立直接连接，以便在玩游戏期间快速高效地传播更新。类似地，文件共享应用程序可能会联系知名的会合服务器以进行资源发现或搜索，但会与对等主机建立直接连接以进行数据传输。NAT设备会给对等连接带来问题，因为NAT设备后面的主机在Internet上通常没有永久可见的公共端口，来自其他对等设备的传入的TCP或UDP连接可以定向到这些公共端口。RFC 3235[NAT-APPL]简要地解决了这个问题。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+
+
+
+ 
+   涉及应用程序和NAT设备之间显式信令的NAT穿越策略，即[NAT-PMP]、[NSIS-NSLP]、[SOCKS]、[RSIP]、[MIDCOM]和[UPnP]不在本文档的讨论范围内。这些技术(如果可用)是对文档中描述的技术的补充。[Unsaf]在范围内。
+ 
+   在本文中，我们总结了当前已知的方法，即应用程序在不直接更改NAT设备的情况下绕过NAT设备。描述的技术早于Behavior文档([BEH-UDP]、[BEH-TCP]和[BEH-ICMP])。该文档的范围仅限于描述用于在应用程序的端点之间建立双向通信的当前已知技术。有关正在运行的会话的超时、RST处理、保持连接等内容的讨论不在本文的讨论范围之内。该范围还限于描述基于TCP和UDP的应用程序的技术。本文档的目的不是为一般应用程序[BEH-APP]或特定类别的应用程序[ICE]提供NAT穿越问题的解决方案。
+ 
+
+
+
+
+
+
+2.  使用的术语和惯例
+ 
+   在本文档中，IP地址192.0.2.1、192.0.2.128和192.0.2.254用作示例公有IP地址[RFC3330]。虽然这些地址都来自相同的/24网络，但这是[RFC3330]中提供的示例地址的限制。实际上，这些地址将位于不同的网络上。至于端口使用的记法，所有客户端使用1-2000范围内的端口，服务器使用20000-21000范围内的端口。NAT设备使用端口30000及更高版本进行端点映射。
+ 
+   建议读者参考[NAT-Term]以获取有关NAT分类和术语的信息。除非以NAT类型作为前缀或另有明确说明，否则在整个文档中使用的术语NAT指的是传统NAT[NAT-Trad]。传统NAT有两种变体，即基本NAT和网络地址端口转换器(NAPT)。其中，NAPT是迄今为止部署最多的NAT设备。NAPT允许多个私有主机同时共享单个公共IP地址。
+ 
+   与P2P应用相关的一个问题是，当内部主机发起从单个端点(专用IP、专用端口)到外部网络上的多个不同端点的多个同时会话时，NAT如何行为。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   [STUN]使用术语“完全锥体”、“受限锥体”、“端口受限锥体”和“对称”进一步对NAT实施进行分类。不幸的是，这个术语一直是许多混乱的根源。因此，本文档采用[BEH-UDP]中的术语来区分NAT实施
+ 
+   下面列出了本文档中使用的术语。
+ 
+2.1.  端点
+ 
+   端点是终端主机上特定于会话的元组。对于每个IP协议，端点可以被不同地表示。例如，UDP或TCP会话端点表示为(IP地址、UDP/TCP端口)的元组。
+ 
+
+
+
+
+
+2.2.  端点映射
+ 
+   当私有领域中的主机通过NAT设备发起到公共领域中的主机的传出会话时，NAT设备分配公共端点来转换私有端点，使得来自外部主机的后续响应分组可以被NAT接收、转换并转发到私有端点。NAT设备将私有端点转换为公共端点以及将公共端点转换为私有端点的分配称为端点映射。NAT使用端点映射在会话期间执行转换。
+ 
+
+
+
+2.3.  与端点无关的映射
+ 
+   [BEH-UDP]中定义了 Endpoint-Independent Mapping ，如下所示：
+ 
+        对于从相同的内部IP地址和端口(X：X)发送到任何外部IP地址和端口的后续数据包，NAT重复使用端口映射。(只映射出口)
+ 
+2.4.  端点相关映射
+ 
+   "Endpoint-Dependent Mapping" 是指[BEH-UDP]中定义的“地址映射”和“地址端口映射”的组合：
+ 
+   地址映射
+ 
+        NAT对从相同的内部IP地址和端口(X：X)发送到相同的外部IP地址的后续数据包重复使用端口映射，而不考虑外部端口。（映射出口和目标ip）</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   地址端口映射
+ 
+        NAT对从相同的内部IP地址和端口(X：X)发送到相同的外部IP地址和端口的后续数据包重复使用端口映射，同时该映射仍处于活动状态。
+ 
+2.5.  与端点无关的过滤
+ 
+   "Endpoint-Independent Filtering" is defined in [BEH-UDP] as follows:
+ 
+        无论外部IP地址和端口源(Z：Z)是什么，NAT都只过滤出不是发往内部地址和端口X：X的数据包。NAT会转发发往X：X的任何数据包。换句话说，从NAT的内部端向任何外部IP地址发送数据包就足以让任何数据包返回内部端点。
+ 
+   NAT设备采用“与端点无关的映射”和“与端点无关的过滤”的组合，将接受从公共网络上的任何外部端点到映射的公共端口的传入流量。
+ 
+2.6.  依赖于端点的过滤
+ 
+   “依赖于端点的过滤”指的是[BEH-UDP]中定义的“地址过滤”和“地址端口过滤”的组合。
+ 
+   地址过滤
+ 
+        NAT会过滤掉不是发往内部地址X：X的数据包。此外，如果X：X以前没有将数据包发送到Y：ANY(独立于Y使用的端口)，则NAT会过滤出从Y：Y发往内部端点X：X的数据包。换句话说，为了从特定外部端点接收分组，内部端点必须首先将分组发送到该特定外部端点的IP地址。
+ 
+   地址端口过滤
+ 
+        NAT会过滤掉不是发往内部地址X：X的数据包。此外，如果X：X之前没有将数据包发送到Y：Y，NAT还会过滤出从Y：Y发往内部端点X：X的数据包。换句话说，为了接收来自特定外部端点的包，内部端点必须首先将包发送到该外部端点的IP地址和端口。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+   采用“依赖于端点的过滤”的NAT设备将只接受来自公共网络上的一组受限的外部端点到映射的公共端口的传入流量。
+ 
+2.7.  P2P 应用
+ 
+   P2P应用程序是使用同一端点向对等主机发起传出会话以及接受来自对等主机的传入会话的应用程序。P2P应用可以使用多个端点进行对等通信。
+ 
+2.8.  NAT友好的P2P应用
+ 
+   NAT友好的P2P应用程序是一种P2P应用程序，即使对等节点位于不同的IP地址域中，通过一个或多个NAT连接，它也可以有效地工作。
+ 
+   P2P应用程序建立对等会话并保持NAT友好的一种常见方式是使用可公开寻址的会合服务器进行注册和对等点发现。
+ 
+2.9. 终端无关映射NAT(EIM-NAT)
+ 
+   端点无关映射NAT(简称EIM-NAT)是一种使用端点无关映射的NAT设备。EIM-NAT可以具有任何类型的过滤行为。BEHAVE-compliant NAT 设备是EIM-NAT设备的很好的例子。采用地址相关映射的NAT设备是非EIM-NAT的NAT设备的示例。
+ 
+2.10.  Hairpinning
+ 
+   Hairpinning is defined in [BEH-UDP] as follows:
+ 
+        如果两个主机(称为X1和X2)位于同一NAT之后并且交换流量，则NAT可以在NAT外部为X2分配一个称为X2‘：X2’的地址。如果X1将流量发送到X2‘：X2’，它将到达NAT，NAT必须将流量从X1转发到X2。这被称为弯曲法。
+ 
+   并不是所有当前部署的NAT都支持弯折。
+ 
+3.  P2P应用程序穿越NAT的技术
+ 
+   本节从应用程序或协议设计人员的角度详细回顾了当前已知的在现有NAT设备上实现点对点通信的技术。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+3.1.  中继
+ 
+   在NAT设备存在的情况下实现对等通信的最可靠但效率最低的方法是通过中继使对等通信看起来像客户端/服务器通信一样。请考虑图1中的场景。两台客户端主机A和B分别发起了到已知汇聚服务器S的TCP或UDP连接。汇聚服务器S具有可公开寻址的IP地址，用于注册、发现和中继。NAT后的主机向服务器注册。对等主机可以发现NAT后的主机，并使用该服务器转发所有端到端消息。客户端驻留在不同的专用网络上，并且它们各自的NAT设备阻止其中一个客户端直接发起到另一个客户端的连接。
+ 
+                           Registry, Discovery
+                           Combined with Relay
+                                 Server S
+                            192.0.2.128:20001
+                                     |
+        +----------------------------+----------------------------+
+        | ^ Registry/              ^   ^ Registry/              ^ |
+        | | Relay-Req Session(A-S) |   | Relay-Req Session(B-S) | |
+        | | 192.0.2.128:20001      |   |  192.0.2.128:20001     | |
+        | | 192.0.2.1:62000        |   |  192.0.2.254:31000     | |
+        |                                                         |
+      +--------------+                                 +--------------+
+      | 192.0.2.1    |                                 | 192.0.2.254  |
+      |              |                                 |              |
+      |    NAT A     |                                 |    NAT B     |
+      +--------------+                                 +--------------+
+        |                                                         |
+        | ^ Registry/              ^   ^ Registry/              ^ |
+        | | Relay-Req Session(A-S) |   | Relay-Req Session(B-S) | |
+        | |  192.0.2.128:20001     |   |  192.0.2.128:20001     | |
+        | |     10.0.0.1:1234      |   |     10.1.1.3:1234      | |
+        |                                                         |
+     Client A                                                 Client B
+     10.0.0.1:1234                                        10.1.1.3:1234
+ 
+         Figure 1: Use of a Relay Server to communicate with peers
+ 
+   这两个客户端可以简单地使用服务器S在它们之间转发消息，而不是尝试直接连接。例如，要向客户端B发送消息，客户端A只需将消息沿其已建立的客户端/服务器连接发送到服务器S，然后服务器S使用其与B的现有客户端/服务器连接将消息发送到客户端B。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   这种方法的优点是，只要两个客户端都连接到服务器，它就会一直工作。路由NAT设备不需要是EIM-NAT。中继的明显缺点是它消耗服务器的处理能力和网络带宽，即使服务器具有足够的I/O带宽并在拓扑上正确定位，对等客户端之间的通信延迟也可能增加。TURN协议[TURN]定义了一种以相对安全的方式实现与应用无关的、面向会话的分组中继的方法。
+ 
+3.2.  连接反转
+ 
+   以下用于直接通信的连接反转技术仅在其中一个对等方位于NAT设备之后而另一个对等方不在NAT设备之后时有效。例如，考虑图2中的场景。客户端A位于NAT之后，但客户端B具有可公开寻址的IP地址。Redezvous Server S具有可公开寻址的IP地址，用于注册和发现。NAT后的主机向服务器注册其端点。对等主机使用服务器发现NAT后面的主机的端点。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+                          Registry and Discovery
+                                 Server S
+                            192.0.2.128:20001
+                                     |
+        +----------------------------+----------------------------+
+        | ^ Registry Session(A-S) ^     ^ Registry Session(B-S) ^ |
+        | | 192.0.2.128:20001     |     |  192.0.2.128:20001    | |
+        | | 192.0.2.1:62000       |     |  192.0.2.254:1234     | |
+        |                                                         |
+        | ^ P2P Session (A-B)     ^     |  P2P Session (B-A)    | |
+        | | 192.0.2.254:1234      |     |  192.0.2.1:62000      | |
+        | | 192.0.2.1:62000       |     v  192.0.2.254:1234     v |
+        |                                                         |
+      +--------------+                                            |
+      | 192.0.2.1    |                                            |
+      |              |                                            |
+      |    NAT A     |                                            |
+      +--------------+                                            |
+        |                                                         |
+        | ^ Registry Session(A-S) ^                               |
+        | |  192.0.2.128:20001    |                               |
+        | |     10.0.0.1:1234     |                               |
+        |                                                         |
+        | ^ P2P Session (A-B)     ^                               |
+        | |  192.0.2.254:1234     |                               |
+        | |     10.0.0.1:1234     |                               |
+        |                                                         |
+     Private Client A                                 Public Client B
+     10.0.0.1:1234                                    192.0.2.254:1234
+ 
+           Figure 2: Connection reversal using Rendezvous server
+ 
+   客户端A的私有IP地址为10.0.0.1，应用程序使用的是TCP端口1234。此客户端已在公有IP地址192.0.2.128和端口20001处与服务器S建立连接。NAT A已将自己的公有IP地址192.0.2.1处的tcp端口62000指定为A与S的会话的临时公有端点地址；因此，服务器S认为客户端A使用端口62000的IP地址为192.0.2.1。但是，客户端B有其自己的永久IP地址192.0.2.254，并且B上的应用程序正在接受端口1234上的TCP连接。
+ 
+   现在假设客户端B希望与客户端A建立直接通信会话。B可能首先尝试在客户端A认为其自身具有的地址(即10.0.0.1：1234)处或者在服务器S所观察到的A的地址(即192.0.2.1：62000)处与客户端A联系。在任何一种情况下，连接都将失败。在第一种情况下，指向IP地址10.0.0.1的流量将被网络简单地丢弃，因为10.0.0.1不是可公开路由的IP地址。在第二种情况下，来自B的TCPSYN请求将到达指向端口62000的NAT A，但NAT A将拒绝该连接请求，因为只允许传出连接。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+
+
+
+  
+ 
+   在尝试建立到A的直接连接失败后，客户端B可以使用服务器S向客户端A转发请求，以发起到客户端B的“反向”连接。客户端A在通过S接收到此转发请求后，在B的公共IP地址和端口号处打开到客户端B的TCP连接。NAT A允许连接继续，因为它源自防火墙内部，而客户端B可以接收连接，因为它不在NAT设备后面。
+ 
+   目前的各种点对点应用程序都实现了这一技术。当然，它的主要限制是，只有在NAT设备后面只有一个通信对等体时，它才能工作。如果NAT设备是EIM-NAT，则公共客户端可以联系外部服务器S以确定期望来自客户端A的连接的特定公共端点，并且仅允许来自这些端点的连接。如果NAT设备是EIM-NAT，则公共客户端可以联系外部服务器S以确定期望从其发起客户端A的连接的特定公共端点，并且仅允许来自该端点的连接。如果NAT设备不是EIM-NAT，则公共客户端无法知道期望客户端A发起连接的特定公共端点。在两个对等体都可能位于NAT之后的日益常见的情况下，连接反转方法失败。连接反转不是对等连接问题的一般解决方案。如果既不能建立“前向”连接，也不能建立“反向”连接，应用程序通常会退回到另一种机制，如中继。
+ 
+
+
+
+
+
+
+
+
+3.3.  UDP 打洞
+ 
+   UDP打洞依赖于EIM-NAT的特性，允许适当设计的对等应用程序在路径中通过NAT设备打孔，并建立彼此之间的直接连接，即使两个通信主机都位于NAT设备之后。当其中一台主机位于非EIM-NAT的NAT之后时，对等主机无法预测地知道要向其发起连接的映射端点。此外，非EIM-NAT之后的主机上的应用将不能重复使用已经建立的端点映射来与不同的外部目的地通信，并且打洞技术将失败。
+ 
+   这项技术在RFC 3027[NAT-PROT]的第5.1节中简要提到，首次在[Kegel]中描述，并在最近的一些协议[Teredo，ICE]中使用。读者可参阅第3.4节，了解有关“TCP打孔”的详细信息。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   我们将考虑两个特定的场景，以及如何设计应用程序以优雅地处理这两个场景。在第一种情况下，代表常见情况，两个期望直接对等通信的客户端驻留在两个不同的NAT之后。在第二种情况下，两个客户端实际上驻留在相同的NAT之后，但不一定知道它们确实位于同一NAT之后。
+ 
+
+
+3.3.1.  不同NAT后的对等点
+ 
+   考虑图3中的场景。客户端A和B都有私有IP地址，并且位于不同的NAT设备之后。Ritdezvous服务器S具有可公开寻址的IP地址，用于注册、发现和有限中继。NAT后的主机向服务器注册它们的公共端点。对等主机使用服务器发现NAT后的主机的公共端点。与第3.1节不同，对等主机使用服务器仅转发连接发起控制消息，而不是端到端消息。
+ 
+   在客户端A和B上运行的对等应用程序使用UDP端口1234。会合服务器S使用UDP端口20001。A和B各自发起了与服务器S的UDP通信会话，使得NAT A将其自己的公共UDP端口62000分配给A与S的会话，并且使得NAT B分别将其端口31000分配给B与S的会话。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+                      Registry and Discovery Combined
+                            with Limited Relay
+                                 Server S
+                             192.0.2.128:20001
+                                     |
+        +----------------------------+----------------------------+
+        | ^ Registry Session(A-S) ^     ^ Registry Session(B-S) ^ |
+        | | 192.0.2.128:20001     |     |  192.0.2.128:20001    | |
+        | | 192.0.2.1:62000       |     |  192.0.2.254:31000    | |
+        |                                                         |
+        | ^ P2P Session (A-B)     ^     ^  P2P Session (B-A)    ^ |
+        | | 192.0.2.254:31000     |     |  192.0.2.1:62000      | |
+        | | 192.0.2.1:62000       |     |  192.0.2.254:31000    | |
+        |                                                         |
+      +--------------+                                 +--------------+
+      | 192.0.2.1    |                                 | 192.0.2.254  |
+      |              |                                 |              |
+      | EIM-NAT A    |                                 | EIM-NAT B    |
+      +--------------+                                 +--------------+
+        |                                                         |
+        | ^ Registry Session(A-S) ^     ^ Registry Session(B-S) ^ |
+        | |  192.0.2.128:20001    |     |  192.0.2.128:20001    | |
+        | |     10.0.0.1:1234     |     |     10.1.1.3:1234     | |
+        |                                                         |
+        | ^ P2P Session (A-B)     ^     ^  P2P Session (B-A)    ^ |
+        | |  192.0.2.254:31000    |     |  192.0.2.1:62000      | |
+        | |     10.0.0.1:1234     |     |     10.1.1.3:1234     | |
+        |                                                         |
+     Client A                                                 Client B
+     10.0.0.1:1234                                        10.1.1.3:1234
+ 
+         Figure 3: UDP Hole Punching to set up direct connectivity
+ 
+   现在假设客户端A想要直接与客户端B建立UDP通信会话。如果A简单地开始向B的公共端点192.0.2.254：31000发送UDP消息，则NAT B通常将丢弃这些传入消息(除非它使用与端点无关的过滤)，因为源地址和端口号与S的源地址和端口号不匹配，原始传出会话是与S建立的。类似地，如果B只是开始向A的公共端点发送UDP消息，则NAT A通常会丢弃这些消息。
+ 
+   假设A开始向B的公共终结点发送UDP消息，同时通过服务器S向B转发请求，要求B开始向A的公共终结点发送UDP消息。A定向到B的公共端点(192.0.2.254：31000)的传出消息导致EIM-NAT A在A的私有端点和B的公共端点之间打开新的通信会话。同时，B发往A的公共端点的消息(192.0.2.1：62000)导致EIM-NAT B打开B的私有端点和A的公共端点之间的新通信会话。一旦在每个方向上打开了新的UDP会话，客户端A和B就可以直接相互通信，而不会对服务器S造成进一步的负担。服务器S帮助将连接发起请求转发到NAT设备后面的对等节点，最终就像是将服务器引入对等主机。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   
+
+
+
+
+
+
+
+
+ 
+   UDP打孔技术具有几个有用的特性。一旦在NAT设备后面的两个客户端之间建立了直接的对等UDP连接，该连接上的任何一方都可以继而接手“介绍者”的角色，并帮助另一方与另外的对等方建立对等连接，从而最小化初始引入服务器S上的负载。应用程序不需要尝试检测它所在的NAT设备的类型，因为如果其中一个或两个客户端碰巧不在NAT设备之后，上述过程将同样很好地建立对等通信信道。UDP打洞技术甚至自动适用于多个NAT，其中一个或两个客户端通过两个或更多级别的地址转换远离公共互联网。
+ 
+
+
+
+
+
+
+
+3.3.2.  同一NAT后的对等点
+ 
+   现在考虑这样一种场景：两个客户端(可能是无意中)恰好位于相同的EIM-NAT之后，因此位于相同的私有IP地址空间中，如图4所示。众所周知的Rendezvous服务器S具有可公开寻址的IP地址，用于注册、发现和有限中继。NAT后的主机向服务器注册。对等主机使用服务器发现NAT后面的主机，并使用服务器转发消息。与第3.1节不同，对等主机使用服务器仅转发控制消息，而不是所有端到端消息。
+ 
+   客户端A已经与服务器S建立了UDP会话，公共EIM-NAT为该服务器S分配了公共端口号62000。客户端B类似地与S建立了会话，EIM-NAT为其分配了公共端口号62001。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+                     Registry and Discovery Combined
+                           with Limited Relay
+                                Server S
+                            192.0.2.128:20001
+                                    |
+         ^ Registry Session(A-S) ^  | ^ Registry Session(B-S) ^
+         | 192.0.2.128:20001     |  | |  192.0.2.128:20001    |
+         | 192.0.2.1:62000       |  | |  192.0.2.1:62001      |
+                                    |
+                             +--------------+
+                             | 192.0.2.1    |
+                             |              |
+                             |   EIM-NAT    |
+                             +--------------+
+                                    |
+      +-----------------------------+----------------------------+
+      | ^ Registry Session(A-S) ^      ^ Registry Session(B-S) ^ |
+      | |  192.0.2.128:20001    |      |  192.0.2.128:20001    | |
+      | |     10.0.0.1:1234     |      |     10.1.1.3:1234     | |
+      |                                                          |
+      | ^ P2P Session-try1(A-B) ^      ^ P2P Session-try1(B-A) ^ |
+      | | 192.0.2.1:62001       |      |  192.0.2.1:62000      | |
+      | |     10.0.0.1:1234     |      |     10.1.1.3:1234     | |
+      |                                                          |
+      | ^ P2P Session-try2(A-B) ^      ^ P2P Session-try2(B-A) ^ |
+      | |     10.1.1.3:1234     |      |     10.0.0.1:1234     | |
+      | |     10.0.0.1:1234     |      |     10.1.1.3:1234     | |
+      |                                                          |
+   Client A                                                   Client B
+   10.0.0.1:1234                                         10.1.1.3:1234
+ 
+   Figure 4: Use of local and public endpoints to communicate with peers
+ 
+   假设A和B使用如上所述的UDP打孔技术来建立使用服务器S作为介绍者的通信通道。然后，A和B将学习由服务器S观察到的彼此的公共端点，并开始在这些公共端点处彼此发送消息。只要NAT允许内部网络上的主机与其他内部主机(而不仅仅是外部主机)打开转换后的UDP会话，这两个客户端将能够以这种方式相互通信。这种情况被称为“弯折”，因为从私有网络到达NAT的数据包会被转换，然后环回私有网络，而不是通过公共网络。
+ 
+   例如，考虑上面的P2P会话-try 1。当A向B的公共端点发送UDP数据包时，该数据包最初的源端点为10.0.0.1：1234，目的端点为192.0.2.1：62001。NAT收到此数据包，将其转换为源端点192.0.2.1：62000和目的端点10.1.1.3：1234，然后将其转发到B。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+ 
+   即使NAT设备支持弯折，在这种情况下，这种转换和转发步骤显然是不必要的，并且除了增加NAT的负担之外，还增加了A和B之间的对话的延迟。这个问题的解决方案很简单，描述如下。
+ 
+   当A和B最初通过Rendezvous服务器S交换地址信息时，它们包括它们自己的IP地址和端口号，如它们自己“观察到的”，以及由S观察到的它们的公共端点。然后，客户端同时开始在它们知道的每个可选地址向彼此发送分组，并使用导致成功通信的第一个地址。如果这两个客户端位于相同的NAT之后，如上面图4中的情况，则定向到它们的私有端点的分组(如使用P2P会话-TRY2所尝试的)可能首先到达，从而导致不涉及NAT的直接通信信道。如果两个客户端位于不同的NAT之后，则定向到其私有端点的数据包将根本无法到达对方，但客户端有望使用其各自的公共端点建立连接。然而，重要的是以某种方式对这些分组进行认证，因为在不同NAT的情况下，指向B的私有端点的A的消息完全可能到达A的私有网络上的某个其他无关节点，反之亦然。
+ 
+   [ICE]协议有效地利用了这一技术，因为在提供/应答交换期间，对等终端主机之间通信多个候选端点(私有和公共)。最终选择提供最有效的端到端连接的端点进行端到端数据传输。
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3.3.3.  由多个NAT分隔的对等点
+ 
+   在涉及多个NAT设备的某些拓扑中，如果没有特定的拓扑知识，两个客户端不可能在它们之间建立“最佳”P2P路由。例如，考虑图5中的场景。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+                     Registry and Discovery Combined
+                           with Limited Relay
+                                Server S
+                           192.0.2.128:20001
+                                   |
+         ^ Registry Session(A-S) ^ | ^ Registry Session(B-S) ^
+         | 192.0.2.128:20001     | | | 192.0.2.128:20001     |
+         | 192.0.2.1:62000       | | | 192.0.2.1:62001       |
+                                   |
+                            +--------------+
+                            | 192.0.2.1    |
+                            |              |
+                            |  EIM-NAT X   |
+                            | (Supporting  |
+                            | Hairpinning) |
+                            +--------------+
+                                   |
+      +----------------------------+----------------------------+
+      | ^ Registry Session(A-S) ^     ^ Registry Session(B-S) ^ |
+      | |  192.0.2.128:20001    |     |  192.0.2.128:20001    | |
+      | |  192.168.1.1:30000    |     |  192.168.1.2:31000    | |
+      |                                                         |
+      | ^ P2P Session (A-B)     ^     ^ P2P Session (B-A)     ^ |
+      | |  192.0.2.1:62001      |     |  192.0.2.1:62000      | |
+      | |  192.168.1.1:30000    |     |  192.168.1.2:31000    | |
+      |                                                         |
+   +--------------+                                  +--------------+
+   | 192.168.1.1  |                                  | 192.168.1.2  |
+   |              |                                  |              |
+   | EIM-NAT A    |                                  | EIM-NAT B    |
+   +--------------+                                  +--------------+
+       |                                                        |
+       | ^ Registry Session(A-S) ^    ^ Registry Session(B-S) ^ |
+       | |  192.0.2.128:20001    |    |  192.0.2.128:20001    | |
+       | |     10.0.0.1:1234     |    |     10.1.1.3:1234     | |
+       |                                                        |
+       | ^ P2P Session (A-B)     ^    ^  P2P Session (B-A)    ^ |
+       | |  192.0.2.1:62001      |    |  192.0.2.1:62000      | |
+       | |     10.0.0.1:1234     |    |     10.1.1.3:1234     | |
+       |                                                        |
+   Client A                                                  Client B
+   10.0.0.1:1234                                        10.1.1.3:1234
+ 
+      Figure 5: Use of Hairpinning in setting up direct communication
+ 
+  </pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   假设NAT X是由大型互联网服务提供商(ISP)部署的EIM-NAT，以将许多客户多路复用到几个公共IP地址上，而NAT A和NAT B是由两个ISP的客户独立部署的小型消费者NAT网关，以将其私有家庭网络多路复用到其各自由ISP提供的IP地址上。只有服务器S和NAT X具有全球可路由的IP地址；NAT A和NAT B使用的“公共”IP地址实际上是ISP寻址领域的私有地址，而客户端A和B的地址又分别是NAT A和NAT B寻址领域的私有地址。与上一节一样，服务器S用于注册、发现和有限中继。对等主机使用服务器来转发连接发起控制消息，而不是所有端到端消息。
+ 
+   现在假设客户端A和B尝试建立直接的对等UDP连接。最佳方法是客户端A向位于NAT B的公有地址192.168.1.2：31000发送消息，客户端B向位于NAT B的公有地址192.168.1.1：30000发送消息。不幸的是，A和B无法获知这些地址，因为服务器S只能看到客户端的“全局”公共端点192.0.2.1：62000和192.0.2.1：62001。即使A和B有某种方法来获取这些地址，仍然不能保证它们将是可用的，因为在ISP的私有寻址领域中的地址分配可能与在客户端的私有领域中的无关地址分配冲突。因此，客户端别无选择，只能使用S看到的它们的全球公共端点进行P2P通信，并依赖NAT X来提供弯折。
+
+
+
+
+
+
+
+
+
+
+ 
+3.4.  TCP 打洞
+ 
+   在这一节中，我们将讨论用于在EIM-NAT设备后面的一对节点之间建立直接TCP连接的“TCP打洞”技术。就像UDP打孔一样，TCP打洞依赖于EIM-NAT的属性，允许适当设计的对等应用程序通过NAT设备打孔并建立彼此之间的直接连接，即使两台通信主机都位于NAT设备之后。这种技术有时也称为“同步的TCP开放”。
+ 
+   大多数TCP会话从一个端点发送SYN包开始，另一方以SYN-ACK包响应。然而，允许两个端点通过同时发送彼此的SYN分组来开始一个TCP会话，每一方随后都用单独的ACK进行响应。这个过程被称为“同时的TCP开放”技术，可以在原始的TCP规范([TCP])的图6中找到。但是，包括NAT设备在内的许多系统都没有正确实施“同步TCP打开”。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+
+   如果NAT设备从专用网络外部接收到试图发起传入的TCP连接的TCPSYN分组，则NAT设备通常将通过丢弃该SYN分组或发回TCPRST(连接重置)分组来拒绝该连接尝试。在SYN超时或连接重置的情况下，应用程序端点将继续重新发送SYN包，直到对等方执行相同的操作。
+ 
+
+
+   让我们来考虑NAT设备支持“同时的TCP开放”会话的情况。当SYN分组到达时，其源端点和目的端点对应于NAT设备认为已经处于活动状态的TCP会话，则NAT设备将允许该分组通过。具体地说，如果NAT设备最近刚刚看到并传输了具有相同地址和端口号的传出SYN分组，则它将认为会话是活动的，并允许传入SYN通过。如果客户端A和B中的每一个都可以定时地发起与另一个客户端的传出TCP连接，使得每个客户端的传出SYN在任一SYN到达相反的NAT设备之前通过其本地NAT设备，则将产生工作的对等TCP连接。
+ 
+
+
+
+
+
+   由于以下原因，该技术可能并不总是可靠地工作。如果任一节点的SYN分组到达远程NAT设备太快(在对等节点有机会发送SYN分组之前)，则远程NAT设备可以丢弃SYN分组或拒绝具有RST分组的SYN。这可能会导致本地NAT设备立即关闭新的NAT会话或启动会话结束超时(参见[NAT-Term]的第2.6节)，以便在超时结束时关闭NAT会话。即使在两个对等节点同时发起持续的SYN重传尝试时，如果NAT会话处于会话结束超时状态，则一些远程NAT设备可能不会让传入的SYN通过。这又会阻止建立TCP连接。
+ 
+   实际上，大多数NAT设备(超过50%)支持与端点无关的映射，并且不会发送ICMP错误或RST来响应未经请求的传入SYN。因此，在大多数TCP连接尝试([P2P-NAT]、[TCP-CHARACT])中，同步TCP Open技术确实可以跨NAT设备工作。
+ 
+
+
+
+3.5.  UDP 端口预测
+ 
+   存在UDP打孔技术的变体，其允许在存在实现端点相关映射的一些NAT的情况下创建对等UDP会话。这种方法有时被称为“N+1”技术[BIDIR]，Takeda [SYM-STUN]对此进行了详细的探索。该方法的工作原理是分析NAT的行为，并尝试预测它将分配给未来会话的公共端口号。分配的公共端口通常是可预测的，因为大多数NAT按顺序分配映射端口。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+ 
+ 
+   请考虑图6中的场景。位于不同NAT之后的两个客户端A和B分别与汇聚服务器S建立了单独的UDP连接。汇聚服务器S具有可公开寻址的IP地址，用于注册和发现。NAT后的主机向服务器注册其端点。对等主机使用服务器发现NAT之后的主机的端点。
+ 
+                          Registry and Discovery
+                                 Server S
+                             192.0.2.128:20001
+                                     |
+                                     |
+        +----------------------------+----------------------------+
+        | ^ Registry Session(A-S) ^     ^ Registry Session(B-S) ^ |
+        | | 192.0.2.128:20001     |     |  192.0.2.128:20001    | |
+        | | 192.0.2.1:62000       |     |  192.0.2.254:31000    | |
+        |                                                         |
+        | ^ P2P Session (A-B)     ^     ^  P2P Session (B-A)    ^ |
+        | | 192.0.2.254:31001     |     |  192.0.2.1:62001      | |
+        | | 192.0.2.1:62001       |     |  192.0.2.254:31001    | |
+        |                                                         |
+   +---------------------+                       +--------------------+
+   | 192.0.2.1           |                       |        192.0.2.254 |
+   |                     |                       |                    |
+   |    NAT A            |                       |        NAT B       |
+   | (Endpoint-Dependent |                       | (Endpoint-Dependent|
+   |  Mapping)           |                       |  Mapping)          |
+   +---------------------+                       +--------------------+
+        |                                                         |
+        | ^ Registry Session(A-S) ^     ^ Registry Session(B-S) ^ |
+        | |  192.0.2.128:20001    |     |  192.0.2.128:20001    | |
+        | |     10.0.0.1:1234     |     |     10.1.1.3:1234     | |
+        |                                                         |
+        | ^ P2P Session (A-B)     ^     ^ P2P Session (B-A)     ^ |
+        | |  192.0.2.254:31001    |     |  192.0.2.1:62001      | |
+        | |     10.0.0.1:1234     |     |     10.1.1.3:1234     | |
+        |                                                         |
+     Client A                                                 Client B
+     10.0.0.1:1234                                        10.1.1.3:1234
+ 
+        Figure 6: UDP Port Prediction to set up direct connectivity</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+   NAT A已将其UDP端口62000分配给A和S之间的通信会话，NAT B已将其端口31000分配给B和S之间的会话。通过与服务器S通信，A和B相互了解S所观察到的彼此的公共端点。客户端A现在开始向地址为192.0.2.254的端口31001发送UDP消息(请注意端口号递增)，并且客户端B同时开始向地址为192.0.2.1的端口62001发送消息。如果NAT A和NAT B按顺序将端口号分配给新会话，并且如果A-S和B-S会话启动后经过的时间不长，则A和B之间应该会产生工作的双向通信通道。A到B的消息导致NAT A打开新的会话，NAT A将(希望)向其分配公共端口号62001，因为62001是它先前分配给A和S之间的会话的端口号62000之后的顺序中的下一个。类似地，B到A的消息将导致NAT B打开新的会话，NAT B将(希望)向其分配端口号31001。如果两个客户端都正确地猜测了每个NAT分配给新会话的端口号，则已经建立了双向UDP通信通道。
+ 
+
+
+
+
+
+
+
+   显然，有很多因素可能会导致这一伎俩失败。如果任一NAT处的预测端口号恰好已被不相关的会话使用，则NAT将跳过该端口号，连接尝试将失败。如果NAT有时或始终不按顺序选择端口号，则该技巧将失败。如果NAT A(或B)后面的另一个客户端在A(B)与S建立连接之后但在向B(A)发送其第一个消息之前打开到任何外部目的地的新的传出UDP连接，则不相关的客户端将在不经意间“窃取”所需的端口号。因此，当所涉及的NAT中的任一NAT处于负载状态时，此技巧不太可能奏效。
+ 
+   由于在实践中，即使当其中一个NAT使用与端点无关的映射时，实现此技巧的应用程序仍需要工作，因此该应用程序将需要预先检测在两端涉及哪种NAT并相应地修改其行为，从而增加算法的复杂性和网络的一般脆弱性。最后，如果任一客户端位于两个或更多级别的NAT之后，并且最接近该客户端的NAT使用端点相关映射，则端口号预测几乎不可能起作用。
+ 
+
+
+
+
+
+
+
+3.6.  TCP 端口预测
+ 
+   这是“TCP打洞”技术的一种变体，用于使用地址相关映射在NAT之间建立直接对等的TCP会话。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+   不幸的是，此技巧可能比前面描述的UDP端口号预测技巧更加脆弱和对时间敏感。首先，预测NAT将分配的公共端口可能是错误的。此外，如果任一客户端的SYN太快到达相反的NAT设备，则远程NAT设备可能用RST分组拒绝该SYN，从而导致本地NAT设备依次关闭新会话，并且使得使用相同端口号的未来SYN重传尝试是徒劳的。
+ 
+
+
+4.  NAT穿越研究的最新进展
+ 
+   [P2P-NAT]对穿透NAT的UDP和TCP打洞技术进行了详细的讨论。[P2P-NAT]还列出了在许多商业NAT设备上运行测试程序[NAT-Check]的经验结果。结果表明，UDP打孔在80%以上的NAT设备上都能正常工作，而TCP打孔在60%以上的NAT设备上能正常工作。结果还表明，由于只有不到25%的设备通过了发夹测试([NAT-check])，因此目前还没有在商业NAT设备上广泛使用TCP或UDP弯头。读者也可以参考[Jenn-Result]和[SAIK-Result]了解对公共可用的NAT设备进行分类的经验测试结果。[Jenn-Result]使用跨越不同IP协议的测试提供NAT分类结果。[SAIK-RESULT]专注于根据TCP行为特征对NAT设备进行分类。
+
+
+
+
+
+ 
+   [TCP-CHARACT]和[NAT-blaster]重点介绍了tcp打洞，探索和比较了几种替代方法。[NAT-Blaster]采取分析方法，分析观察到的NAT行为的不同情况以及应用程序可能解决这些问题的方法。[TCP-CHARACT]采用更具经验性的方法，测量与TCP打洞相关的不同类型NAT行为的共性。这项工作发现，使用比[P2P-NAT]中使用的技术更复杂的技术，高达88%的当前部署的NAT可以支持TCP打洞。
+ 
+
+
+
+
+   [TEREDO]是一种NAT穿越服务，它使用中继技术将NAT设备后面的IPv4节点连接到NAT设备外部的IPv6节点。[TEREDO]通过在NAT设备上通过UDP隧道将数据包传输到中继节点，从而提供跨NAT设备的对等通信。Teredo中继充当Rendezvous服务器，将流量从私有IPv4节点转发到外部领域中的节点，反之亦然。
+ 
+   [ICE]是一种NAT穿越协议，用于为一类多媒体应用在对等节点之间建立媒体会话。[ICE]要求对等节点在用于终止媒体会话的相同端口号上通过NAT(STUN)协议[STUN]运行UDP协议的简单穿越。使用诸如SIP([SIP])的信令协议的应用可以将媒体会话的NAT穿越属性嵌入到信令会话中，并使用对等节点之间的提供/应答类型的交换来建立跨越NAT设备的端到端媒体会话。[ICE-tcp]是ICE针对基于tcp的媒体会话的扩展。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+ 
+
+
+
+
+
+
+ 
+   许多在线游戏和IP媒体应用程序(包括即时消息应用程序)使用文档中描述的技术建立点对点连接。由于其他原因，一些应用程序可能使用多个不同的会合服务器来实现注册、发现和用于负载平衡的中继功能。例如，知名的IP媒体应用Skype使用中央公共服务器进行登录，使用不同的公共服务器进行端到端的中继功能。
+ 
+
+
+5.  意见摘要
+ 
+5.1.  TCP/UDP 打洞
+ 
+   在NAT之后的两个节点之间建立直接的TCP/UDP对等通信的现有方法中，TCP/UDP打洞似乎是最有效的方法。此技术已在各种现有NAT中使用。但是，当无法建立直接通信时，应用程序可能需要准备退回到简单的中继。
+ 
+   TCP/UDP打洞技术有一个警告，因为它仅在穿越NAT是EIM-NAT时才起作用。当NAT设备在路由中不是EIM-NAT时，应用程序不能重复使用已经建立的端点映射来与不同的外部目的地通信，并且该技术将失败。然而，部署在互联网上的NAT设备很多都是EIM-NAT设备。这使得TCP/UDP打洞技术得到了广泛的应用[P2P-NAT]。然而，部署的NAT中有相当一部分确实使用端点相关映射，并且不支持TCP/UDP打洞技术。
+ 
+
+
+
+
+
+
+5.2.  使用端点相关映射的NAT
+ 
+   使用依赖于端点的映射的NAT对于Web浏览器等客户端-服务器应用程序来说不是问题，它们只需要启动传出连接。然而，近年来，即时消息和IP语音等P2P应用程序得到了广泛使用。采用端点相关映射的NAT不适合P2P应用，因为诸如TCP/UDP打洞之类的技术不能在这些NAT设备上工作。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+5.3.  对等发现
+ 
+   应用对等体可以存在于相同的NAT域内或NAT域外。为了让所有对等体(NAT域内或NAT域外的对等体)发现应用程序端点，应用程序可以选择将其专用端点和公共端点注册到会合服务器。
+ 
+
+5.4.  Hairpinning
+ 
+   对弯折的支持非常有益，因为它允许EIM-NAT后的主机通过其公共的(可能已转换的)端点与同一NAT设备后的其他主机通信。在将大容量NAT部署为多级别NAT方案的第一级的情况下，对弯折的支持尤其有用。如第3.3.3节所述，位于相同的第一级NAT但不同的第二级NAT的主机无法使用TCP/UDP打洞技术相互通信，除非第一级NAT也支持弯折。即使部署中的所有NAT设备都保留端点身份，情况也是如此。
+ 
+
+
+
+
+6.  安全注意事项
+ 
+   本文档本身不会产生新的安全问题。然而，在所描述的技术中可能存在安全风险。本节介绍应用程序在尝试支持跨NAT设备的直接通信时可能无意中造成的安全风险。
+ 
+6.1.  缺少身份验证可能会导致连接劫持
+ 
+   应用程序必须使用适当的身份验证机制来保护它们的连接，以防止意外地与其他连接混淆，以及防止恶意连接劫持或拒绝服务攻击。应用程序必须有效地与多个不同的IP地址域交互，但通常不知道定义这些地址域的确切拓扑或管理策略。在尝试通过TCP/UDP穿孔建立连接时，应用程序发送的数据包可能经常到达与预期主机完全不同的主机。
+ 
+   例如，许多消费者级别的NAT设备提供动态主机配置协议(DHCP)服务，这些服务在默认情况下配置为分发特定地址范围内的站点本地IP地址。比方说，默认情况下，特定的消费者NAT设备分发以192.168.1.100开头的IP地址。大多数使用该NAT设备的私有家庭网络都会有一台具有该IP地址的主机，其中许多网络可能也会有一台地址为192.168.1.101的主机。如果一个私有网络中地址为192.168.1.101的主机A尝试通过UDP打孔与另一个私有网络中地址为192.168.1.100的主机B建立连接，则作为此过程的一部分，主机A将向其本地网络中的地址192.168.1.100发送发现数据包，主机B将向其网络中的地址192.168.1.101发送发现数据包。显然，由于两台主机位于不同的专用网络上，因此这些发现数据包不会到达目标计算机，但它们很可能到达这两个应用程序使用的标准UDP端口号的这两个网络上的某个计算机，这可能会造成混淆，特别是如果应用程序也在这些其他计算机上运行并且没有正确验证其消息的话。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+
+
+
+
+
+
+
+
+
+
+
+ 
+   因此，即使在没有恶意攻击者的情况下，也存在由别名引起的风险。如果一个端点(例如主机A)实际上是恶意的，则在没有适当身份验证的情况下，攻击者可能会导致主机B以意外的方式与其专用网络上的另一台主机连接并交互，该另一台主机的IP地址与攻击者(声称)的专用地址相同。由于两个端点主机A和B可能通过提供注册、发现和有限的中继服务的公共会合服务器S彼此发现，并且S和B都没有任何手段来验证A报告的私有地址，因此可以建议应用程序假定它们发现的任何IP地址都是可疑的，直到它们成功地建立了认证的双向通信。
+ 
+6.2.  拒绝服务攻击
+ 
+   应用程序和支持它们的公共服务器必须保护自己免受拒绝服务攻击，并确保它们不会被攻击者用来对其他目标发动拒绝服务攻击。为了保护自己，在建立经过身份验证的双向通信之前，应用程序和服务器必须避免采取任何需要大量本地处理或存储资源的操作。为了避免被用作拒绝服务攻击的工具，应用程序和服务器必须将它们发送到任何新发现的IP地址的通信量和速率降至最低，直到与目标建立了经过身份验证的双向通信。
+ 
+   例如，注册到公共集合服务器的应用程序可以声称拥有任何私有IP地址，或者可能拥有多个IP地址。连接良好的主机或主机组可以共同吸引大量连接尝试(例如，通过提供流行内容)，只需将目标主机C的IP地址包括在它自己向会合服务器注册的IP地址列表中，就可以对目标主机C发动拒绝服务攻击。会合服务器不可能验证IP地址，因为它们很可能是对其他主机有用的合法专用网络地址，用于建立网络本地通信。因此，必须将应用协议设计为将流量大小和速率限制到未经验证的IP地址，以避免这种集中效应可能造成的潜在损害。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+
+
+
+ 
+6.3.  中间人攻击
+ 
+   客户端和公共集合点服务器之间路径上的任何网络设备都可以通过伪装成NAT来发动各种中间人攻击。例如，假设主机A尝试向会合服务器S注册，但网络监听攻击者能够观察到此注册请求。然后，攻击者可以用与客户端的原始请求相同的请求淹没服务器S，只是修改了源IP地址，如攻击者本身的IP地址。如果攻击者可以说服服务器使用攻击者的IP地址注册客户端，则攻击者可以使自己成为从服务器和其他主机到原始客户端的所有未来通信量路径上的活动组件，即使攻击者最初只能窥探从客户端到服务器的路径。
+ 
+   客户端无法通过向会合服务器验证其源IP地址来保护自己免受此攻击，因为为了对NAT友好，应用程序必须允许介入NAT以静默方式更改源地址。这似乎是NAT范例的固有安全弱点。对此类攻击的唯一防御是客户端使用适当的更高级别身份对其通信的实际内容进行身份验证，并可能对其进行加密，以便介入的攻击者无法利用其位置。然而，即使所有应用程序级别的通信都经过身份验证和加密，此攻击仍可用作流量分析工具，以观察客户端正在与谁通信。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+6.4.  EIM-NAT设备带来的安全影响
+ 
+   设计NAT设备以保留端点身份不会削弱NAT设备提供的安全性。例如，使用与端点无关的映射和依赖于端点的过滤的NAT设备与使用依赖于端点的映射和依赖于端点的过滤的NAT设备一样，并不比使用依赖于端点的映射和依赖于端点的过滤的NAT设备更“混杂”。在使用终端无关映射的同时使用终端相关过滤来积极过滤传入流量，使NAT设备能够对应用程序友好，而不会影响拒绝未经请求的传入流量的原则。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   终端无关映射可以通过揭示不同的TCP/UDP会话之间的关系，从而揭示飞地内运行的应用程序的行为，从而提高从NAT设备产生的流量的可预测性。可以想象，这种可预测性对于攻击者利用其他网络级或应用程序级漏洞很有用。如果特定部署方案的安全要求非常重要，以至于需要关注这种微妙的信息通道，那么可能NAT设备一开始就没有配置为允许不受限制的传出TCP/UDP流量。被配置为允许来自特定端口处的特定应用程序的通信或通过严格控制的应用程序级网关的NAT设备可以实现此类部署场景的安全要求。
+ 
+
+
+
+
+
+
+
+
+
+7.  Acknowledgments
+ 
+   The authors wish to thank Henrik Bergstrom, David Anderson, Christian   Huitema, Dan Wing, Eric Rescorla, and other BEHAVE work group members   for their valuable feedback on early versions of this document.  The   authors also wish to thank Francois Audet, Kaushik Biswas, Spencer   Dawkins, Bruce Lowekamp, and Brian Stucker for agreeing to be   technical reviewers for this document.
+ 
+8.  引用
+ 
+8.1.  引用标准
+ 
+   [NAT-TERM]    Srisuresh, P. and M. Holdrege, "IP Network Address
+                 Translator (NAT) Terminology and Considerations", RFC
+                 2663, August 1999.
+
+   [NAT-TRAD]    Srisuresh, P. and K. Egevang, "Traditional IP Network
+                 Address Translator (Traditional NAT)", RFC 3022,
+                 January 2001.
+
+   [BEH-UDP]     Audet, F., Ed., and C. Jennings, "Network Address
+                 Translation (NAT) Behavioral Requirements for Unicast
+                 UDP", BCP 127, RFC 4787, January 2007.
+ 
+8.2.  参考资料
+ 
+   [BEH-APP]     Ford, B., Srisuresh, P., and D. Kegel, "Application
+                 Design Guidelines for Traversal through Network Address
+                 Translators", Work in Progress, March 2007.</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   [BEH-ICMP]    Srisuresh, P., Ford, B., Sivakumar, S., and S. Guha,
+                 "NAT Behavioral Requirements for ICMP protocol", Work
+                 in Progress, February 2008.
+
+   [BEH-TCP]     Guha, S., Biswas, K., Ford, B., Sivakumar, S., and P.
+                 Srisuresh, "NAT Behavioral Requirements for TCP", Work
+                 in Progress, April 2007.
+
+   [BIDIR]       Peer-to-Peer Working Group, NAT/Firewall Working
+                 Committee, "Bidirectional Peer-to-Peer Communication
+                 with Interposing Firewalls and NATs", August 2001.
+                 http://www.peer-to-peerwg.org/tech/nat/
+
+   [ICE]         Rosenberg, J., "Interactive Connectivity Establishment
+                 (ICE): A Methodology for Network Address Translator
+                 (NAT) Traversal for Offer/Answer Protocols", Work in
+                 Progress, October 2007.
+
+   [ICE-TCP]     Rosenberg, J., "TCP Candidates with Interactive
+                 Connectivity Establishment (ICE)", Work in Progress,
+                 July 2007.
+
+   [JENN-RESULT] Jennings, C., "NAT Classification Test Results", Work
+                 in Progress, July 2007.
+
+   [KEGEL]       Kegel, D., "NAT and Peer-to-Peer Networking", July
+                 1999. http://www.alumni.caltech.edu/~dank/peer-nat.html
+
+   [MIDCOM]      Srisuresh, P., Kuthan, J., Rosenberg, J., Molitor, A.,
+                 and A. Rayhan, "Middlebox communication architecture
+                 and framework", RFC 3303, August 2002.
+
+   [NAT-APPL]    Senie, D., "Network Address Translator (NAT)-Friendly
+                 Application Design Guidelines", RFC 3235, January 2002.
+
+   [NAT-BLASTER] Biggadike, A., Ferullo, D., Wilson, G., and Perrig, A.,
+                 "Establishing TCP Connections Between Hosts Behind
+                 NATs", ACM SIGCOMM ASIA Workshop, April 2005.
+
+   [NAT-CHECK]   Ford, B., "NAT check Program" available online as
+                 http://midcom-p2p.sourceforge.net, February 2005.
+
+   [NAT-PMP]     Cheshire, S., Krochmal, M., and K. Sekar, "NAT Port
+                 Mapping Protocol (NAT-PMP)", Work in Progress, October
+                 2006.</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   [NAT-PROT]    Holdrege, M. and P. Srisuresh, "Protocol Complications
+                 with the IP Network Address Translator", RFC 3027,
+                 January 2001.
+
+   [NAT-PT]      Tsirtsis, G. and P. Srisuresh, "Network Address
+                 Translation - Protocol Translation (NAT-PT)", RFC 2766,
+                 February 2000.
+
+   [NAT-PT-HIST] Aoun, C. and E. Davies, "Reasons to Move the Network
+                 Address Translator - Protocol Translator (NAT-PT) to
+                 Historic Status", RFC 4966, July 2007.
+
+   [NSIS-NSLP]   Stiemerling, M., Tschofenig, H., Aoun, C., and E.
+                 Davies, "NAT/Firewall NSIS Signaling Layer Protocol
+                 (NSLP)", Work in Progress, July 2007.
+
+   [P2P-NAT]     Ford, B., Srisuresh, P., and Kegel, D., "Peer-to-Peer
+                 Communication Across Network Address Translators",
+                 Proceedings of the USENIX Annual Technical Conference
+                 (Anaheim, CA), April 2005.
+
+   [RFC3330]     IANA, "Special-Use IPv4 Addresses", RFC 3330, September
+                 2002.
+
+   [RFC4941]     Narten, T., Draves, R., and S. Krishnan, "Privacy
+                 Extensions for Stateless Address Autoconfiguration in
+                 IPv6", RFC 4941, September 2007.
+
+   [RSIP]        Borella, M., Lo, J., Grabelsky, D., and G. Montenegro,
+                 "Realm Specific IP: Framework", RFC 3102, October 2001.
+
+   [SAIK-RESULT] Guha, Saikat,  "NAT STUNT Results" available online as
+                 https://www.guha.cc/saikat/stunt-results.php.
+
+   [SIP]         Rosenberg, J., Schulzrinne, H., Camarillo, G.,
+                 Johnston, A., Peterson, J., Sparks, R., Handley, M.,
+                 and E. Schooler, "SIP:  Session Initiation Protocol",
+                 RFC 3261, June 2002.
+
+   [SOCKS]       Leech, M., Ganis, M., Lee, Y., Kuris, R., Koblas, D.,
+                 and L. Jones, "SOCKS Protocol Version 5", RFC 1928,
+                 March 1996.
+
+   [STUN]        Rosenberg, J., Weinberger, J., Huitema, C., and R.
+                 Mahy, "STUN - Simple Traversal of User Datagram
+                 Protocol (UDP) Through Network Address Translators
+                 (NATs)", RFC 3489, March 2003.</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   [SYM-STUN]    Takeda, Y., "Symmetric NAT Traversal using STUN", Work
+                 in Progress, June 2003.
+
+   [TCP]         Postel, J., "Transmission Control Protocol", STD 7, RFC
+                 793, September 1981.
+
+   [TCP-CHARACT] Guha, S., and Francis, P., "Characterization and
+                 Measurement of TCP Traversal through NATs and
+                 Firewalls", Proceedings of Internet Measurement
+                 Conference (IMC), Berkeley, CA, October 2005, pp. 199-
+                 211.
+
+   [TEREDO]      Huitema, C., "Teredo: Tunneling IPv6 over UDP through
+                 Network Address Translations (NATs)", RFC 4380,
+                 February 2006.
+
+   [TURN]        Rosenberg, J., Mahy, R., and P. Matthews, "Traversal
+                 Using Relays around NAT (TURN): Relay Extensions to
+                 Session Traversal Utilities for NAT (STUN)", Work in
+                 Progress, January 2008.
+
+   [UNSAF]       Daigle, L., Ed., and IAB, "IAB Considerations for
+                 UNilateral Self-Address Fixing (UNSAF) Across Network
+                 Address Translation", RFC 3424, November 2002.
+
+   [UPNP]        UPnP Forum, "Internet Gateway Device (IGD) Standardized
+                 Device Control Protocol V 1.0", November 2001,
+                 http://www.upnp.org/standardizeddcps/igd.asp
+
+   [V6-CPE-SEC]  Woodyatt, J., "Recommended Simple Security Capabilities
+                 in Customer Premises Equipment for Providing
+                 Residential IPv6 Internet Service", Work in Progress,
+                 June 2007.</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+Authors' Addresses
+
+   Pyda Srisuresh
+   Kazeon Systems, Inc.
+   1161 San Antonio Rd.
+   Mountain View, CA 94043
+   USA
+
+   Phone: (408)836-4773
+   EMail: srisuresh@yahoo.com
+
+
+   Bryan Ford
+   Laboratory for Computer Science
+   Massachusetts Institute of Technology
+   77 Massachusetts Ave.
+   Cambridge, MA 02139
+   USA
+
+   Phone: (617) 253-5261
+   EMail: baford@mit.edu
+   Web: http://www.brynosaurus.com/
+
+
+   Dan Kegel
+   Kegel.com
+   901 S. Sycamore Ave.
+   Los Angeles, CA 90036
+   USA
+
+   Phone: 323 931-6717
+   EMail: dank@kegel.com
+   Web: http://www.kegel.com/</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+Full Copyright Statement
+
+   Copyright (C) The IETF Trust (2008).
+
+   This document is subject to the rights, licenses and restrictions
+   contained in BCP 78, and except as set forth therein, the authors
+   retain all their rights.
+
+   This document and the information contained herein are provided on an
+   "AS IS" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS
+   OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND
+   THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS
+   OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF
+   THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED
+   WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+
+Intellectual Property
+
+   The IETF takes no position regarding the validity or scope of any
+   Intellectual Property Rights or other rights that might be claimed to
+   pertain to the implementation or use of the technology described in
+   this document or the extent to which any license under such rights
+   might or might not be available; nor does it represent that it has
+   made any independent effort to identify any such rights.  Information
+   on the procedures with respect to rights in RFC documents can be
+   found in BCP 78 and BCP 79.
+
+   Copies of IPR disclosures made to the IETF Secretariat and any
+   assurances of licenses to be made available, or the result of an
+   attempt made to obtain a general license or permission for the use of
+   such proprietary rights by implementers or users of this
+   specification can be obtained from the IETF on-line IPR repository at
+   http://www.ietf.org/ipr.
+
+   The IETF invites any interested party to bring to its attention any
+   copyrights, patents or patent applications, or other proprietary
+   rights that may cover technology that may be required to implement
+   this standard.  Please address the information to the IETF at
+   ietf-ipr@ietf.org.
+ 
+
+ 
+
+ 
+
+
+ 
+</pre>
+
+
+
+
+</div>
