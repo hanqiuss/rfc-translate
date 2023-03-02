@@ -1,0 +1,1556 @@
+<div class="content" style="float: left; margin: 0px 30%; width: 579px; font-size: 14px;">
+<span class="pre noprint docinfo">[<a href="https://www.rfc-editor.org" title="RFC Editor">RFC Home</a>] [<a href="/rfc/rfc5626.txt">TEXT</a>|<a href="/rfc/pdfrfc/rfc5626.txt.pdf">PDF</a>|<a href="/rfc/rfc5626.html">HTML</a>] [<a href="https://datatracker.ietf.org/doc/rfc5626" title="IETF Datatracker information for this document">Tracker</a>] [<a href="https://datatracker.ietf.org/ipr/search/?rfc=5626&amp;submit=rfc" title="IPR disclosures related to this document">IPR</a>] [<a href="https://www.rfc-editor.org/info/rfc5626" title="Info page">Info page</a>]                  </span><br><span class="pre noprint docinfo">                                                                        </span><br><span class="pre noprint docinfo">                                                       PROPOSED STANDARD</span><br><span class="pre noprint docinfo">                                                                        </span><pre style="height: 780px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;">Network Working Group                                   C. Jennings, Ed.
+Request for Comments: 5626                                 Cisco Systems
+Updates: 3261, 3327                                         R. Mahy, Ed.
+Category: Standards Track                                   Unaffiliated
+                                                           F. Audet, Ed.
+                                                              Skype Labs
+                                                            October 2009
+ 
+
+                 在会话发起协议中管理客户端发起的连接 (SIP)
+ 
+Abstract
+ 
+   会话发起协议(SIP)允许代理服务器发起TCP连接或向用户代理发送异步UDP数据报，以便传递请求。然而，在大量实际部署中，许多实际考虑因素，例如防火墙和网络地址转换器(NAT)的存在，或者使用带有服务器提供的证书的TLS，都会阻止服务器以这种方式连接到用户代理。本规范定义了允许在用户代理建立的现有连接上传递请求的用户代理、注册商和代理服务器的行为。它还定义了保持NAT绑定打开所需的保持活动行为，并指定了从用户代理到其注册器的多个连接的使用。
+ 
+
+
+Status of This Memo
+ 
+   This document specifies an Internet standards track protocol for the   Internet community, and requests discussion and suggestions for   improvements.  Please refer to the current edition of the "Internet   Official Protocol Standards" (STD 1) for the standardization state   and status of this protocol.  Distribution of this memo is unlimited.
+ 
+Copyright Notice
+ 
+   Copyright (c) 2009 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents
+   (http://trustee.ietf.org/license-info) in effect on the date of
+   publication of this document.  Please review these documents
+   carefully, as they describe your rights and restrictions with respect
+   to this document.  Code Components extracted from this document must
+   include Simplified BSD License text as described in Section 4.e of</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   the Trust Legal Provisions and are provided without warranty as
+   described in the BSD License.
+
+   This document may contain material from IETF Documents or IETF
+   Contributions published or made publicly available before November
+   10, 2008.  The person(s) controlling the copyright in some of this
+   material may not have granted the IETF Trust the right to allow
+   modifications of such material outside the IETF Standards Process.
+   Without obtaining an adequate license from the person(s) controlling
+   the copyright in such materials, this document may not be modified
+   outside the IETF Standards Process, and derivative works of it may
+   not be created outside the IETF Standards Process, except to format
+   it for publication as an RFC or to translate it into languages other
+   than English.
+ 
+目录
+ 
+   1.  引言         . . . . . . . . . . . . . . . . . . . . . . . . .  4
+   2.  惯例和术语                   . . . . . . . . . . . . . . . . .  5
+     2.1.  定义         . . . . . . . . . . . . . . . . . . . . . . .  5
+   3.  概述     . . . . . . . . . . . . . . . . . . . . . . . . . . .  6
+     3.1.  机制概述             . . . . . . . . . . . . . . . . . . .  6
+     3.2.  单例注册人和UA           . . . . . . . . . . . . . . . . .  7
+     3.3.  来自用户代理的多个连接                 . . . . . . . . . .  8
+     3.4.  边缘代理     . . . . . . . . . . . . . . . . . . . . . . . 10
+     3.5.  Keep-Alive 技术      . . . . . . . . . . . . . . . . . . . 11
+       3.5.1.  CRLF Keep-Alive 技术       . . . . . . . . . . . . . . 12
+       3.5.2.  STUN Keep-Alive 技术       . . . . . . . . . . . . . . 12
+   4.  用户代理程序           . . . . . . . . . . . . . . . . . . . . 13
+     4.1.  创建实例ID           . . . . . . . . . . . . . . . . . . . 13
+     4.2.  注册           . . . . . . . . . . . . . . . . . . . . . . 14
+       4.2.1.  初始化注册             . . . . . . . . . . . . . . . . 14
+       4.2.2.  后续 REGISTER 请求           . . . . . . . . . . . . . 16
+       4.2.3.  第三方注册                 . . . . . . . . . . . . . . 17
+     4.3.  发送非注册请求                 . . . . . . . . . . . . . . 17
+     4.4.  Keep-Alives 和检测流故障               . . . . . . . . . . 18
+       4.4.1.  Keep-Alive with CRLF . . . . . . . . . . . . . . . . . 19
+       4.4.2.  Keep-Alive with STUN . . . . . . . . . . . . . . . . . 21
+     4.5.  流量恢复       . . . . . . . . . . . . . . . . . . . . . . 21
+   5.  边缘代理程序           . . . . . . . . . . . . . . . . . . . . 22
+     5.1.  处理注册请求                 . . . . . . . . . . . . . . . 22
+     5.2.  生成流令牌             . . . . . . . . . . . . . . . . . . 23
+     5.3.  转发非注册请求                   . . . . . . . . . . . . . 23
+       5.3.1.  处理传入的请求               . . . . . . . . . . . . . 24
+       5.3.2.  处理传出请求                 . . . . . . . . . . . . . 24
+     5.4.  边缘代理保活处理               . . . . . . . . . . . . . . 25
+   6.  注册商程序           . . . . . . . . . . . . . . . . . . . . . 25
+   7.  权威代理程序：转发请求                               . . . . . 27</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   8.  STUN Keep-Alive 处理       . . . . . . . . . . . . . . . . . . 28
+     8.1.  与SigComp一起使用. . . . . . . . . . . . . . . . . . . . . 29
+   9.  示例消息流           . . . . . . . . . . . . . . . . . . . . . 30
+     9.1.  订阅配置包                             . . . . . . . . . . 30
+     9.2.  注册         . . . . . . . . . . . . . . . . . . . . . . . 32
+     9.3.  Incoming Call and Proxy Crash  . . . . . . . . . . . . . . 34
+     9.4.  重注册           . . . . . . . . . . . . . . . . . . . . . 37
+     9.5.  Outgoing Call  . . . . . . . . . . . . . . . . . . . . . . 38
+   10. 语法     . . . . . . . . . . . . . . . . . . . . . . . . . . . 40
+   11. IANA 注意事项        . . . . . . . . . . . . . . . . . . . . . 40
+     11.1. Flow-Timer 报头字段      . . . . . . . . . . . . . . . . . 40
+     11.2. "reg-id" 联系人报头字段参数              . . . . . . . . . 40
+     11.3. SIP/SIPS URI 参数        . . . . . . . . . . . . . . . . . 41
+     11.4. SIP 选项标签   . . . . . . . . . . . . . . . . . . . . . . 41
+     11.5. 430 (流程失败)响应代码           . . . . . . . . . . . . . 41
+     11.6. 439 (第一跳缺少出站支持)响应代码                     . . . 42
+     11.7. 媒体功能标签       . . . . . . . . . . . . . . . . . . . . 42
+   12. 安全注意事项             . . . . . . . . . . . . . . . . . . . 43
+   13. 传输业务说明                     . . . . . . . . . . . . . . . 44
+   14. 要求         . . . . . . . . . . . . . . . . . . . . . . . . . 44
+   15. Acknowledgments  . . . . . . . . . . . . . . . . . . . . . . . 45
+   16. 参考资料   . . . . . . . . . . . . . . . . . . . . . . . . . . 45
+     16.1. 规范性参考           . . . . . . . . . . . . . . . . . . . 45
+     16.2. 信息性参考资料         . . . . . . . . . . . . . . . . . . 47
+   Appendix A.  默认流注册回退时间                      . . . . . . . 49
+   Appendix B.  ABNF  . . . . . . . . . . . . . . . . . . . . . . . . 49</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+1.  引言
+ 
+   有许多用于部署SIP[RFC3261]的环境，在这些环境中，用户代理(UA)可以形成到注册器或代理的连接，但不可能与UA建立反向连接。这可能有几个原因，但最有可能的原因是在SIPUA和代理之间有NAT或防火墙。许多这样的设备将只允许传出连接。此规范允许这样的防火墙或NAT后的SIP用户代理接收与其发起的注册或对话相关联的入站流量。
+ 
+   大多数IP电话和个人计算机通过动态主机配置协议(DHCP)[RFC2131]等协议动态获取其网络配置。这些系统通常在域名系统(DNS)中没有有用的名称[RFC1035]，而且它们几乎从来没有长期、稳定的、适合用于证书的 subjectAltName  的域名，正如[RFC3261]所要求的那样。但是，这些系统仍然可以充当传输层安全(TLS)[RFC5246]客户端，并与使用服务器证书进行身份验证的代理或注册器形成出站连接。服务器可以在该TLS连接上使用摘要质询(在RFC 3261的第22节中定义)中的共享秘密来认证UA。此规范允许必须发起TLS连接的SIP用户代理接收与其发起的注册或对话相关联的入站流量。
+ 
+   该规范的主要思想是，当UA发送注册请求或对话形成请求时，代理稍后可以使用该相同的网络“流”--无论这是UDP数据报的双向流、TCP连接还是另一传输协议中的类似概念--来转发在注册或对话的上下文中需要去往该UA的任何传入请求。
+ 
+   对于要接收传入请求的UA，UA必须连接到服务器。由于服务器无法连接到UA，因此UA必须确保流始终处于活动状态。这需要UA检测流何时发生故障。由于这种检测需要时间，并为错过的传入请求留下机会窗口，因此该机制允许UA同时在多个流上注册。本规范还定义了两种保活方案。保活机制用于使NAT绑定保持新鲜，并允许UA在流失败时检测到。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+2.  惯例和术语
+ 
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",   "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this   document are to be interpreted as described in [RFC2119].
+ 
+2.1.  定义
+ 
+   授权代理：处理特定记录地址(AOR)的非注册请求、执行[RFC3261]中所述的逻辑位置服务器查找并将这些请求转发到特定联系人URI的代理。(在[RFC3261]中，对特定AOR的注册请求具有权威性的角色是注册服务器)。
+ 
+   边缘代理：边缘代理是在拓扑上位于注册用户代理和授权代理之间的任何代理。第一边缘代理是指当UA发送请求时遇到的第一边缘代理。
+ 
+   流：流是两台主机之间的传输层关联，由两端的网络地址和端口号以及传输协议表示。对于tcp，流相当于tcp连接。对于UDP，流是两个对等体的一对IP地址和端口之间的双向数据报流。在使用TCP时，流通常与操作系统中的单个文件描述符一一对应。
+ 
+   流令牌：唯一标识可以包含在SIP URI中的流的标识符(统一资源标识符[RFC3986])。
+ 
+   Reg-id：指Contact Header字段的新Header字段参数值。当UA多次注册时，每次针对不同的流，每个并发注册都获得唯一的REG-ID值。
+ 
+   实例-ID：本规范使用单词实例-ID来指代显示为“+sip.Instance”联系人报头字段参数的“sip.instance”媒体特征标签的值。这是唯一标识此特定UA实例的统一资源名称(URN)。
+ 
+   “ob”参数：“ob”参数是一个根据上下文具有不同含义的SIPURI参数。在路径报头字段值中，它被第一边缘代理用来指示流令牌被添加到URI。在Contact或Routing报头字段值中，它指示UA希望同一对话中的其他请求在同一流上被路由。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   出站代理集：一组代表UA将尝试与其保持直接流的出站代理(通常是边缘代理)的SIPURI(统一资源标识符)。集合中的第一个URI通常称为主出站代理，第二个URI称为辅助出站代理。这个集合中的任何URI之间没有区别，主要/次要术语也不意味着其中一个优先于另一个。
+ 
+3.  概述
+ 
+   本文档中定义的机制在下面讨论的几个场景中很有用，包括简单的共同定位注册器和代理、希望多个连接到资源的用户代理(例如，为了冗余)，以及使用边缘代理的系统。
+ 
+   这整个部分都是非规范性的。
+ 
+3.1.  机制概述
+ 
+   每个UA具有唯一的实例ID，即使UA重新启动或重新通电，该实例ID对于该UA也保持不变。每个UA可以在不同的流上多次注册相同的SIP记录地址(AOR)，以实现高可靠性。每个注册包括UA的实例-ID和对于每个流不同的REG-ID标签。注册器可以使用实例ID来识别两个不同的注册都对应于相同的UA。注册器可以使用REG-ID标签来识别UA是否正在创建新的流或刷新或替换旧的流，可能在重启或网络故障之后。
+ 
+   当代理将消息路由到它具有绑定的UA时，它可以使用已在其上完成成功注册的任何一个流。可以在备用流上再次尝试在特定流上传递失败的请求。代理可以通过比较实例ID来确定哪些流去往相同的UA。代理可以通过查看 reg-id 来判断流替换了以前放弃的流。
+ 
+   当发送对话形成请求时，UA还可以要求其第一边缘代理通过相同的流来路由该对话中的后续请求。无论UA是否注册，这都是必要的。
+ 
+   UA使用简单的周期性消息作为保活机制，以保持其流向代理或注册器的流是活的。对于面向连接的传输，如TCP，这是基于回车符和换行符序列(CRLF)的，而对于非面向连接的传输，这是通过使用特定于SIP的STUN(NAT的会话穿越实用程序)的使用配置文件来实现的[RFC5389]。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+ 
+3.2.  Single Registrar and UA
+ 
+   在下面显示的拓扑中，单个服务器同时充当注册器和代理。
+ 
+      +-----------+
+      | Registrar |
+      | Proxy     |
+      +-----+-----+
+            |
+            |
+       +----+--+
+       | User  |
+       | Agent |
+       +-------+
+ 
+   仅形成单个流的用户代理继续正常注册，但包括实例ID，如4.1节所述。当UA在其旧连接由于某种原因失败之后重新引导或重新连接时，UA还包括用于允许注册器检测和避免保持无效联系人的“REG-ID”联系人报头字段参数。
+ 
+   为了清楚起见，这里有一个例子。Bob的UA向注册器创建新的TCP流，并发送以下REGISTER请求。
+ 
+   REGISTER sip:example.com SIP/2.0
+   Via: SIP/2.0/TCP 192.0.2.2;branch=z9hG4bK-bad0ce-11-1036
+   Max-Forwards: 70
+   From: Bob <sip:bob@example.com>;tag=d879h76
+   To: Bob <sip:bob@example.com>
+   Call-ID: 8921348ju72je840.204
+   CSeq: 1 REGISTER
+   Supported: path, outbound
+   Contact: <sip:line1@192.0.2.2;transport=tcp>; reg-id=1;
+    ;+sip.instance="<urn:uuid:00000000-0000-1000-8000-000a95a0e128>"
+   Content-Length: 0
+ 
+   注册器对此注册提出质疑，以验证Bob。当注册器在Bob的AOR下为该联系人添加条目时，注册器还会跟踪它通过其接收该注册的连接。</urn:uuid:00000000-0000-1000-8000-000a95a0e128></sip:line1@192.0.2.2;transport=tcp></sip:bob@example.com></sip:bob@example.com></pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+   注册器将实例ID(“urn:uuid:00000000-0000-1000-8000-000A95A0E128”)和REG-ID(“1”)与联系人报头字段的其余部分一起保存。如果实例ID和REG-ID与相同AOR的先前注册相同，则注册器替换旧的联系URI和流信息。这允许已重启的UA在对总体系统负载影响最小的情况下为每个流替换其先前注册。
+ 
+
+
+
+   当Alice向Bob发送请求时，他的权威代理选择目标集合。代理根据代理的策略将请求转发到目标集中的元素。代理查看目标集并使用实例ID来了解两个目标是否都最终路由到相同的UA。当代理将请求转发到给定目标时，它会查找并找到接收注册的流。然后，代理通过现有流转发请求，而不是使用[RFC3263]中的过程解析联系人URI并尝试形成到该联系人的新流。
+ 
+   如下一节所述，如果代理具有多个都去往该UA的流，则该代理可以为该AOR选择具有与所选UA相同的实例ID的注册绑定中的任何一个。
+ 
+3.3.  来自用户代理的多个连接
+ 
+   部署SIP以构建可靠且可扩展的系统的方法有多种。本节讨论使用本规范中的机构可能进行的一种此类设计。其他设计也是可能的。
+ 
+   在下面的示例系统中，域的逻辑出站代理/注册器在两台主机上运行，这两台主机共享适当的状态，并且都可以为域提供注册器和出站代理功能。UA将形成到可以执行域的授权代理/注册器功能的两个物理主机的连接。通过使UA形成到域的两个TCP连接来实现可靠性。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+       +-------------------+
+       | Domain            |
+       | Logical Proxy/Reg |
+       |                   |
+       |+-----+     +-----+|
+       ||Host1|     |Host2||
+       |+-----+     +-----+|
+       +---\------------/--+
+            \          /
+             \        /
+              \      /
+               \    /
+              +------+
+              | User |
+              | Agent|
+              +------+
+ 
+   UA配置有多个出站代理注册URI。这些URI通过在UA中配置代理地址和AOR的任何正常机制被配置到UA中。如果AOR为alice@Example.com，则出站代理集可能类似于“sip:primary.example.com”和“sip:secondary.example.com”。请注意，出站代理集中的每个URI可以解析为几个不同的物理主机。创建这些URI的管理域应确保将这两个URI解析为单独的主机。这些URI是根据正常的SIP处理规则进行处理的，因此可以使用像DNS SRV[RFC2782]这样的机制在代理场中进行负载平衡。本文档中的方法不会阻止未来的扩展(如SIP UA配置框架[CONFIG-FMWK])为用户代理添加其他方法来发现其出站代理集。
+ 
+   该域还需要确保发送到主机1或主机2的对UA的请求随后通过适当的流发送到UA。域可能选择使用路径报头方法(如下一节所述)在Host1或Host2上存储此内部路由信息。
+ 
+   当一台服务器出现故障时，有流通过它的所有UAS都将检测到流故障并尝试重新连接。这可能会对服务器造成很大的负载。当大量主机几乎同时重新连接时，这称为雪崩重启问题，将在第4.5节进一步讨论。流向多个服务器的多个流有助于减少雪崩重启造成的负载。如果UA有多个流，并且其中一个服务器出现故障，则在尝试形成新连接以替换到出现故障的服务器的流之前，UA会延迟一段建议的时间。通过分散所有UAS重新连接到服务器所用的时间，减少了服务器场上的负载。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+
+
+
+
+ 
+   通过使用DNS SRV[RFC2782]在可以为主连接提供服务的一组计算机之间对主连接进行负载平衡，并使用DNS SRV在可以为辅助连接提供服务的单独一组计算机之间进行负载平衡，实现了可扩展性。此处的部署要求使用一个解析到所有主要主机的条目和另一个解析到所有辅助主机的条目配置DNS。虽然这会引入额外的DNS配置，但该方法是有效的，并且不需要对[RFC3263]进行额外的SIP扩展。
+ 
+   在UA及其注册商之间保持多流的另一个动机与多宿主UAS有关。这样的UA可以受益于来自不同接口的多个连接，以防止单个接入链路的故障。
+ 
+3.4.  边缘代理
+ 
+   一些SIP部署使用边缘代理，以便UA将注册发送到边缘代理，然后边缘代理将注册转发给注册器。在UA和边缘代理之间可以有NAT或防火墙。
+ 
+                +---------+
+                |Registrar|
+                |Proxy    |
+                +---------+
+                 /      \
+                /        \
+               /          \
+            +-----+     +-----+
+            |Edge1|     |Edge2|
+            +-----+     +-----+
+               \           /
+                \         /
+        ----------------------------NAT/FW
+                  \     /
+                   \   /
+                  +------+
+                  |User  |
+                  |Agent |
+                  +------+</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+   边缘代理包括 Path 报头[RFC3327]，从而当代理/注册器稍后将请求转发到该UA时，该请求通过边缘代理被路由。
+ 
+   这些系统可以有效地使用与前面部分所述相同的机制，但需要使用 Path 标头。当边缘代理接收到注册时，它需要创建对该流(而不是具有相同地址的后续流)唯一的标识符值，并将该标识符放入 Path 头URI中。此标识符有两个用途。首先，它允许边缘代理将未来的请求映射回正确的流。其次，由于只有在用户向注册商认证成功时才会返回该标识，因此它允许边缘代理通过注册商间接检查用户的认证信息。该标识符放在路径报头中的松散路由的用户部分。如果注册成功，边缘代理需要将未来的请求(从路径报头路由到标识符值)映射到相关联的流。
+ 
+   术语边缘代理通常用于指边缘代理与注册器在同一管理域中的部署。然而，在本说明书中，我们使用该术语来指代UA和注册商之间的任何代理。例如，边缘代理可能在需要使用它的企业内部，而注册者可能来自与该企业没有关系的服务提供商。无论它们是否在相同的管理域中，本规范都要求注册商和边缘代理支持[RFC3327]中的 Path 标头机制。
+ 
+3.5.  Keep-Alive 技术
+ 
+   本文档描述了两种保活机制：CRLF Keep-Alive 和 STUN Keep-Alive。这些机制中的每一个都使用客户端到服务器的“ping”保持活动状态和对应的服务器到客户端的“pong”消息。此乒乓序列允许客户端以及服务器(可选)判断其流是否仍处于活动状态并对SIP流量有用。服务器通过发送 pongs 来响应 pings。如果客户端没有收到响应其 ping 的 pong (允许重新传输STUN，如第4.4.2节所述)，它将表明流已死，并在其位置打开新的流。
+ 
+   本文还建议了这些客户端保持活动机制的计时器值。选择这些计时器值是为了保持大多数NAT和防火墙绑定处于打开状态，在2分钟内检测到无响应的服务器，并缓解雪崩重启问题。但是，客户端可以选择不同的计时器值来满足其需要，例如以优化电池寿命。在某些环境中，服务器还可以跟踪从通过流接收到ping以来的时间，以猜测该流仍可用于传递SIP消息的可能性。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+
+
+ 
+   当UA检测到流已失败或流定义已更改时，UA需要重新注册，并将使用第4.5节中描述的退避机制来在大量代理同时重启时提供拥塞缓解。
+ 
+   保活机制需要保持NAT绑定的刷新；对于连接，它还需要检测连接的故障；对于无连接的传输，它需要检测流故障，包括对NAT公共映射的更改。对于面向连接的传输，如TCP[RFC0793]和SCTP[RFC4960]，本规范描述了一种基于发送CRFL的保活方法。对于无连接传输，例如UDP[RFC0768]，本规范描述了在与SIP业务相同的流上使用STUN[RFC5389]来执行保活。
+ 
+   UA和代理也可以自由使用本地传输保持连接；但是，应用程序可能无法在每个连接的基础上设置这些计时器，并且服务器肯定不能对使用的值做出任何假设。本地传输Keep-Alive的使用不在本文档的讨论范围之内。
+ 
+
+
+
+
+
+
+
+
+3.5.1.  CRLF Keep-Alive Technique
+ 
+   此方法只能用于面向连接的传输，如 TCP 或 SCT P。客户端周期性地发送双 CRLF(“ping”)，然后等待接收单个CRLF(“pong”)。如果客户端在适当的时间内没有收到“PONG”，则认为流失败。
+ 
+      注意：通过面向连接的传输发送CRLF是向后兼容的(因为在[RFC3261]的第7.5节中有要求)，但只有支持此规范的实现才会使用“pong”响应“ping”。
+ 
+3.5.2.  STUN Keep-Alive Technique
+ 
+   此方法只能用于无连接传输，如UDP。
+ 
+   对于无连接传输，流定义可能会更改，因为网络路径中的NAT设备重新启动，并且产生的UA的公共IP地址或端口映射发生更改。为了检测到这一点，STUN请求在用于SIP流量的同一个流上发送。代理或注册器在SIP信令端口上充当NAT(STUN)[RFC5389]服务器的有限会话穿越实用程序。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+ 
+      注意：STUN机制非常强大，允许检测更改的IP地址和端口。考虑了许多其他选择，但SIP工作组选择了基于STUN的方法。使用SIP请求的方法被放弃了，因为许多人认为使用这种方法的良好性能和完全向后兼容性是相互排斥的。
+ 
+
+
+
+
+
+
+4.  用户代理程序
+ 
+4.1.  实例ID创建
+ 
+   每个UA必须具有唯一标识设备的实例标识符统一资源名称(URN)[RFC2141]。URN的使用为UA实例提供了一个永久且唯一的名称。它还提供了一种简单的方法来保证AOR内的唯一性。此骨灰盒必须在设备的电源重启期间保持不变。设备从一个网络移动到另一个网络时，实例ID不得更改。
+ 
+   UA应该创建一个通用唯一标识符(UUID)URN[RFC4122]作为其实例ID。UUID URN允许基于时间、唯一名称(如MAC地址)或随机数生成器对URN进行非集中式计算。
+ 
+      注意：像“软电话”这样的设备，在第一次安装时，可以生成UUID[RFC4122]，然后将其保存在永久存储中，以供将来使用。对于“硬电话”等设备，它只会存在一个 SIP UA，UUID 可以包含 MAC 地址并随时生成，因为可以保证在该物理设备上不会同时生成其他 UUID。这意味着 UUID 的时间分量的值可以任意选择为小于设备制造时的任何时间。只要设备知道此时该设备上没有生成其他 UUID，时间0(如第3.2节中的示例所示)是完全合法的。
+ 
+   如果使用除UUID之外的URN方案，则UA必须仅使用其RFC(来自IETF流)定义了需要如何构造特定URN的URN，并将其用于出站行为的“+sip.instance”联系人报头字段参数中。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+   为了在请求和响应两者中传达其实例ID，UA包括作为UA特征的“sip.instance”媒体特征标签[RFC3840]。该媒体特征标签在联系人报头字段中被编码为“+sip.instance”联系人报头字段参数。一种情况是，当UA发出匿名请求或考虑到某些其他隐私问题时，UA可能倾向于省略“sip.instance”媒体特征标签，该请求要求UA不透露其身份。
+ 
+      注：[RFC3840]定义了被调用方能力参数的相等规则，根据该规范，将通过区分大小写的字符串比较方式来比较sip.instance媒体功能标签。这意味着，当将URN放在带引号的字符串值中时，URN将由尖括号(“&lt;”和“&gt;”)封装，该字符串值为“+sip.instance”联系人标题字段参数。区分大小写的匹配规则仅适用于在被调用方功能[RFC3840]和调用方首选项[RFC3841]规范中定义的通用用法。当在本规范中使用实例ID时，它是从媒体功能标签sip.instance中的值“提取”出来的。因此，使用特定于URN中的方案的URN相等规则来执行相等性比较。如果执行比较的元素不理解URN方案，它将使用[RFC2141]中定义的词法相等规则执行比较。词汇上的平等可能会导致两个骨灰盒被认为不相等，而它们实际上是相等的。在URN的这种特定用法中，唯一提供URN的元素是由该URN标识的SIPUA实例。因此，UA实例必须在它生成的每个注册中提供词汇上等价的URN。这在任何情况下都可能是正常行为；客户端不太可能修改实例ID的值，以使其在功能上与以前的注册保持相同(但在词典上与之前的注册不同)。
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+4.2.  注册
+ 
+4.2.1.  初始注册
+ 
+   在配置时，UA获取一个或多个代表默认出站代理集的SIP URI。本规范假定该集合是通过多种配置机制中的任何一种来确定的，并且未来的规范可以定义其他机制，例如使用DNS来发现该集合。UA的配置方式超出了本规范的范围。但是，UA必须支持至少具有两个出站代理URI的集，并且应该支持最多具有四个URI的集。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+   对于集合中的每个出站代理URI，用户代理客户端(UAC)应使用此URI作为默认出站代理发送注册请求。(或者，例如，UA可以限制形成的流的数量以节省电池电量)。如果集合具有多个URI，则UAC必须向集合中的至少两个默认出站代理发送注册请求。支持此规范的UA必须在REGISTER 请求的受支持标头字段中包括出站选项标签。每个REGISTER请求都将使用唯一的Call-ID。为请求形成路由集超出了本文的范围，但通常会导致发送REGISTER，从而使最上面的路由头字段包含指向出站代理URI的松散路由。
+ 
+
+
+
+
+
+   除第4.2.3节中描述的请求外，REGISTER请求必须包括第4.1节中指定的实例id媒体功能标记。
+ 
+   符合此规范的 UAC 必须在联系人标头字段中包含一个“reg-id”参数，该参数不同于使用相同“+sip.instance”联系人标头字段参数和 AOR 的其他注册中使用的其他“reg-id”参数。 reg-id 值序列不必是连续的，但每次 UA 实例重启或重启时，reg-id 值序列必须完全相同，以便 reg-id 值将与以前使用的 reg-id 值发生冲突。 这样注册商就可以替换旧的注册。
+ 
+
+
+
+      注意：UAC 可以通过包含或省略“reg-id”联系人标头字段参数来根据具体情况决定是否请求出站行为。 例如，假设出站代理集包含不同域中的两个代理，EP1 和 EP2。 如果流经 EP1 的出站样式注册成功，UA 可能会决定在向 EP2 注册时在其“Require”标头字段中包含“outbound”，以确保一致性。同样，如果通过 EP1 注册不支持出站，则 UA 可能根本不向 EP2 注册。
+ 
+   UAC 必须支持路径标头 [RFC3327] 机制，并通过在其 REGISTER 请求的“支持的标头字段值中包含”path“选项标记来指示其支持。 除了选择性地检查响应中的 Path 向量外，这是 UAC 支持 Path 所需的全部内容。
+ 
+   UAC 检查成功的注册响应，以确定“Require ”标头字段值中是否存在 outbound 选项标记。 此选项标记的存在表明注册商符合此规范，并且需要参与的任何边缘代理也符合要求。 如果注册商不支持出站，则 UA 可能已注册不可路由的联系人。  UA 有责任删除任何不适当的联系人。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+
+
+ 
+   如果出站注册成功（如成功注册响应的“ Require ”标头字段中存在出站选项标记所示），UA 将开始发送保持活动状态，如第 4.4 节中所述。
+ 
+      注意：UA 需要遵循 [RFC3261] 和 [RFC3263] 中所述的对注册的 503（服务不可用）响应。 特别是，实现者应注意，当收到带有 Retry-After 标头字段的 503（服务不可用）响应时，UA 应等待指示的时间量并重试注册。 重试后标头字段值 0 有效，指示 UA 应立即重试 REGISTER 请求。 实现需要确保在重试 REGISTER 请求时，它们会重新访问 DNS 解析结果，以便 UA 可以从上次解析 URI 时选择的主机中选择备用主机
+ 
+   如果注册 UA 收到对 REGISTER 请求的 439（第一个跃点缺少出站支持）响应，则它可以在不使用出站机制的情况下重新尝试注册（受客户端本地策略的约束）。 如果客户端有一个或多个备用出站代理可用，则可以通过此类出站代理重新尝试注册。 有关 439 响应代码的详细信息，请参见第 11.6 节。
+ 
+
+
+
+
+
+
+
+
+
+
+4.2.2.  后续注册请求
+ 
+   用于刷新绑定和删除绑定的注册使用与添加绑定的相应初始注册相同的实例 id 和 reg-id 值。 仅刷新现有绑定的注册将通过与添加绑定的原始注册相同的流发送。
+ 
+   如果重新注册被拒绝并显示可恢复的错误响应，例如，由包含重试后标头的 503（服务不可用）拒绝，则 UAC 不应拆除相应的流（如果流使用面向连接的传输 如 TCP）。 只要收到“pongs”以响应“pings”，流就应该保持活动状态，直到收到不可恢复的错误响应。 这可以防止不必要的关闭和打开连接。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+4.2.3.  第三方注册
+ 
+   在初始注册或重新注册中，如果注册 UA 与目标联系人标头字段引用的 UA 不同实例，则 UA 不得在联系人标头字段中包含“reg-ID”标头字段参数。 （这种做法偶尔用于将转发策略安装到注册商中。
+ 
+   UAC 还不得在取消注册所有联系人的请求中包含实例 ID 功能标记或“reg-id”联系人标头字段参数（值为“*”的单个联系人标头字段值）。
+ 
+
+
+
+4.3.  发送非注册请求
+ 
+   当 UAC 即将发送请求时，它首先执行正常处理以选择下一个跃点 URI。 UA 可以使用多种技术来计算路由集，并相应地计算下一跃点 URI。  对这些技术的讨论超出了本文档的范围。  支持此规范的 UA 应在非 REGISTER 请求的“支持的”标头字段中包含出站选项标记。
+ 
+   UAC 在下一跃点 URI 上执行正常的 DNS 解析（如 [RFC3263] 中所述），以查找协议、IP 地址和端口。  对于不使用 TLS 的协议，如果 UAC 具有到此 IP 地址的现有流，并且端口具有正确的协议，则 UAC 必须使用现有连接。 对于 TLS 协议，下一跃点中的主机生产与对等证书中 subjectAltName 中包含的 URI 之一之间也必须匹配。 如果 UAC 无法使用现有流之一，则它应根据传输协议通过发送数据报或打开与下一跃点的新连接来形成新流。
+ 
+   通常，使用此文档的过程并发送对话形成请求的 UAC 将希望对话中的所有后续请求通过同一流到达。 如果 UAC 使用的是使用包含“ob”参数的联系人标头字段值实例化的全局可路由 UA URI （GRUU） [RFC5627]，则 UAC 通过用于注册的流发送请求，后续请求将通过同一流到达。 如果 UAC 未使用此类 GRUU，则 UAC 会向其联系人标头字段值添加“ob”参数。 这将导致对话中的所有后续请求通过对话形成请求实例化的流到达。 这种情况在注册之前发送请求时很常见，例如在配置框架 [CONFIG-FMWK] 的初始订阅对话框中。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+      注意：如果 UAC 希望 UDP 流通过 NAT 或防火墙工作，它仍然需要将“rport”参数 [RFC3581] 放在其 Via 标头字段值中，并从它准备接收的端口发送。 有关 SIP 中 穿越NAT的更多一般信息，请参见 [NAT-SCEN]。
+ 
+
+
+
+4.4.  保持活动状态并检测流故障
+ 
+   保持活动状态用于刷新 NAT/防火墙绑定和检测流故障。 流失败的原因有很多，包括 NAT 重新启动和边缘代理崩溃。
+ 
+   如第 4.2 节所述，注册的 UA 将在适当的注册响应后开始发送保持活动状态。 在某些情况下，未注册的 UA（例如，防火墙后面的 PSTN 网关）也可以发送保持活动状态。
+ 
+   在特定情况下，即使第 4.2 节中的过程未完成，也可能允许 UAC 发送 STUN 保持活动状态，前提是明确指示目标第一跳 SIP 节点支持 STUN 保持活动状态。 例如，这适用于未注册的 UA 或 UA 注册成功但响应未在“Require”标头字段中包含出站选项标记的情况。
+ 
+      注意：UA 可以“始终”通过面向连接的传输发送双 CRLF（“ping”），因为 [RFC3261] 的第 7.5 节已经允许这样做。 但是，未使用出站注册注册的 UA 不能期望 CRLF 作为响应（“pong”），除非 UA 明确指示支持 CRLF 保持活动状态，如本节所述。 同样，未成功注册出站过程的 UA 需要明确指示目标第一跃点 SIP 节点支持 STUN 保持活动状态，然后才能发送任何 STUN 消息。
+ 
+   指示对特定目标的保持活动状态支持的配置选项被视为显式指示。 如果满足这些条件，UA 将根据与 UA 注册时使用的准则相同的准则发送其保持活动状态;这些准则如下所述。
+ 
+   UA 需要检测特定流何时失败。 UA 通过使用第 4.4.1 节或 4.4.2 节中所述的技术之一定期发送保持活动状态消息来主动尝试检测故障。 如果注册的流失败，UA 将按照第 4.2 节中的过程形成一个新流来替换失败的流。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   当成功的注册响应包含 Flow-Timer 标头字段时，此标头字段的值是服务器准备等待而不看到保持活动状态的秒数，然后才能将相应的流视为死机。 请注意，服务器将等待比流计时器大的时间量，以便有一个宽限期来考虑传输延迟。 UA 发送保持活动状态的频率必须至少与此秒数一样多。 如果 UA 使用服务器建议的保持活动频率，则应发送其保持活动频率，以便每次保持活动之间的间隔随机分布在服务器提供的时间的 80% 到 100% 之间。 例如，如果服务器建议 120 秒，UA 将以 95 到 120 秒之间的不同频率发送每个保持活动状态。
+
+
+
+
+
+
+
+
+ 
+   如果此流的寄存器响应中不存在流计时器标头字段，则 UA 可以自行决定发送保持活动状态。 以下部分提供了这些保持活动状态的建议默认值。
+ 
+   客户端需要对来自出站代理集的 URI 执行正常的 [RFC3263] SIP DNS 解析，以选取传输。 选择传输后，UA 将选择建议用于该传输的保持活动状态方法。
+ 
+   第 4.4.1 节描述了面向连接的传输（如 TCP 或 SCTP）的保持活动机制。 第 4.4.2 节描述了用于无连接传输（如 UDP）的保持活动机制。  对其他传输（如 DCCP [RFC4340] ）的支持有待进一步研究。
+ 
+4.4.1.  Keep-Alive with CRLF
+ 
+   此方法只能用于面向连接的传输，例如 TCP 或 SCTP;它不得与无连接传输（如 UDP）一起使用。
+ 
+   形成流的用户代理检查 UA 连接到的已配置的 URI 是否解析为面向连接的传输（例如，TCP 和 TLS over TCP）。
+ 
+   对于此机制，客户端“ping”是双 CRLF 序列，服务器“pong”是单个 CRLF，如下面的 ABNF 中所定义：
+ 
+   CRLF = CR LF
+   double-CRLF = CR LF CR LF
+   CR = %x0D
+   LF = %x0A</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+   “ping”和“pong”需要在多条 SIP 消息之间发送，不能在夹在单条 SIP 消息中发送。 如果通过 TLS 发送，CRLF 将在受 TLS 保护的通道内发送。 如果通过 SigComp [RFC3320] 压缩数据流发送，则 CRLF 保持活动状态将在压缩流内发送。 双 CRLF 被视为单个 SigComp 消息。 表示这些字符的特定机制是特定于实现的问题，由发送端的 SigComp 压缩器处理。
+ 
+
+
+
+   如果在发送 ping 后 10 秒内未收到 pong（或在处理该 10 秒到期时收到的任何传入消息后立即收到），则客户端必须将流视为失败。 客户端必须支持此 CRLF 保持活动状态。
+ 
+
+
+      注： 选择 10 秒超时值是为了足够长，以便即使服务器暂时忙于管理活动，服务器也有足够的时间发送响应。 同时，它被选择得足够小，以至于注册到两台冗余服务器的 UA 硬件正常运行时间并不长，仍然可以轻松提供非常高的整体可靠性。 尽管某些Internet协议是为超过10秒的往返时间而设计的，但用于实时通信的SIP在这些类型的环境中并不真正可用，因为用户经常在等待超过几秒钟之前放弃呼叫。
+ 
+
+
+
+
+   当最近的成功注册响应中未提供 Flow-Timer 标头字段时，正确选择保持活动频率主要是在电池使用情况和可用性之间进行权衡。 UA 必须在固定或可配置的上限和下限之间选择一个随机数，其中下限比上限小 20%。 如果电池电量不用考虑，固定上限或默认可配置上限应为120秒(下限为95秒)，如果要考虑电池电量则为840秒(下限为672秒)。  对于每个保持活动状态的“ping”，随机数将不同。
+ 
+      关于选择时间值的注意事项：选择 120 秒上限是基于以下想法：为了获得良好的用户体验，通常会在此时间内检测到故障，并将设置新的连接。 电池供电设备的 14 分钟上限是根据 TCP 超时低至 15 分钟的 NAT 选择的。 希望更改服务器上的负载与用户可能无法接收入站通信的预期时间之间的关系的操作员可能会调整此时间。     选择 95 秒的下限，以便引入的抖动将在 30 分钟后导致服务器上的负载相对均匀。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+4.4.2.  Keep-Alive with STUN
+ 
+   此方法只能用于无连接传输，例如 UDP;它不能用于面向连接的传输，如TCP和SCTP。
+ 
+
+
+   形成流的用户代理检查 UA 连接到的已配置的 URI 是否解析为使用 UDP 传输。 UA 可以通过流发送 STUN [RFC5389] 绑定请求来定期执行保持活动状态检查，如第 8 节中所述。 客户端必须支持基于 STUN 的保持活动状态。
+ 
+
+
+   当成功的注册响应中未包含 Flow-Timer 标头字段时，每个保持活动状态请求之间的时间应为 24 到 29 秒之间的随机数。
+ 
+
+      关于选择时间值的注意事项：选择了 29 秒的上限，因为许多 NAT 的 UDP 超时低至 30 秒。选择了 24 秒的下限，以便在 10 分钟后，不同计时器引入的抖动将使保持活动请求不同步，以均匀地分布服务器上的负载。请注意，UDP 的短 NAT 超时会对电池寿命产生负面影响。
+ 
+
+
+
+   如果收到 STUN 绑定错误响应，或者在 7 次重新传输后未收到绑定响应（STUN“RTO”计时器的 16 倍 - 其中 RTO 是往返时间的估计值），则 UA 认为流失败。 如果 STUN 绑定响应中的异或映射地址发生更改，UA 必须将此事件视为流上的故障。
+ 
+
+
+4.5.  流恢复
+ 
+   当用于注册的流（通过出站代理集中的特定 URI）失败时，UA 需要形成一个新流来替换旧流，并替换以前通过此流发送的任何注册。 每个新注册必须具有与其替换的注册相同的注册 reg-id 值。 这与形成第 4.2 节中所述的全新流程大致相同;但是，如果在形成此流时失败，UA 需要等待一定的时间，然后才能重试形成到此特定下一跃点的流。
+ 
+
+
+
+   等待的时间取决于上一次建立流的尝试是否成功。 就本节而言，如果出站注册成功，则认为流成功，并且如果此流上使用了保持活动状态，则至少收到一个后续保持活动响应。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   等待的秒数按以下方式计算。 如果发往出站代理集中每个 URI 的所有流都失败，则基准时间将设置为较低的值（默认值为 30 秒）;  否则，如果至少有一个流未发生故障，则基准时间将设置为更高的值（默认值为 90 秒）。 上限等待时间 （W） 的计算方法是2的次方（该 URI 的连续注册失败次数的幂），然后乘以基本时间，直至达到可配置的最大时间（默认值为 1800 秒）。
+ 
+   W = min (max-time, (base-time * (2 ^ consecutive-failures)))
+ 
+   这些时间可以在 UA 中配置。 这三个时间是：
+ 
+   o  max-time with a default of 1800 seconds
+ 
+   o  base-time (if all failed) with a default of 30 seconds
+ 
+   o  base-time (if all have not failed) with a default of 90 seconds
+ 
+   例如，如果基准时间为 30 秒，并且有三次失败，则上限等待时间为 
+   min（1800， 30*（2^3）） 或 240 秒。 UA 在重试注册之前等待的实际时间（重试延迟时间）是通过选择上限等待时间的 50% 到 100% 之间的统一随机时间来计算的。  UA 必须至少等待重试延迟时间的值，然后才能尝试另一个注册以形成该 URI 的新流（对早期失败的注册尝试的 503 响应，具有 Retry- After 标头字段值可能会导致 UA 等待更长时间）。
+ 
+   明确边界条件：当 UA 启动时，它会立即尝试注册。 如果此操作失败，并且其他流上的注册均未成功，则第一次重试将在第一个注册请求失败后的 30 到 60 秒之间发生。  如果连续失败的次数足够大，达到最大值 1800 秒，则 UA 将无限期地继续尝试，每次尝试之间的随机时间为 15 到 30 分钟。
+
+
+ 
+5.  边缘代理程序
+ 
+5.1.  处理注册请求
+ 
+   当边缘代理收到在联系人标头字段中具有“reg-id”标头字段参数的注册请求时，它需要确定是否必须访问它（边缘代理）才能将任何后续请求发送到联系人标头字段中标识的用户代理。 如果边缘代理是第一个跃点（如 Via 标头字段所示），则必须将其 URI 插入路径标头字段值中，如 [RFC3327] 中所述。 如果它不是第一个跃点，它可能仍会根据本地策略将自身添加到 Path 标头。 此外，如果边缘代理是 UAC 之后的第一个 SIP 节点，则边缘代理必须在其路径 URI 中存储“流令牌”（包含有关上一跃点流的信息）或拒绝请求。 流令牌必须是此网络流唯一的标识符。 流令牌可以放置在 URI 的用户部分中。 此外，第一个节点必须在其路径标头字段值中包含“ob”URI 参数。 如果边缘代理不是 UAC 之后的第一个 SIP 节点，则不得在路径标头字段值中放置“ob”URI 参数。 边缘代理可以通过检查 Via 标头字段来确定它是否是第一个跃点。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+5.2.  生成流令牌
+ 
+   满足5.1节中的流令牌要求的一种微不足道但不切实际的方法涉及存储递增计数器和连接信息之间的映射；然而，这将要求边缘代理保持不可行量的状态。目前尚不清楚何时可以删除此状态，如果代理崩溃并丢失计数器的值，该方法将出现问题。下面提供了一个无状态示例。代理可以使用它想要的任何算法，只要流令牌对于流是唯一的，流可以从令牌中恢复，并且令牌不能被攻击者修改。
+ 
+      示例算法：当代理启动时，它会选择一个名为 K 的 20 个八位字节的加密随机密钥，只有边缘代理知道该密钥。 形成一个名为 S 的字节数组，其中包含有关接收请求的流的以下信息：指示协议、本地 IP 地址和端口、远程 IP 地址和端口的枚举。 S 的 HMAC 是使用键 K 和 HMAC-SHA1-80 算法计算的，如 [RFC2104] 中所定义。 HMAC 和 S 的串联采用 base64 编码，如 [RFC4648] 中所定义，并用作流标识符。 使用 IPv4 地址时，这将产生 32 个八位字节的标识符。
+ 
+5.3.  转发未注册的请求
+ 
+   当边缘代理接收到请求时，它会应用正常的路由过程，并添加以下内容。如果边缘代理收到请求，其中边缘代理是最顶层路由标头字段值中的主机，并且路由标头字段值包含流令牌，则代理遵循本节的步骤。否则，边缘代理跳过本部分中的步骤，将其自身从路由报头字段中删除，并继续处理请求。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+   代理对流令牌进行解码，并将流令牌中的流与请求的源进行比较，以确定这是“传入”还是“传出”请求。
+ 
+   如果由最顶层的路由标头字段值标识的流令牌中的流与请求的源IP地址和端口匹配，则该请求是“传出”请求；否则，它是“传入”请求。
+ 
+
+
+5.3.1.  处理传入的请求
+ 
+   如果路由标头值包含“ob”URI参数，则路由标头可能是从注册中的路径标头复制的。如果路由报头值包含“ob”URI参数，并且请求是新的对话形成请求，则代理需要调整路由集以确保对话中的后续请求可以通过有效流传递到由流令牌标识的UA实例。
+ 
+      注意：满足此要求的一种简单方法是让代理添加包含流令牌的记录路由标头字段值，方法是复制路由标头中的 URI 减去“ob”参数。
+ 
+   接下来，无论路由标头字段是否包含“ob”URI 参数，代理都会删除 Route 标头字段值，并通过流令牌标识的“逻辑流”转发请求，该流已知会将数据传递到特定的目标 UA 实例。 如果流令牌已被篡改，代理应发送 403（禁止访问）响应。 如果流不再存在，代理应向请求发送 430（流失败）响应。
+ 
+   使用第5.2节中描述的示例算法形成流令牌的代理遵循以下过程以确定正确的流。要解码流令牌，请获取URI的用户部分的流标识符并对其进行Base64解码，然后通过重新计算HMAC并检查其是否匹配来验证HMAC是否正确。如果HMAC不正确，则该请求已被篡改。
+ 
+
+
+
+
+
+
+
+
+5.3.2.  处理传出的请求
+ 
+   对于使用出站UA的对话中请求，需要通过一些有效的流将请求转发到适当的UA实例。如果边缘代理接收到传出的对话形成请求，则边缘代理可以使用UAC的联系URI(或最顶层的路由报头字段)中存在的“ob”URI参数来确定边缘代理是否需要协助对话中间请求路由。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+
+      实施说明：边缘代理上确保通过现有流来路由对话中请求的特定过程不属于本规范的一部分。然而，诸如让边缘代理添加带有流令牌的记录-路由报头之类的方法是确保对话中请求在正确的流上被路由的一种方法。
+ 
+
+5.4.  边缘代理处理 Keep-Alive
+ 
+   所有符合此规范的边缘代理必须在其SIP UDP端口上实现对STUN NAT Keep-Alive的支持，如第8节所述。
+ 
+   当服务器在面向连接的传输(如TCP或SCTP)上接收到SIP消息之间的双CRLF序列时，它必须立即通过同一连接上的单个CRLF进行响应。
+ 
+   如果响应在响应的“Require”标头字段值中包含出站选项标记，则将成功的注册响应转发到 UA 的最后一个代理可能包含 Flow-Timer 标头字段。  代理发送流计时器的原因是，如果它希望主动检测流故障并采取适当的措施（例如，记录警报，在收到 UA 的传入请求时提供替代处理等）。 服务器必须等待比流计时器大的时间，以便有一个宽限期来考虑传输延迟。
+ 
+
+
+
+
+
+
+6.  注册商程序
+ 
+   此规范更新了 [RFC3261] 第 10 节和 [RFC3327] 第 5.3 节中绑定的定义。
+ 
+   实现此规范的注册商必须支持路径标头机制 [RFC3327]。
+ 
+   收到 REGISTER 请求时，注册商必须从其 Via 标头字段中检查注册器是否是第一个跃点。 如果注册器不是第一个跃点，则必须检查请求的 Path 标头。 如果 Path 标头字段缺失或存在，但第一个 URI 没有“ob”URI 参数，则不得将出站处理应用于注册。 在这种情况下，以下处理适用：如果 REGISTER 请求在支持的标头字段中包含 reg-id 和出站选项标记，则注册商必须使用 439（第一个跃点缺少出站支持）响应响应 REGISTER 请求;否则，注册商必须忽略联系人标头的“reg-id”参数。 有关 439 响应代码的详细信息，请参见第 11.6 节。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   具有实例 ID 媒体功能标记但没有“reg-id”标头字段参数的联系人标头字段值是有效的（此组合将导致创建 GRUU，如 GRUU 规范 [RFC5627] 中所述），但具有 reg-id 但没有实例 ID 的字段值无效。 如果注册器处理具有 reg-id 但没有实例 id 的联系人标头字段值，则它只会忽略 reg-id 参数。
+ 
+   包含“reg-id”标头字段参数和非零过期的注册用于通过单个流注册单个 UA 实例，还可以取消注册任何过期为零的联系人标头字段。 因此，如果联系人标头字段包含多个过期时间为非零的标头字段值，并且这些标头字段值中的任何一个都包含“reg-id”联系人标头字段参数，则应拒绝整个注册并显示 400（错误请求）响应。 建议拒绝与强制拒绝的理由是，[RFC3261] 允许接收方压制（不响应）格式不正确或恶意的消息。
+ 
+   如果联系人标头不包含“reg-id”联系人标头字段参数，或者忽略了该参数（如上所述），则注册商不得在其响应的“Require”字段中包含出站选项标记。
+ 
+   注册商必须准备好同时接收同一 AOR 的一些注册，以及一些不使用实例 ID 和注册 ID 的注册。 注册器可以配置本地策略，以拒绝不包含实例 ID 和 reg-id 的任何注册，或者使用不包含“ob”URI 参数的 Path 标头字段值。 如果联系人标头字段不包含“+sip.instance”联系人标头字段参数，则注册商将使用 [RFC3261] 中的联系人绑定规则处理请求。
+ 
+   当 “+sip.instance” 联系人标头字段参数和“reg-id”联系人标头字段参数存在于 REGISTER 请求的联系人标头字段中时（在如上所述的联系人标头验证之后），相应的绑定位于 AOR 和实例 ID（来自“+sip.instance”联系人标头参数）和“reg-id”联系人标头字段参数参数的值的组合之间。 注册器必须在绑定中存储联系人 URI、所有联系人标头字段参数和任何 Path 标头字段值。 （即使联系人 URI 不用于绑定比较，权威代理仍然需要它来形成目标集。 假设 UAC 在 REGISTER 请求的“支持的标头字段”值中包含出站选项标记（在第 11.4 节中定义），则注册器必须在响应该 REGISTER 请求的“Require”标头字段值中包含出站选项标记。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+ 
+
+
+
+
+ 
+   如果 UAC 与注册器有直接流，则注册器必须存储足够的信息来唯一标识请求到达的网络流。 对于具有 TCP 的常见操作系统，这通常只是文件描述符的句柄，如果 TCP 会话关闭，句柄将变为无效。 对于具有 UDP 的常见操作系统，这通常是接收请求的本地套接字、本地接口以及发送请求的远程端的 IP 地址和端口号的文件描述符。 注册商可以通过使用适当的流令牌将自身添加到 Path 标头字段来存储此信息。
+ 
+   如果注册器收到 AOR 以及实例 ID 和 reg-id 值的特定组合的重新注册，则注册器必须更新唯一标识请求到达的网络流的任何信息（如果该信息已更改），并且应更新上次更新绑定的时间。
+ 
+   为了符合此规范，可以直接从 UAC 接收 SIP 请求而无需干预边缘代理的注册商必须实施与边缘代理相同的保持活动机制（第 5.4 节）。 具有具有 UA 的直接流的注册商可以在 2xx 类注册响应中包含流计时器标头，该响应在“Require”标头中包含出站选项标记。
+ 
+
+
+
+
+
+
+
+7.  权威代理程序：转发请求
+ 
+   当代理使用位置服务查找注册绑定，然后将请求代理给特定联系人时，它会选择正常使用的联系人，并带有一些附加规则：
+ 
+   o  代理不得一次使用具有相同 AOR 和实例 ID 的多个联系人填充目标集。
+ 
+   o  如果对特定 AOR 和实例 ID 的请求失败并出现 430（流失败）响应，则代理应将失败的分支替换为另一个目标（如果可用），该目标具有相同的 AOR 和实例 ID，但具有不同的 reg-id。
+ 
+   o  如果代理收到来自 408（请求超时）或 430（流失败）响应以外的分支的最终响应，则代理不得将同一请求转发到表示相同 AOR 和实例 ID 的另一个目标。 目标实例已提供其响应。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+   代理使用消息的下一跃点目标和注册绑定中存储的任何 Path 标头字段向量的值来决定如何在请求中转发和填充 Route 标头。  如果代理与注册器位于同一位置，并将有关流的信息存储到创建绑定的 UA，则代理必须通过与绑定一起保存的同一“逻辑流”发送请求，因为已知该流将数据传递到与绑定一起保存的特定目标 UA 实例的网络流。
+ 
+      实现说明：通常，这意味着对于 TCP，请求在接收 REGISTER 请求的同一 TCP 套接字上发送。 对于 UDP，请求从接收注册的同一本地 IP 地址和端口发送到接收 REGISTER 的同一 IP 地址和端口。
+ 
+   如果代理或注册器从网络接收到的信息指示将来不会在特定流上传递任何消息，则代理必须使目标集中使用该流的所有绑定无效（无论 AOR 如何）。 这方面的示例包括 TCP 套接字关闭或收到 UDP 流上的目标无法访问的 ICMP 错误。 同样，如果代理关闭文件描述符，则必须使目标集中使用该文件描述符的流中的所有绑定失效。
+
+
+
+
+
+
+
+
+
+ 
+8.  处理 STUN Keep-Alive
+ 
+   本节介绍对 SIP 传输层的更改，这些更改允许在同一流中混合使用 SIP 和 STUN [RFC5389] 绑定请求。 这构成了新的 STUN 用法。 STUN 消息用于验证连接是否仍然可以通过 UDP 流使用，并提供定期保持活动状态。 这些 STUN 保持活动状态始终发送到下一个 SIP 跃点。 STUN 消息不会端到端传递。
+ 
+   此用法所需的唯一 STUN 消息是绑定请求、绑定响应和绑定错误响应。 UAC 通过用于发送 SIP 消息的同一 UDP 流发送绑定请求。 这些绑定请求不需要任何 STUN 属性。  相应的绑定响应不需要除异或映射地址之外的任何 STUN 属性。 UAS、代理或注册器使用绑定响应有效的绑定请求，该绑定响应必须包含 XOR MAPPED-ADDRESS 属性。
+ 
+   如果符合此部分的服务器在给定接口和 UDP 端口上收到 SIP 请求，则还必须在同一接口和 UDP 端口上提供有限版本的 STUN 服务。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+      注意：很容易区分通过UDP发送的STUN和SIP数据包，因为STUN绑定方法的第一个八位字节的值为0或1，而SIP消息的第一个八位字节永远不会是0或1.
+
+ 
+   由于在用于 SIP 的相同端口上发送和接收二进制 STUN 数据是对 RFC 3261 的重大且不向后兼容的更改，因此本节需要在将 STUN 消息发送到 SIP 节点之前进行多次检查。 如果 SIP 节点不顾这些警告发送 STUN 请求（例如，由于配置不正确），则该节点可能会被列入 UDP 流量的黑名单。
+ 
+   SIP 节点不得通过流发送 STUN 请求，除非它明确指示目标下一跃点 SIP 服务器声称支持此规范。 UAC 不得使用不明确的配置选项（如“通过 NAT 工作？”或“保持活动状态？”）来暗示下一跃点 STUN 支持。 UAC 可以使用注册响应的 Path 标头中存在的“OB”URI 参数来指示其第一个边缘代理支持本文档中定义的保持活动状态。
+ 
+      注意：通常，SIP 节点首先发送 SIP 请求，并等待通过流接收到新目标的 2xx 类响应，然后再发送任何 STUN 消息。 当计划进行下一次 NAT 刷新时，SIP 节点会向目标发送 STUN 请求。
+ 
+   建立流后，STUN 请求的失败（包括其重新传输）将被视为底层流的失败。 对于基于 UDP 流的 SIP，如果通过流返回的异或映射地址发生更改，则表示基础连接已更改，并被视为流故障。
+ 
+   SIP 保持活动状态 STUN 用法不需要与 [RFC3489] 向后兼容。
+ 
+
+
+
+8.1.  与 SigComp 一起使用
+ 
+   当STUN与SigComp [RFC3320]压缩的SIP消息通过同一流一起使用时，STUN消息只是在SigComp的“外部”未压缩发送。 通过检查消息的最开始的两个位，将 STUN 消息与 SigComp 消息多路复用来支持这一点。 这些位对于 SigComp 始终为 1，对于 STUN，这些位始终为零。
+ 
+      注意：所有 SigComp 消息都包含一个前缀（第一个字节的五个最高有效位设置为 1），该前缀不会出现在 UTF-8 [RFC3629] 编码的文本消息中，因此对于使用此编码（或 ASCII 编码）的应用程序，可以在同一 UDP 端口上多路复用未压缩的应用程序消息和 SigComp 消息。 每个 STUN 绑定方法中的前两位都是零。 这与魔术cookie相结合，有助于在STUN与同一端口上的其他协议多路复用时将STUN数据包与其他协议区分开来。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   
+
+
+
+
+
+ 
+9.  示例消息流
+ 
+   下面是一个示例消息流，说明了此规范中讨论的大多数概念。 在许多情况下，为了简洁和可读性，省略了 Via、Content-Length 和 Max-Forwards 标头。
+ 
+   在这些示例中，“EP1”和“EP2”是出站代理，“代理”是权威代理。
+ 
+   该部分细分为独立的调用流;但是，它们是按假设的呼叫流序列的顺序构建的。
+ 
+9.1.  订阅配置包
+ 
+   如果已在 Bob 的 UA 上配置了出站代理集，则可以跳过此小节。 否则，如果通过配置包获知出站代理集，Bob 的 UA 将发送 UA 配置文件配置包 [CONFIG-FMWK] 的订阅请求。 此请求是轮询（过期为零）。 收到 NOTIFY 请求后，Bob 的 UA 使用 HTTPS（未显示）获取外部配置，并获取包含出站代理集 “sip：ep1.example.com;lr” 和 “sip：ep2.example.com;lr” 的配置文件。
+ 
+     [----example.com domain-------------------------]
+     Bob         EP1   EP2     Proxy             Config
+      |           |     |        |                  |
+    1)|SUBSCRIBE-&gt;|     |        |                  |
+    2)|           |---SUBSCRIBE Event: ua-profile -&gt;|
+    3)|           |&lt;--200 OK -----------------------|
+    4)|&lt;--200 OK--|     |        |                  |
+    5)|           |&lt;--NOTIFY------------------------|
+    6)|&lt;--NOTIFY--|     |        |                  |
+    7)|---200 OK-&gt;|     |        |                  |
+    8)|           |---200 OK ----------------------&gt;|
+      |           |     |        |                  |
+ 
+   在本例中，恰好配置了DNS服务器，以使sip：example.com解析为EP1和EP2。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   Example Message #1:
+
+   SUBSCRIBE sip:00000000-0000-1000-8000-AABBCCDDEEFF@example.com
+     SIP/2.0
+   Via: SIP/2.0/TCP 192.0.2.2;branch=z9hG4bKnlsdkdj2
+   Max-Forwards: 70
+   From: <anonymous@example.com>;tag=23324
+   To: <sip:00000000-0000-1000-8000-aabbccddeeff@example.com>
+   Call-ID: nSz1TWN54x7My0GvpEBj
+   CSeq: 1 SUBSCRIBE
+   Event: ua-profile ;profile-type=device
+    ;vendor="example.com";model="uPhone";version="1.1"
+   Expires: 0
+   Supported: path, outbound
+   Accept: message/external-body, application/x-uPhone-config
+   Contact: <sip:192.0.2.2;transport=tcp;ob>
+    ;+sip.instance="<urn:uuid:00000000-0000-1000-8000-aabbccddeeff>"
+   Content-Length: 0
+ 
+   在消息 #2 中，EP1 添加以下Record-Route标头：
+ 
+   Record-Route:
+    <sip:gopikssn0oglpxrdv9baxpt3conuigkv@ep1.example.com;lr>
+ 
+   在消息 #5 中，配置服务器发送带有外部 URL 的NOTIFY，供 Bob 获取其配置。 NOTIFY具有结束订阅的 Subscription-State 标头。
+ 
+   Message #5
+
+   NOTIFY sip:192.0.2.2;transport=tcp;ob SIP/2.0
+   Via: SIP/2.0/TCP 192.0.2.5;branch=z9hG4bKn81dd2
+   Max-Forwards: 70
+   To: <anonymous@example.com>;tag=23324
+   From: <sip:00000000-0000-1000-8000-aabbccddeeff@example.com>;tag=0983
+   Call-ID: nSz1TWN54x7My0GvpEBj
+   CSeq: 1 NOTIFY
+   Route: <sip:gopikssn0oglpxrdv9baxpt3conuigkv@ep1.example.com;lr>
+   Subscription-State: terminated;reason=timeout
+   Event: ua-profile
+   Content-Type: message/external-body; access-type="URL"
+    ;expiration="Thu, 01 Jan 2009 09:00:00 UTC"
+    ;URL="http://example.com/uPhone.cfg"
+    ;size=9999;hash=10AB568E91245681AC1B
+   Content-Length: 0</sip:gopikssn0oglpxrdv9baxpt3conuigkv@ep1.example.com;lr></sip:00000000-0000-1000-8000-aabbccddeeff@example.com></anonymous@example.com></sip:gopikssn0oglpxrdv9baxpt3conuigkv@ep1.example.com;lr></urn:uuid:00000000-0000-1000-8000-aabbccddeeff></sip:192.0.2.2;transport=tcp;ob></sip:00000000-0000-1000-8000-aabbccddeeff@example.com></anonymous@example.com></pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+   EP1 接收此 NOTIFY 请求，剥离路由标头，提取流令牌，计算正确的流，并通过该流将请求（消息 #6）转发给 Bob。
+ 
+   Bob 的 UA 获取配置文件并学习出站代理集。
+ 
+
+9.2.  注册
+ 
+   现在，Bob 的 UA 已配置了出站代理集，无论是通过配置还是使用上一节的配置框架过程，Bob 的 UA 都会通过集中的每个边缘代理发送 REGISTER 请求。 注册成功后，Bob 的 UA 大约每 2 分钟开始发送一次 CRLF 保持活动状态。
+ 
+     Bob         EP1   EP2     Proxy     Alice
+      |           |     |        |         |
+    9)|-REGISTER-&gt;|     |        |         |
+   10)|           |---REGISTER--&gt;|         |
+   11)|           |&lt;----200 OK---|         |
+   12)|&lt;-200 OK---|     |        |         |
+   13)|----REGISTER----&gt;|        |         |
+   14)|           |     |--REG--&gt;|         |
+   15)|           |     |&lt;-200---|         |
+   16)|&lt;----200 OK------|        |         |
+      |           |     |        |         |
+      |  about 120 seconds later...        |
+      |           |     |        |         |
+   17)|--2CRLF---&gt;|     |        |         |
+   18)|&lt;--CRLF----|     |        |         |
+   19)|------2CRLF-----&gt;|        |         |
+   20)|&lt;------CRLF------|        |         |
+      |           |     |        |         |
+ 
+   在消息 #9 中，Bob 的 UA 通过出站代理集中的第一个边缘代理发送其第一个注册，方法是包含松散路由。 UA 在其联系人标头字段值中包含实例 ID 和注册 ID。 请注意“Supported”中的选项标记。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+   Message #9
+
+   REGISTER sip:example.com SIP/2.0
+   Via: SIP/2.0/TCP 192.0.2.2;branch=z9hG4bKnashds7
+   Max-Forwards: 70
+   From: Bob <sip:bob@example.com>;tag=7F94778B653B
+   To: Bob <sip:bob@example.com>
+   Call-ID: 16CB75F21C70
+   CSeq: 1 REGISTER
+   Supported: path, outbound
+   Route: <sip:ep1.example.com;lr>
+   Contact: <sip:bob@192.0.2.2;transport=tcp>;reg-id=1
+    ;+sip.instance="<urn:uuid:00000000-0000-1000-8000-aabbccddeeff>"
+   Content-Length: 0
+ 
+   
+消息 #10 类似。 EP1 删除路由标头字段值，递减最大转发，并添加其 Via 标头字段值。 由于 EP1 是第一个边缘代理，因此它添加了一个带有流令牌的 Path 标头，并包含“ob”参数。
+ 
+   Path: <sip:vskztcq s8p4wpbonhbuyh5ijvjiw3ib@ep1.example.com;lr;ob="">
+ 
+   由于对 REGISTER（消息 #11）的响应在“需要”标头字段中包含出站选项标记，因此 Bob 的 UA 将知道注册商使用了出站绑定规则。 响应还包含当前活动的联系人和当前注册的路径。
+ 
+   Message #11
+
+   SIP/2.0 200 OK
+   Via: SIP/2.0/TCP 192.0.2.15;branch=z9hG4bKnuiqisi
+   Via: SIP/2.0/TCP 192.0.2.2;branch=z9hG4bKnashds7
+   From: Bob <sip:bob@example.com>;tag=7F94778B653B
+   To: Bob <sip:bob@example.com>;tag=6AF99445E44A
+   Call-ID: 16CB75F21C70
+   CSeq: 1 REGISTER
+   Supported: path, outbound
+   Require: outbound
+   Contact: <sip:bob@192.0.2.2;transport=tcp>;reg-id=1;expires=3600
+    ;+sip.instance="<urn:uuid:00000000-0000-1000-8000-aabbccddeeff>"
+   Path: <sip:vskztcq s8p4wpbonhbuyh5ijvjiw3ib@ep1.example.com;lr;ob="">
+   Content-Length: 0
+ 
+   通过 EP2（消息 #13）进行的第二次注册与此类似，只是呼叫 ID 已更改，注册 ID 为 2，Route 头改为 EP2。</sip:vskztcq></urn:uuid:00000000-0000-1000-8000-aabbccddeeff></sip:bob@192.0.2.2;transport=tcp></sip:bob@example.com></sip:bob@example.com></sip:vskztcq></urn:uuid:00000000-0000-1000-8000-aabbccddeeff></sip:bob@192.0.2.2;transport=tcp></sip:ep1.example.com;lr></sip:bob@example.com></sip:bob@example.com></pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   Message #13
+
+   REGISTER sip:example.com SIP/2.0
+   Via: SIP/2.0/TCP 192.0.2.2;branch=z9hG4bKnqr9bym
+   Max-Forwards: 70
+   From: Bob <sip:bob@example.com>;tag=755285EABDE2
+   To: Bob <sip:bob@example.com>
+   Call-ID: E05133BD26DD
+   CSeq: 1 REGISTER
+   Supported: path, outbound
+   Route: <sip:ep2.example.com;lr>
+   Contact: <sip:bob@192.0.2.2;transport=tcp>;reg-id=2
+    ;+sip.instance="<urn:uuid:00000000-0000-1000-8000-aabbccddeeff>"
+   Content-Length: 0
+ 
+   同样，在消息 #14 中，EP2 添加了带有流令牌和“ob”参数的 Path 标头。
+ 
+   Path: <sip:wazhdldimtug6r0i orz15zx3zhe1w1z@ep2.example.com;lr;ob="">
+ 
+   消息 #16 告知 Bob 的 UA 出站注册成功，并显示两个联系人。 请注意，仅返回与当前注册对应的Path 。
+ 
+   Message #16
+
+   SIP/2.0 200 OK
+   Via: SIP/2.0/TCP 192.0.2.2;branch=z9hG4bKnqr9bym
+   From: Bob <sip:bob@example.com>;tag=755285EABDE2
+   To: Bob <sip:bob@example.com>;tag=49A9AD0B3F6A
+   Call-ID: E05133BD26DD
+   Supported: path, outbound
+   Require: outbound
+   CSeq: 1 REGISTER
+   Contact: <sip:bob@192.0.2.2;transport=tcp>;reg-id=1;expires=3600
+    ;+sip.instance="<urn:uuid:00000000-0000-1000-8000-aabbccddeeff>"
+   Contact: <sip:bob@192.0.2.2;transport=tcp>;reg-id=2;expires=3600
+    ;+sip.instance="<urn:uuid:00000000-0000-1000-8000-aabbccddeeff>"
+   Path: <sip:wazhdldimtug6r0i orz15zx3zhe1w1z@ep2.example.com;lr;ob="">
+   Content-Length: 0
+ 
+9.3.  传入请求和代理崩溃
+ 
+   在此示例中，注册后，EP1 崩溃并重新启动。 在 Bob 的 UA 注意到其流向 EP1 的流程不再响应之前，Alice 打电话给 Bob。 Bob 的权威代理首先尝试流向 EP1，但 EP1 不再具有流向 Bob 的流，因此它以 430（流失败）响应进行响应。 代理删除过时的注册，并尝试同一实例的下一个绑定。</sip:wazhdldimtug6r0i></urn:uuid:00000000-0000-1000-8000-aabbccddeeff></sip:bob@192.0.2.2;transport=tcp></urn:uuid:00000000-0000-1000-8000-aabbccddeeff></sip:bob@192.0.2.2;transport=tcp></sip:bob@example.com></sip:bob@example.com></sip:wazhdldimtug6r0i></urn:uuid:00000000-0000-1000-8000-aabbccddeeff></sip:bob@192.0.2.2;transport=tcp></sip:ep2.example.com;lr></sip:bob@example.com></sip:bob@example.com></pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+  
+ 
+     Bob         EP1   EP2     Proxy     Alice
+      |           |     |        |         |
+      |    CRASH  X     |        |         |
+      |        Reboot   |        |         |
+      |           |     |        |         |
+   21)|           |     |        |&lt;-INVITE-|
+   22)|           |&lt;---INVITE----|         |
+   23)|           |----430------&gt;|         |
+   24)|           |     |&lt;-INVITE|         |
+   25)|&lt;---INVITE-------|        |         |
+   26)|----200 OK------&gt;|        |         |
+   27)|           |     |200 OK-&gt;|         |
+   28)|           |     |        |-200 OK-&gt;|
+   29)|           |     |&lt;----------ACK----|
+   30)|&lt;---ACK----------|        |         |
+      |           |     |        |         |
+   31)|           |     |&lt;----------BYE----|
+   32)|&lt;---BYE----------|        |         |
+   33)|----200 OK------&gt;|        |         |
+   34)|           |     |--------200 OK---&gt;|
+      |           |     |        |         |
+ 
+
+   Message #21
+
+   INVITE sip:bob@example.com SIP/2.0
+   To: Bob <sip:bob@example.com>
+   From: Alice <sip:alice@a.example>;tag=02935
+   Call-ID: klmvCxVWGp6MxJp2T2mb
+   CSeq: 1 INVITE
+ 
+   Bob 的代理将请求 URI 重写为 Bob 注册中使用的联系人 URI，并将其中一个注册的路径指向 Bob 的 UA 实例放入路由标头字段中。 这条路线经过EP1。
+ 
+   Message #22
+ 
+   INVITE sip:bob@192.0.2.2;transport=tcp SIP/2.0
+   To: Bob <sip:bob@example.com>
+   From: Alice <sip:alice@a.example>;tag=02935
+   Call-ID: klmvCxVWGp6MxJp2T2mb
+   CSeq: 1 INVITE
+   Route: <sip:vskztcq s8p4wpbonhbuyh5ijvjiw3ib@ep1.example.com;lr;ob=""></sip:vskztcq></sip:alice@a.example></sip:bob@example.com></sip:alice@a.example></sip:bob@example.com></pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+   由于 EP1 刚刚重新启动，因此它没有流令牌中描述的流。 它返回 430（流失败）响应。
+ 
+   Message #23
+ 
+   SIP/2.0 430 Flow Failed
+   To: Bob <sip:bob@example.com>
+   From: Alice <sip:alice@a.example>;tag=02935
+   Call-ID: klmvCxVWGp6MxJp2T2mb
+   CSeq: 1 INVITE
+ 
+   代理删除此路径的绑定，并尝试再次转发邀请，这次使用通过 EP2 的路径。
+ 
+   Message #24
+ 
+   INVITE sip:bob@192.0.2.2;transport=tcp SIP/2.0
+   To: Bob <sip:bob@example.com>
+   From: Alice <sip:alice@a.example>;tag=02935
+   Call-ID: klmvCxVWGp6MxJp2T2mb
+   CSeq: 1 INVITE
+   Route: <sip:wazhdldimtug6r0i orz15zx3zhe1w1z@ep2.example.com;lr;ob="">
+ 
+   在消息 #25 中，EP2 需要添加一个记录路由标头字段值，以便来自 Alice UA 的任何后续对话内消息都到达 Bob 的 UA。 EP2 可以确定它需要记录路由，因为请求是形成对话框的请求，并且路由标头包含流令牌和“ob”参数。 此记录路由信息在响应（消息 #26、27 和 28）中传递回 Alice 的 UA。
+ 
+   Message #25
+ 
+   INVITE sip:bob@192.0.2.2;transport=tcp SIP/2.0
+   To: Bob <sip:bob@example.com>
+   From: Alice <sip:alice@a.example>;tag=02935
+   Call-ID: klmvCxVWGp6MxJp2T2mb
+   CSeq: 1 INVITE
+   Record-Route:
+     <sip:wazhdldimtug6r0i orz15zx3zhe1w1z@ep2.example.com;lr=""></sip:wazhdldimtug6r0i></sip:alice@a.example></sip:bob@example.com></sip:wazhdldimtug6r0i></sip:alice@a.example></sip:bob@example.com></sip:alice@a.example></sip:bob@example.com></pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   Message #26
+ 
+   SIP/2.0 200 OK
+   To: Bob <sip:bob@example.com>;tag=skduk2
+   From: Alice <sip:alice@a.example>;tag=02935
+   Call-ID: klmvCxVWGp6MxJp2T2mb
+   CSeq: 1 INVITE
+   Record-Route:
+     <sip:wazhdldimtug6r0i orz15zx3zhe1w1z@ep2.example.com;lr="">
+ 
+   此时，两个 UA 都具有正确的对话框路由集。  此对话框中的任何后续请求都将正确路由。 例如，消息 #29 中的 ACK 请求从 Alice 的 UA 直接发送到 EP2。 消息 #31 中的 BYE 请求使用相同的路由集。
+ 
+   Message #29
+ 
+   ACK sip:bob@192.0.2.2;transport=tcp SIP/2.0
+   To: Bob <sip:bob@example.com>;tag=skduk2
+   From: Alice <sip:alice@a.example>;tag=02935
+   Call-ID: klmvCxVWGp6MxJp2T2mb
+   CSeq: 1 ACK
+   Route: <sip:wazhdldimtug6r0i orz15zx3zhe1w1z@ep2.example.com;lr="">
+ 
+   Message #31
+ 
+   BYE sip:bob@192.0.2.2;transport=tcp SIP/2.0
+   To: Bob <sip:bob@example.com>;tag=skduk2
+   From: Alice <sip:alice@a.example>;tag=02935
+   Call-ID: klmvCxVWGp6MxJp2T2mb
+   CSeq: 2 BYE
+   Route: <sip:wazhdldimtug6r0i orz15zx3zhe1w1z@ep2.example.com;lr="">
+ 
+9.4.  重新注册
+ 
+   稍后，Bob 的 UA 向其两个边缘代理发送保持活动状态，但它发现 EP1 的流失败了。 Bob 的 UA 使用之前使用的相同注册 ID 和呼叫 ID 通过 EP1 重新注册。</sip:wazhdldimtug6r0i></sip:alice@a.example></sip:bob@example.com></sip:wazhdldimtug6r0i></sip:alice@a.example></sip:bob@example.com></sip:wazhdldimtug6r0i></sip:alice@a.example></sip:bob@example.com></pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+     Bob         EP1   EP2     Proxy     Alice
+      |           |     |        |         |
+   35)|------2CRLF-----&gt;|        |         |
+   36)|&lt;------CRLF------|        |         |
+   37)|--2CRLF-&gt;X |     |        |         |
+      |           |     |        |         |
+   38)|-REGISTER-&gt;|     |        |         |
+   39)|           |---REGISTER--&gt;|         |
+   40)|           |&lt;----200 OK---|         |
+   41)|&lt;-200 OK---|     |        |         |
+      |           |     |        |         |
+ 
+   Message #38
+
+   REGISTER sip:example.com SIP/2.0
+   From: Bob <sip:bob@example.com>;tag=7F94778B653B
+   To: Bob <sip:bob@example.com>
+   Call-ID: 16CB75F21C70
+   CSeq: 2 REGISTER
+   Supported: path, outbound
+   Route: <sip:ep1.example.com;lr>
+   Contact: <sip:bob@192.0.2.2;transport=tcp>;reg-id=1
+    ;+sip.instance="<urn:uuid:00000000-0000-1000-8000-aabbccddeeff>"
+ 
+   在消息 #39 中，EP1 插入了一个带有新流令牌的 Path 标头：
+ 
+   Path: <sip:3yjebr1gyzk9cpyk5snocez6dzo7w+ax@ep1.example.com;lr;ob>
+ 
+9.5.  外呼
+ 
+   最后，鲍勃给爱丽丝打了一个电话。 Bob 的 UA 在消息 #42 的联系人 URI 中包含“ob”参数。 EP1 在消息 #43 中添加了带有流令牌的记录路由。 路由集在响应中返回给 Bob（消息 #45、46 和 47），Bob 或 Alice 可以发送对话内请求。</sip:3yjebr1gyzk9cpyk5snocez6dzo7w+ax@ep1.example.com;lr;ob></urn:uuid:00000000-0000-1000-8000-aabbccddeeff></sip:bob@192.0.2.2;transport=tcp></sip:ep1.example.com;lr></sip:bob@example.com></sip:bob@example.com></pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+     Bob         EP1   EP2     Proxy     Alice
+      |           |     |        |         |
+   42)|--INVITE--&gt;|     |        |         |
+   43)|           |---INVITE----&gt;|         |
+   44)|           |     |        |-INVITE-&gt;|
+   45)|           |     |        |&lt;--200---|
+   46)|           |&lt;----200 OK---|         |
+   47)|&lt;-200 OK---|     |        |         |
+   48)|--ACK-----&gt;|     |        |         |
+   49)|           |-----ACK---------------&gt;|
+      |           |     |        |         |
+   50)|-- BYE----&gt;|     |        |         |
+   51)|           |-----------BYE---------&gt;|
+   52)|           |&lt;----------200 OK-------|
+   53)|&lt;--200 OK--|     |        |         |
+      |           |     |        |         |
+ 
+   Message #42
+ 
+   INVITE sip:alice@a.example SIP/2.0
+   From: Bob <sip:bob@example.com>;tag=ldw22z
+   To: Alice <sip:alice@a.example>
+   Call-ID: 95KGsk2V/Eis9LcpBYy3
+   CSeq: 1 INVITE
+   Route: <sip:ep1.example.com;lr>
+   Contact: <sip:bob@192.0.2.2;transport=tcp;ob>
+ 
+   在消息 #43 中，EP1 添加了以下Record-Route标头。
+ 
+   Record-Route:
+     <sip:3yjebr1gyzk9cpyk5snocez6dzo7w+ax@ep1.example.com;lr>
+ 
+   当 EP1 从 Bob 的 UA 收到 BYE（消息 #50）时，它可以判断请求是“传出”请求（因为请求的源与流令牌中的流匹配），只需删除其路由标头字段值并将请求转发到 Alice 的 UA。
+ 
+   Message #50
+ 
+   BYE sip:alice@a.example SIP/2.0
+   From: Bob <sip:bob@example.com>;tag=ldw22z
+   To: Alice <sip:alice@a.example>;tag=plqus8
+   Call-ID: 95KGsk2V/Eis9LcpBYy3
+   CSeq: 2 BYE
+   Route: <sip:3yjebr1gyzk9cpyk5snocez6dzo7w+ax@ep1.example.com;lr>
+   Contact: <sip:bob@192.0.2.2;transport=tcp;ob></sip:bob@192.0.2.2;transport=tcp;ob></sip:3yjebr1gyzk9cpyk5snocez6dzo7w+ax@ep1.example.com;lr></sip:alice@a.example></sip:bob@example.com></sip:3yjebr1gyzk9cpyk5snocez6dzo7w+ax@ep1.example.com;lr></sip:bob@192.0.2.2;transport=tcp;ob></sip:ep1.example.com;lr></sip:alice@a.example></sip:bob@example.com></pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+10.  语法
+ 
+   此规范定义了一个新的标头字段“Flow-Timer”，以及新的联系人标头字段参数“reg-id”和“+sip.instance”。 语法包括 [RFC3261] 中的定义。 流计时器是 [RFC3261] ABNF 中消息头的扩展标头。
+ 
+   The ABNF [RFC5234] is:
+
+    Flow-Timer     = "Flow-Timer" HCOLON 1*DIGIT
+
+    contact-params =/ c-p-reg / c-p-instance
+
+    c-p-reg        = "reg-id" EQUAL 1*DIGIT ; 1 to (2^31 - 1)
+
+    c-p-instance   =  "+sip.instance" EQUAL
+                      DQUOTE "&lt;" instance-val "&gt;" DQUOTE
+
+    instance-val   = 1*uric ; defined in RFC 3261
+ 
+   reg-id 的值不得为 0，并且必须小于 2^31。
+ 
+11.  IANA 注意事项
+ 
+11.1.  Flow-Timer Header Field
+ 
+   此规范定义了一个新的 SIP 标头字段“流计时器”，其语法在第 10 节中定义。
+ 
+     Header Name        compact    Reference
+     -----------------  -------    ---------
+     Flow-Timer                    [RFC5626]
+ 
+11.2.  "reg-id" Contact Header Field Parameter
+ 
+   此规范根据 [RFC3968] 创建的注册表，在“标头字段参数和参数值”子注册表中定义了一个名为 reg-id 的新联系人标头字段参数。 语法在第 10 节中定义。 所需信息是：
+ 
+
+                                                  Predefined
+   Header Field            Parameter Name         Values      Reference
+   ----------------------  ---------------------  ----------  ---------
+   Contact                 reg-id                 No          [RFC5626]</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+11.3.  SIP/SIPS URI 参数
+ 
+   此规范根据 [RFC3969] 创建的注册表增强了“SIP/SIPS URI 参数”子注册表。 所需信息是：
+ 
+   Parameter Name     Predefined Values     Reference
+   --------------     -----------------     ---------
+   ob                 No                    [RFC5626]
+ 
+11.4.  SIP Option Tag
+ 
+   此规范根据 [RFC3261] 第 27.1 节中的准则注册新的 SIP 选项标记。
+ 
+   Name:  outbound
+ 
+   Description:  此选项标记用于标识支持客户端启动的连接扩展的 UA 和注册商。 UA 将此选项放在支持的标头中，以传达其对此扩展的支持。 注册商将此选项标记放在“Require”标头中，以向注册用户代理指示注册器使用此扩展中定义的绑定规则使用了注册。
+ 
+
+
+
+
+11.5.  430 (Flow Failed) 响应码
+ 
+   本文档根据 [RFC3261] 第 27.4 节中的准则注册新的 SIP 响应代码（430 流失败）。 边缘代理使用此响应代码向权威代理指示发往 UA 实例的特定流已失败。 发往同一实例的其他流仍可能成功。 权威代理应尝试转发到具有相同实例 ID 和 AOR 的另一个目标（流）。 终结点不应收到 430 响应。 如果端点收到 430 响应，则应按照正常过程将其视为 400（错误请求），如 [RFC3261] 的第 8.1.3.2 节所述。 此响应代码由以下信息定义，这些信息已添加到 SIP 参数注册表下的方法和响应代码子注册表中。
+ 
+     Response Code                               Reference
+     ------------------------------------------  ---------
+     Request Failure 4xx
+       430 Flow Failed                           [RFC5626]</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+11.6.  439 (First Hop Lacks Outbound Support) 响应码
+ 
+   本文档根据 [RFC3261] 第 27.4 节中的准则注册新的 SIP 响应代码（439 第一跃点缺少出站支持）。 注册器使用此响应代码来指示它支持此规范中描述的“出站”功能，但用户尝试通过的第一个出站代理不支持。 请注意，此响应代码仅适用于注册用户代理通过在支持的标头字段中包含出站选项标记来通告对出站处理的支持的情况。 代理不得向在支持的标头字段中不包含“reg-id”参数和出站选项标记的任何请求发送 439 响应。 此响应代码由以下信息定义，这些信息已添加到 SIP 参数注册表下的方法和响应代码子注册表中。
+ 
+     Response Code                               Reference
+     ------------------------------------------  ---------
+     Request Failure 4xx
+       439 First Hop Lacks Outbound Support      [RFC&amp;rfc.number;]
+ 
+
+
+
+
+
+11.7.  媒体功能标签
+ 
+   
+本节根据 [RFC2506] 中定义的过程注册新的媒体功能标记。 标记被放置在 [RFC3840] 中定义的 sip 树中。
+ 
+   媒体功能标记名称:  sip.instance
+ 
+   ASN.1 Identifier:  23
+ 
+   此标记指示的媒体功能摘要：此功能标记包含一个字符串，其中包含一个 URN，该 URN 指示与注册联系人的 UA 实例相关联的唯一标识符。
+ 
+   适用于此功能标记的值：字符串（相等关系）。
+ 
+   功能标记主要用于以下应用程序、协议、服务或协商机制： 此功能标记在通信应用程序中最有用，用于描述设备（如电话或 PDA）的功能。
+ 
+   典型用法示例：将呼叫路由到特定设备。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   相关标准或文件:  RFC 5626
+ 
+   安全注意事项：此媒体功能标记可以以影响应用程序行为的方式使用。 例如，SIP 呼叫方首选项扩展 [RFC3841] 允许基于这些参数的值进行呼叫路由决策。 因此，如果攻击者可以修改此标记的值，他们可能能够影响应用程序的行为。 因此，使用此媒体功能标记的应用程序应提供一种确保其完整性的方法。 同样，仅当此功能标记来自标记所描述的用户或用户代理时，才应将其信任为有效。 因此，用于传达此功能标记的协议应提供一种保证真实性的机制。
+ 
+
+
+
+12.  安全注意事项
+ 
+   这项工作中的一个关键安全问题是确保攻击者无法劫持有效用户的会话，并导致发往该用户的所有呼叫都发送给攻击者。 请注意，目的不是防止对 SIP UDP 和 TCP 流量的现有主动攻击，而是通过引入出站机制来确保不会添加新攻击。
+ 
+   简单的情况是没有边缘代理。 在这种情况下，只有在注册成功时，才能将条目添加到给定 AOR 的路由中。 SIP已经防止攻击者能够成功注册，并且此方案依赖于这种安全性。 一些实现者考虑过只保存实例 ID 而不将其与注册的 AOR 相关联的想法。 这个想法是行不通的，因为攻击者的 UA 可以模拟有效用户的实例 ID 并劫持该用户的调用。
+ 
+   更复杂的情况涉及一个或多个边缘代理。 当 UA 通过边缘代理向注册商发送 REGISTER 请求时，边缘代理会插入 Path 标头字段值。 如果注册成功通过身份验证，注册器将存储 Path 标头字段的值。 稍后，当注册商转发发往 UA 的请求时，它会将 Path 标头字段的存储值复制到请求的路由标头字段中，并将请求转发到边缘代理。
+ 
+   边缘代理仅在收到具有已创建的流标识符信息的路由标头时通过特定流进行路由。 传入的请求将从注册商处获取此信息。 只有在AOR注册成功时，注册商才会为给定的AOR保存此信息;并且只有在 UA 可以正确进行身份验证时，注册才会成功。 即使攻击者在发送到注册商的 Path 标头中欺骗了一些错误信息，攻击者也无法让注册商接受不属于攻击者的 AOR 的此信息。 注册商不会将此不良信息分发给其他人，其他人也不会被误导与攻击者联系。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+
+
+
+
+ 
+   [RFC3261] 和 [RFC3327] 中讨论的安全注意事项也与本文档相关。 有关生成流令牌的安全注意事项，另请参阅第 5.2 节。 有关防止雪崩重新启动问题的讨论在第 4.5 节中。
+ 
+   本文档不会更改 SIP 中强制实施的安全机制。 用户代理已经需要实现摘要式身份验证，同时建议支持 TLS;已经需要代理服务器来实现摘要和TLS。
+ 
+13.  传输操作说明
+ 
+   这整个部分都是非规范性的。
+ 
+   [RFC3261] 要求代理、注册商和用户代理同时实现 TCP 和 UDP，但部署可以选择要使用的传输协议。 部署在选择要使用的传输时需要小心。 许多 SIP 功能和扩展（如大型状态通知正文）会导致 SIP 请求可能太大而无法通过 UDP 合理传输。 [RFC3261] 指出，当请求对于 UDP 来说太大时，发送请求的设备会尝试切换到 TCP。 请务必注意，使用出站时，仅当 UA 同时形成了 UDP 和 TCP 出站流时，这才有效。 此规范允许 UA 这样做，但在大多数情况下，UA 仅形成 TCP 出站连接而不是同时形成 UDP 和 TCP 流可能更有意义。 许多部署选择不使用TCP的关键原因之一与构建可以维护大量活动TCP连接的代理的困难有关。 如今，许多部署使用 SIP 的方式是，消息足够小，可以通过 UDP 工作，但它们不能利用 SIP 提供的所有功能。 仅使用UDP出站连接的部署将因足够大的SIP消息而失败。
+ 
+
+
+
+
+
+
+
+
+
+
+
+14.  要求
+ 
+   制定此规范是为了满足以下要求：
+ 
+   1.  必须能够检测到 UA 是否支持这些机制。
+ 
+   2.  支持 NAT 背后的 UA。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   3.  支持没有稳定 DNS 名称或 IP 地址的 UA 的 TLS。
+ 
+   4.  检测连接故障并能够纠正此问题。
+ 
+   5.  支持多个UA同时重启。
+ 
+   6.  支持 NAT 重新启动或重置。
+ 
+   7.  最小化代理上的初始启动负载。
+ 
+   8.  支持具有边缘代理的架构。
+ 
+15.  Acknowledgments
+
+   Francois Audet acted as document shepherd for this document, tracking
+   hundreds of comments and incorporating many grammatical fixes as well
+   as prodding the editors to "get on with it".  Jonathan Rosenberg,
+   Erkki Koivusalo, and Byron Campen provided many comments and useful
+   text.  Dave Oran came up with the idea of using the most recent
+   registration first in the proxy.  Alan Hawrylyshen co-authored the
+   document that formed the initial text of this specification.
+   Additionally, many of the concepts here originated at a connection
+   reuse meeting at IETF 60 that included the authors, Jon Peterson,
+   Jonathan Rosenberg, Alan Hawrylyshen, and Paul Kyzivat.  The TCP
+   design team consisting of Chris Boulton, Scott Lawrence, Rajnish
+   Jain, Vijay K. Gurbani, and Ganesh Jayadevan provided input and text.
+   Nils Ohlmeier provided many fixes and initial implementation
+   experience.  In addition, thanks to the following folks for useful
+   comments: Francois Audet, Flemming Andreasen, Mike Hammer, Dan Wing,
+   Srivatsa Srinivasan, Dale Worely, Juha Heinanen, Eric Rescorla,
+   Lyndsay Campbell, Christer Holmberg, Kevin Johns, Jeroen van Bemmel,
+   Derek MacDonald, Dean Willis, and Robert Sparks.
+ 
+16.  References
+ 
+16.1.  Normative References
+ 
+   [RFC2119]      Bradner, S., "Key words for use in RFCs to Indicate
+                  Requirement Levels", BCP 14, RFC 2119, March 1997.
+
+   [RFC2141]      Moats, R., "URN Syntax", RFC 2141, May 1997.
+
+   [RFC2506]      Holtman, K., Mutz, A., and T. Hardie, "Media Feature
+                  Tag Registration Procedure", BCP 31, RFC 2506,
+                  March 1999.</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   [RFC3261]      Rosenberg, J., Schulzrinne, H., Camarillo, G.,
+                  Johnston, A., Peterson, J., Sparks, R., Handley, M.,
+                  and E. Schooler, "SIP: Session Initiation Protocol",
+                  RFC 3261, June 2002.
+
+   [RFC3263]      Rosenberg, J. and H. Schulzrinne, "Session Initiation
+                  Protocol (SIP): Locating SIP Servers", RFC 3263,
+                  June 2002.
+
+   [RFC3327]      Willis, D. and B. Hoeneisen, "Session Initiation
+                  Protocol (SIP) Extension Header Field for Registering
+                  Non-Adjacent Contacts", RFC 3327, December 2002.
+
+   [RFC3581]      Rosenberg, J. and H. Schulzrinne, "An Extension to the
+                  Session Initiation Protocol (SIP) for Symmetric
+                  Response Routing", RFC 3581, August 2003.
+
+   [RFC3629]      Yergeau, F., "UTF-8, a transformation format of ISO
+                  10646", STD 63, RFC 3629, November 2003.
+
+   [RFC3840]      Rosenberg, J., Schulzrinne, H., and P. Kyzivat,
+                  "Indicating User Agent Capabilities in the Session
+                  Initiation Protocol (SIP)", RFC 3840, August 2004.
+
+   [RFC3841]      Rosenberg, J., Schulzrinne, H., and P. Kyzivat,
+                  "Caller Preferences for the Session Initiation
+                  Protocol (SIP)", RFC 3841, August 2004.
+
+   [RFC3968]      Camarillo, G., "The Internet Assigned Number Authority
+                  (IANA) Header Field Parameter Registry for the Session
+                  Initiation Protocol (SIP)", BCP 98, RFC 3968,
+                  December 2004.
+
+   [RFC3969]      Camarillo, G., "The Internet Assigned Number Authority
+                  (IANA) Uniform Resource Identifier (URI) Parameter
+                  Registry for the Session Initiation Protocol (SIP)",
+                  BCP 99, RFC 3969, December 2004.
+
+   [RFC4122]      Leach, P., Mealling, M., and R. Salz, "A Universally
+                  Unique IDentifier (UUID) URN Namespace", RFC 4122,
+                  July 2005.
+
+   [RFC5234]      Crocker, D. and P. Overell, "Augmented BNF for Syntax
+                  Specifications: ABNF", STD 68, RFC 5234, January 2008.
+
+   [RFC5389]      Rosenberg, J., Mahy, R., Matthews, P., and D. Wing,
+                  "Session Traversal Utilities for NAT (STUN)",
+                  RFC 5389, October 2008.</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+16.2.  Informative References
+ 
+   [CONFIG-FMWK]  Petrie, D. and S. Channabasappa, Ed., "A Framework for
+                  Session Initiation Protocol User Agent Profile
+                  Delivery", Work in Progress, February 2008.
+
+   [NAT-SCEN]     Boulton, C., Rosenberg, J., Camarillo, G., and F.
+                  Audet, "Best Current Practices for NAT Traversal for
+                  Client-Server SIP", Work in Progress, September 2008.
+
+   [RFC0768]      Postel, J., "User Datagram Protocol", STD 6, RFC 768,
+                  August 1980.
+
+   [RFC0793]      Postel, J., "Transmission Control Protocol", STD 7,
+                  RFC 793, September 1981.
+
+   [RFC1035]      Mockapetris, P., "Domain names - implementation and
+                  specification", STD 13, RFC 1035, November 1987.
+
+   [RFC2104]      Krawczyk, H., Bellare, M., and R. Canetti, "HMAC:
+                  Keyed-Hashing for Message Authentication", RFC 2104,
+                  February 1997.
+
+   [RFC2131]      Droms, R., "Dynamic Host Configuration Protocol",
+                  RFC 2131, March 1997.
+
+   [RFC2782]      Gulbrandsen, A., Vixie, P., and L. Esibov, "A DNS RR
+                  for specifying the location of services (DNS SRV)",
+                  RFC 2782, February 2000.
+
+   [RFC3320]      Price, R., Bormann, C., Christoffersson, J., Hannu,
+                  H., Liu, Z., and J. Rosenberg, "Signaling Compression
+                  (SigComp)", RFC 3320, January 2003.
+
+   [RFC3489]      Rosenberg, J., Weinberger, J., Huitema, C., and R.
+                  Mahy, "STUN - Simple Traversal of User Datagram
+                  Protocol (UDP) Through Network Address Translators
+                  (NATs)", RFC 3489, March 2003.
+
+   [RFC3986]      Berners-Lee, T., Fielding, R., and L. Masinter,
+                  "Uniform Resource Identifier (URI): Generic Syntax",
+                  STD 66, RFC 3986, January 2005.
+
+   [RFC4340]      Kohler, E., Handley, M., and S. Floyd, "Datagram
+                  Congestion Control Protocol (DCCP)", RFC 4340,
+                  March 2006.</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+   [RFC4648]      Josefsson, S., "The Base16, Base32, and Base64 Data
+                  Encodings", RFC 4648, October 2006.
+
+   [RFC4960]      Stewart, R., "Stream Control Transmission Protocol",
+                  RFC 4960, September 2007.
+
+   [RFC5246]      Dierks, T. and E. Rescorla, "The Transport Layer
+                  Security (TLS) Protocol Version 1.2", RFC 5246,
+                  August 2008.
+
+   [RFC5627]      Rosenberg, J., "Obtaining and Using Globally Routable
+                  User Agent URIs (GRUUs) in the Session Initiation
+                  Protocol (SIP)", RFC 5627, October 2009.</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+Appendix A.  默认流注册退避时间
+ 
+   用于第 4.5 节中所述的流重新注册退避时间的基准时间是可配置的。 如果基本时间全部失败值设置为默认值 30 秒，基本时间不失败值设置为默认值 90 秒，则下表显示了 UA 等待重试注册的结果时间量。
+ 
+     +-------------------+--------------------+---------------------+
+     | # of reg failures | all flows unusable | &gt; 1 non-failed flow |
+     +-------------------+--------------------+---------------------+
+     | 0                 | 0 s                | 0 s                 |
+     | 1                 | 30-60 s            | 90-180 s            |
+     | 2                 | 1-2 min            | 3-6 min             |
+     | 3                 | 2-4 min            | 6-12 min            |
+     | 4                 | 4-8 min            | 12-24 min           |
+     | 5                 | 8-16 min           | 15-30 min           |
+     | 6 or more         | 15-30 min          | 15-30 min           |
+     +-------------------+--------------------+---------------------+
+ 
+Appendix B.  ABNF
+ 
+   本附录包含本文档前面定义的 ABNF
+ 
+
+      CRLF = CR LF
+      double-CRLF = CR LF CR LF
+      CR = %x0D
+      LF = %x0A
+ 
+      Flow-Timer     = "Flow-Timer" HCOLON 1*DIGIT
+ 
+      contact-params =/ c-p-reg / c-p-instance
+ 
+      c-p-reg        = "reg-id" EQUAL 1*DIGIT ; 1 to (2^31 - 1)
+ 
+      c-p-instance   =  "+sip.instance" EQUAL
+                        DQUOTE "&lt;" instance-val "&gt;" DQUOTE
+ 
+      instance-val   = 1*uric ; defined in RFC 3261</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+Authors' Addresses
+ 
+   Cullen Jennings (editor)
+   Cisco Systems
+   170 West Tasman Drive
+   Mailstop SJC-21/2
+   San Jose, CA  95134
+   USA
+ 
+   Phone: +1 408 902-3341
+   EMail: fluffy@cisco.com
+ 
+
+   Rohan Mahy (editor)
+   Unaffiliated
+ 
+   EMail: rohan@ekabal.com
+ 
+
+   Francois Audet (editor)
+   Skype Labs
+ 
+   EMail: francois.audet@skypelabs.com
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+</pre>
+
+
+
+
+</div>
