@@ -1,0 +1,854 @@
+<div class="content" style="float: left; margin: 0px 30%; width: 579px; font-size: 14px;">
+<span class="pre noprint docinfo">[<a href="https://www.rfc-editor.org" title="RFC Editor">RFC Home</a>] [<a href="/rfc/rfc6724.txt">TEXT</a>|<a href="/rfc/pdfrfc/rfc6724.txt.pdf">PDF</a>|<a href="/rfc/rfc6724.html">HTML</a>] [<a href="https://datatracker.ietf.org/doc/rfc6724" title="IETF Datatracker information for this document">Tracker</a>] [<a href="https://datatracker.ietf.org/ipr/search/?rfc=6724&amp;submit=rfc" title="IPR disclosures related to this document">IPR</a>] [<a class="boldtext" href="/errata/rfc6724" target="_blank">Errata</a>] [<a href="https://www.rfc-editor.org/info/rfc6724" title="Info page">Info page</a>]         </span><br><span class="pre noprint docinfo">                                                                        </span><br><span class="pre noprint docinfo">                                                       PROPOSED STANDARD</span><br><span class="pre noprint docinfo">                                                            <span style="color: #C00;">Errata Exist</span></span><pre style="height: 780px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;">Internet Engineering Task Force (IETF)                    D. Thaler, Ed.
+Request for Comments: 6724                                     Microsoft
+Obsoletes: 3484                                                R. Draves
+Category: Standards Track                             Microsoft Research
+ISSN: 2070-1721                                             A. Matsumoto
+                                                                     NTT
+                                                                T. Chown
+                                               University of Southampton
+                                                          September 2012
+ 
+
+    Default Address Selection for Internet Protocol Version 6 (IPv6)
+ 
+Abstract
+ 
+   本文档介绍了两种算法，一种用于源地址选择，另一种用于目的地址选择。这些算法指定了所有互联网协议版本6(IPv6)实施的默认行为。它们不会覆盖应用程序或上层协议所做的选择，也不会阻止开发更高级的地址选择机制。这两种算法共享一个共同的上下文，包括一个允许管理员提供可覆盖默认行为的策略的可选机制。在双栈实现中，目的地址选择算法可以同时考虑IPv4和IPv6地址--根据可用的源地址，该算法可能优先选择IPv6地址而不是IPv4地址，反之亦然。
+ 
+   本规范中定义的默认地址选择适用于所有IPv6节点，包括主机和路由器。本文档将取代RFC 3484。
+ 
+Status of This Memo
+
+   This is an Internet Standards Track document.
+
+   This document is a product of the Internet Engineering Task Force
+   (IETF).  It represents the consensus of the IETF community.  It has
+   received public review and has been approved for publication by the
+   Internet Engineering Steering Group (IESG).  Further information on
+   Internet Standards is available in Section 2 of RFC 5741.
+
+   Information about the current status of this document, any errata,
+   and how to provide feedback on it may be obtained at
+   http://www.rfc-editor.org/info/rfc6724.</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+Copyright Notice
+
+   Copyright (c) 2012 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents
+   (http://trustee.ietf.org/license-info) in effect on the date of
+   publication of this document.  Please review these documents
+   carefully, as they describe your rights and restrictions with respect
+   to this document.  Code Components extracted from this document must
+   include Simplified BSD License text as described in Section 4.e of
+   the Trust Legal Provisions and are provided without warranty as
+   described in the Simplified BSD License.
+ 
+目录
+ 
+   1. 引言         ....................................................3
+      1.1. 本文件中使用的约定                ..........................4
+   2. 算法的运作环境                          .........................4
+      2.1. 策略表       ...............................................6
+      2.2. 公共前缀长度         .......................................7
+   3. 地址属性           ..............................................7
+      3.1. 范围比较          ..........................................8
+      3.2. IPv4地址和IPv4映射地址                   ...................8
+      3.3. 具有嵌入的IPv4地址的其他IPv6地址                  ..........9
+      3.4. IPv6环回地址和其他格式前缀                      ............9
+      3.5. 移动地址           .........................................9
+   4. 候选来源地址               .....................................10
+   5. 源地址选择               .......................................11
+   6. 目的地址选择                  ..................................14
+   7. 与路由的交互              ......................................16
+   8. 实施考虑事项                  ..................................16
+   9. 安全考虑事项            ........................................17
+   10. 示例     ......................................................18
+      10.1. 默认源地址选择                   .........................18
+      10.2. 默认目标地址选择                      ....................19
+      10.3. 配置IPv6或IPv4的首选项                  ..................20
+           10.3.1. 处理损坏的IPv6       ..............................21
+      10.4. 配置链路本地地址的首选项                        ..........21
+      10.5. 配置多宿主站点                 ...........................22
+      10.6. 配置ULA首选项              ...............................24
+      10.7. 配置6to4首选项              ..............................25
+   11. 参考       ....................................................26
+      11.1. 规范性参考文献       .....................................26
+      11.2. 信息性参考资料         ...................................27
+   Appendix A.  Acknowledgements .....................................29
+   Appendix B.  自RFC 3484以来的变化   ...............................29</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+1.  引言
+ 
+   IPv6寻址体系结构[RFC4291]允许为接口分配多个单播地址。这些地址可能具有不同的可达性范围(本地链路、本地站点或全局地址)。这些地址也可能是“首选”或“已弃用”[RFC4862]。出于隐私考虑，引入了“公共地址”和“临时地址”的概念[RFC4941]。移动性架构引入了“家庭地址”和“转交地址”[RFC6275]。此外，多宿主情况将导致每个节点有更多地址。例如，一个节点可能有多个接口，其中一些是隧道或虚拟接口，或者一个站点可能有多个 ISP 连接，每个 ISP 都有一个全局前缀。
+ 
+   最终结果是，在发起通信时，IPv6实施将经常面临多个可能的源地址和目的地址。希望具有在所有实现中通用的用于选择源地址和目的地址的默认算法，以便开发人员和管理员能够对其系统的行为进行推理和预测。
+ 
+   此外，支持IPv6和IPv4的双堆栈或混合堆栈实现在发起通信时经常需要在IPv6和IPv4之间进行选择，例如，当DNS名称解析产生IPv6和IPv4地址并且网络协议堆栈具有可用的IPv6和IPv4源地址时。在这种情况下，始终首选IPv6或始终首选IPv4的简单策略可能会产生不良行为。作为一个例子，假设将DNS名称解析为全局IPv6地址和全局IPv4地址。如果节点已经分配了全局IPV6地址和169.254/16自动配置的IPV4地址[RFC3927]，则IPV6是通信的最佳选择。但是，如果节点仅分配了本地链路IPv6地址和全局IPv4地址，则IPv4是通信的最佳选择。目的地址选择算法通过在IPv6和IPv4地址之间进行选择的统一过程解决了这一问题。
+ 
+   本文档中的算法被指定为一组规则，这些规则定义可供使用的地址集的部分排序。在源地址选择的情况下，一个节点通常有多个地址分配给其接口，而第5节中的源地址排序规则定义了哪个地址是要使用的“最佳”地址。在目标地址选择的情况下，DNS可能会返回给定名称的一组地址，应用程序需要决定首先使用哪个地址，以及如果第一个地址不可用，则按什么顺序尝试其他地址。当将第6节中的目的地地址排序规则应用于由DNS返回的地址集时，它提供了这样的推荐排序。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   本文档分别指定了源地址选择和目的地址选择，但使用了共同的上下文，因此这两种算法一起产生了有用的结果。算法尝试选择具有适当作用域和配置状态的源地址和目的地址(在RFC 4862意义上为“首选”或“已弃用”)。此外，本文还建议了一种优选方法，即最长匹配前缀，用于在没有更好信息的情况下在其他等价地址中进行选择。
+ 
+   本文档还指定了允许管理覆盖默认行为的策略挂钩。例如，使用这些挂钩，管理员可以指定与目的地前缀一起使用的首选源前缀，或者指定具有一个前缀的首选目的地地址优先于具有另一个前缀的地址。这些挂钩使管理员在处理某些多宿主和过渡场景时具有灵活性，但它们肯定不是万能的。
+ 
+   本文档中指定的选择规则不得解释为覆盖应用程序或上层对合法目标或源地址的显式选择。
+ 
+1.1.  本文档中使用的约定
+ 
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",   "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this   document are to be interpreted as described in BCP 14, RFC 2119   [RFC2119].
+ 
+2.  算法运行的环境
+ 
+   我们的地址选择上下文来自最常见的实现体系结构，该体系结构将目标地址的选择与源地址的选择分开。因此，对于这些任务，我们有两种不同的算法。这些算法旨在很好地协同工作，并且它们共享一种管理策略覆盖机制。
+ 
+   在此实现体系结构中，应用程序使用诸如 getaddrinfo()[RFC3493]等向应用程序返回地址列表的API。该列表可能同时包含IPv6和IPv4地址(有时表示为IPv4映射地址)。然后，应用程序使用CONNECT()或SendTo()将目的地址传递到网络堆栈。然后，应用程序通常会尝试列表中的第一个地址，遍历地址列表，直到找到工作地址。在任何情况下，网络层都不需要从多个备选地址中选择一个目的地址。应用程序还可以使用绑定()指定源地址，但通常不指定源地址。因此，网络层通常会从几个备选方案中选择一个源地址。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+ 
+   因此，我们打算让诸如getaddrinfo()之类的API实现使用这里指定的目标地址选择算法来对它们返回的IPv6和IPv4地址列表进行排序。另外，当应用程序或上层尚未指定源地址时，IPv6网络层将使用源地址选择算法。将该规范应用于在IPv4网络层中的源地址选择是可能的，但在此不作进一步探讨。
+ 
+   行为良好的应用程序不应该简单地使用从 API 返回的第一个地址，例如 getaddrinfo（），然后在失败时放弃。 对于许多应用程序，遍历从 getaddrinfo（） 返回的地址列表，直到找到工作地址是合适的。 对于其他应用程序，并行尝试多个地址(例如，中间有一些小延迟)并使用第一个地址成功可能是合适的。
+ 
+   虽然源地址和目的地址选择通常是在启动通信时完成的，但响应者也必须处理地址选择。在许多情况下，这由使用接收到的分组的源地址作为响应目的地并且使用接收到的分组的目的地地址作为响应源的应用来简单地处理。然而，其他情况类似于发起者来处理，例如当请求是多播的并且因此源地址选择仍然必须在生成响应时发生，或者当请求包括从中选择目的地的发起者地址的列表时。最后，第三个应用程序场景是侦听应用程序选择侦听哪些本地地址。第三种情况不在本文的讨论范围之内。
+ 
+   这些算法在做出决定时使用了几个标准。组合的效果是优选两个地址具有相同作用域或类型的目的地/源地址对，对于目的地地址优选较小的作用域而不是较大的作用域，优选未弃用的源地址，避免在本机地址可用时使用过渡地址，以及在其他条件相同的情况下，优选具有尽可能长的公共前缀的地址对。对于源地址选择，临时地址[RFC4941]优先于公共地址。在移动情况下[RFC6275]，家庭地址优先于转交地址。如果一个地址同时是归属地址和转交地址(指示移动节点对于该地址来说在家中)，则归属/转交地址优先于仅是归属地址或仅是转交地址的地址。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   该规范可选地允许策略的管理配置的可能性(例如，通过手动配置或如在[ADDR-SEL-OPT]中提出的那样的DHCP选项)，其可以覆盖算法的默认行为。策略覆盖由以下状态集组成，这些状态应该是可配置的：
+ 
+   o  策略表(第2.1节)：为目标前缀指定优先级值和首选源前缀的表。
+ 
+   o  自动添加行标志(第2.1节)：指定是否允许实现为某些类型的地址自动添加特定于站点的行的标志。
+ 
+   o  隐私首选项标志(第5节)：该标志指定当临时源地址和稳定源地址都存在时，默认情况下优先选择临时源地址还是稳定源地址。
+ 
+2.1.  策略表
+ 
+   策略表是最长匹配前缀查找表，非常类似于路由表。在给定地址A的情况下，在策略表中的查找产生两个值：表示为优先级(A)的优先级值和表示为标签(A)的分类或标签。
+ 
+   优先级值优先级(A)用于对目的地址进行排序。如果优先级(A)&gt;优先级(B)，我们说地址A比地址B具有更高的优先级，这意味着我们的算法将更倾向于将目的地地址A排在目的地地址B之前。
+ 
+   标签值标签(A)允许优先选择特定源地址前缀与目的地址前缀一起使用的策略。如果Label(S) = Label(D)，则算法更喜欢使用具有目的地址D的源地址S。
+ 
+   IPv6实现应该支持通过至少与这里定义的策略表一样强大的机制进行可配置地址选择。随着经验的积累，实现提供了一种更改默认策略的方法，这一点很重要。第10.3至10.7节提供了可能需要的更改类型的示例。
+ 
+   如果实施不可配置或尚未配置，则应根据此处指定的算法以及以下默认策略表进行操作：</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+      Prefix        Precedence Label
+      ::1/128               50     0
+      ::/0                  40     1
+      ::ffff:0:0/96         35     4
+      2002::/16             30     2
+      2001::/32              5     5
+      fc00::/7               3    13
+      ::/96                  1     3
+      fec0::/10              1    11
+      3ffe::/16              1    12
+ 
+   实现可以基于其配置的地址，例如唯一本地地址(ULA)[RFC4193]和6to4[RFC3056]地址(参见第10.6节和第10.7节的示例)，自动向默认表添加额外的站点特定行。作为地址获取的结果，由该实现自动添加的任何这样的行都不能覆盖通过其他方式配置的相同前缀的行。也就是说，可以添加行，但不能自动更新。实现应该为管理员提供一种方法(自动行添加标志)来禁用自动行添加。
+ 
+   如稍后将变得明显的，缺省策略表的一个效果是优选使用具有原生目的地址的原生源地址、具有6to4目的地址的6to4源地址等。如果匹配源地址可用，则缺省策略表的另一效果是优选使用IPv6地址的通信而不是使用IPv4地址的通信。
+ 
+   不属于全局范围的地址前缀的策略表项可以用可选的区域索引进行限定。如果是这样，则只有在区域索引也与地址的区域索引匹配的情况下，前缀表项才会在查找期间与该地址匹配。
+ 
+2.2.  公共前缀长度
+ 
+   我们将源地址S和目的地址D的公共前缀长度CommonPrefix Len(S，D)定义为两个地址共同具有的最长前缀的长度(查看最高有效位或最左边的位)，直到S的前缀的长度(即，不包括接口ID的地址部分)。例如，CommonPrefix Len(fe80：：1，fe80：：2)是64。
+ 
+3.  地址属性
+ 
+   在后面部分给出的规则中，不同类型(例如，IPv4、IPv6、多播和单播)的地址相互比较。其中一些地址类型的属性彼此之间不能直接进行比较。例如，IPv6单播地址可以是“首选的”或“不推荐使用的”[RFC4862]，而IPv4地址没有这样的概念。为了使用排序规则来比较这样的地址(例如，优先使用“首选”地址而不是“废弃”地址)，定义了以下映射。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+ 
+3.1.  作用域比较
+ 
+   组播目的地地址具有4位范围字段，用于控制组播数据包的传播。IPv6寻址体系结构定义了接口本地(0x1)、链路本地(0x2)、管理本地(0x4)、站点本地(0x5)、组织本地(0x8)和全局(0xE)范围的范围字段值([RFC4291]第2.7节)。
+ 
+   在存在多播目的地址的情况下使用源地址选择算法需要将单播地址范围与多播地址范围进行比较。我们将单播链路本地映射到多播链路本地，将单播站点本地映射到多播站点本地，并将单播全局范围映射到多播全局范围。例如，单播站点本地等于多播站点本地，小于多播组织本地，小于单播全局，等于多播全局。(请注意，IPv6站点本地单播地址已弃用[RFC4291]。但是，一些现有的实现和部署可能仍然使用这些地址；因此，它们包含在本规范的过程中。另请注意，ULA被视为全局范围，而不是站点本地范围，但通过第10.6节中讨论的前缀策略表进行处理。)
+ 
+   我们写作用域(A)表示地址A的作用域。例如，如果A是本地链路单播地址，B是本地站点组播地址，则作用域(A)&lt;作用域(B)。
+ 
+   此映射隐式合并了单播站点边界和多播站点边界[RFC4007]。
+ 
+3.2.  IPv4地址和IPv4映射地址
+ 
+   目的地址选择算法在IPv6和IPv4地址上运行。为此，必须将IPv4地址表示为IPv4映射地址[RFC4291]。例如，要在策略表中查找IPv4地址的优先级或其他属性，请查找对应的IPv4映射的IPv6地址。
+ 
+   按如下方式为IPv4地址分配作用域。前缀为169.254/16的IPV4自动配置地址[RFC3927]被指定为本地链路作用域。具有前缀127/8的IPv4环回地址([RFC1812]第4.2.2.11节)被分配本地链路作用域(类似于对IPv6环回地址的处理([RFC4007]第4节))。其他IPv4地址(包括IPv4专用地址[RFC1918]和共享地址空间地址[RFC6598])被分配给全局作用域。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+ 
+ 
+   IPv4 地址必须被视为具有“首选”（在 RFC 4862 意义上）配置状态。
+ 
+3.3.  具有嵌入的IPv4地址的其他IPv6地址
+ 
+   与IPv4兼容的地址[RFC4291]、映射到IPv4的地址[RFC4291]、转换为IPv4的地址[RFC6145]、可转换的IPv4地址[RFC6145]和6to4地址[RFC3056]包含嵌入的IPv4地址。就本文档而言，这些地址必须被视为具有全局范围。
+ 
+   IPv4兼容、IPv4映射和IPv4转换的地址必须被视为具有“首选”(在RFC 4862意义上)配置状态。
+ 
+3.4.  IPv6环回地址和其他格式前缀
+ 
+   环回地址必须被视为具有本地链路作用域([RFC4007]第4节)和“首选”(在RFC 4862意义上)配置状态。
+ 
+   具有尚未定义的格式前缀的NSAP地址和其他地址必须被视为具有全局作用域和(在RFC 4862中)配置状态。后来的标准可能会取代这种处理。
+ 
+3.5.  移动地址
+ 
+   一些节点可能使用归属地址和转交地址的概念来支持移动性(例如，参见[RFC6275])。从概念上讲，归属地址是分配给移动节点并用作移动节点的永久地址的IP地址。转交地址是访问外部链路时与移动节点相关联的IP地址。当移动节点在其归属链路上时，其地址可能同时是归属地址和转交地址。
+ 
+   就本文件而言，只需知道自己的地址是否被指定为家庭地址或转交地址就足够了。地址是否应该被指定为家庭住址或转交地址不在本文件的讨论范围内。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+4.  候选源地址
+ 
+   源地址选择算法使用给定目的地址的潜在源地址的概念。候选集是可用作源地址的所有地址的集合；源地址选择算法将从该集中挑选一个地址。我们编写CandidateSource(A)来表示地址A的候选集。
+ 
+   建议候选源地址是分配给接口的单播地址集，该接口将用于发送到目的地(“传出”接口)。在路由器上，候选集合可以包括分配给转发分组的任何接口的单播地址，但要遵守下面描述的限制。希望支持使用分配给环回接口的全局源地址的实施必须像环回接口发起和转发数据包一样工作。
+ 
+      讨论：邻居发现重定向机制[RFC4861]要求路由器在生成重定向之前验证数据包的源地址是否标识邻居，因此主机选择分配给传出接口的源地址是有利的。
+ 
+   在某些情况下，目标地址可能使用区域索引或其他将限制候选集的信息进行限定。
+ 
+   对于所有组播和本地链路目的地址，候选源地址集必须仅包括分配给与传出接口属于同一链路的接口的地址。
+ 
+      讨论：由于当前部署的组播转发算法使用反向路径转发(RPF)检查，因此对组播目的地地址的限制是必要的。
+ 
+   对于站点本地单播目的地址，候选源地址集必须仅包括分配给与传出接口属于同一站点的接口的地址。
+ 
+   在任何情况下，多播地址和未指定的地址都不能包括在候选集合中。
+ 
+   在支持无状态IP/ICMP转换(SIIT)的纯IPv6节点上[RFC6145]，如果目标地址是IPv4转换的地址，则候选集必须仅包含可转换的IPv4地址。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   如果应用程序或上层指定了源地址，则可能会影响传出接口的选择。无论如何，如果应用程序或上层指定的源地址不在目的地的候选地址集中，则网络层必须将其视为错误。如果应用程序或上层指定的源地址位于目的地的候选地址集中，则网络层必须尊重该选择。如果应用程序或上层未指定源地址，则网络层将使用下一节中指定的源地址选择算法。
+ 
+5.  源地址选择
+ 
+   源地址选择算法产生与给定目的地址一起使用的单个源地址作为输出。此算法仅适用于IPv6目的地址，不适用于IPv4地址。
+ 
+   这里根据成对比较规则的列表来指定该算法，所述成对比较规则(对于给定的目的地地址D)对候选集合CandidateSource(D)中的地址施加了大于的排序。算法完成后列表前面的地址是算法选择的地址。
+ 
+   请注意，从概念上讲，正在执行一种候选集，其中一组规则定义了地址之间的顺序。但是，因为算法的输出是单个源地址，所以实现实际上不需要对集合进行排序；它只需要识别最终出现在排序列表前面的“最大”值。
+ 
+   候选集合中的地址的排序由八个成对比较规则的列表定义，每个规则对两个源地址相对于彼此(以及该规则)放置一种“大于”、“小于”或“等于”排序。在给定规则产生平局的情况下，即为两个地址提供“等于”结果，则剩余的规则必须仅应用于为打破平局而平局的那些地址。请注意，如果一条规则产生一个明确的“赢家”(或平局情况下的一组“赢家”)，则不在赢家集中的那些地址可以被丢弃，而后续规则仅适用于剩余的地址。如果八条规则未能选择一个地址，则决胜局取决于具体实施情况。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   当比较候选集合中的两个地址SA和SB时，我们说“首选SA”，意思是SA“大于”SB，同样，我们说“首选SB”，意思是SA“小于”SB。如果两者都不是首选的，这意味着SA等于SB，其余规则如上所述适用。
+ 
+   规则1：更喜欢相同的地址。
+   如果SA=D，则选择SA。同样，如果SB=D，则更喜欢SB。
+ 
+   规则2：选择适当的范围。
+   如果Scope(SA)</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+      讨论：IPv6实施不需要记住哪些下一跳通告了哪些前缀。[RFC4861]第5节和[RFC4191]第3节中的IPv6主机概念模型没有这样的要求。因此，规则5.5仅适用于跟踪此信息的实现。
+ 
+   规则6：选择匹配的标签。
+   如果Label(SA)=Label(D)和Label(SB)&lt;&gt;Label(D)，则优先选择SA。类似地，如果Label(SB)=Label(D)和Label(SA)&lt;&gt;Label(D)，则优选SB。
+ 
+   规则7：选择临时地址。
+   如果SA是临时地址，SB是公共地址，则首选SA。同样，如果SB是临时地址，SA是公共地址，则优先选择SB。
+ 
+   实现必须提供一种机制，允许应用程序颠倒这一偏好，并优先选择公共地址而不是临时地址(例如，通过适当的API扩展，如[RFC5014])。该机制的使用只能影响调用应用程序的选择规则。此缺省值旨在解决[RFC4941]中讨论的隐私问题，但由于临时地址的生命周期相对较短，或者由于反向查找临时地址失败或返回随机名称的可能性，因此会引入应用程序可能失败的风险。应用程序兼容性考虑超过这些隐私考虑的实现可能会颠倒这一规则的含义，并且在默认情况下更喜欢公共地址而不是临时地址。如果实施支持临时地址，则应该有一个管理选项(隐私首选项标志)来更改此首选项。如果没有此选项，则必须有一个管理选项来禁用临时地址。
+ 
+   规则8：使用最长匹配前缀。
+   如果CommonPrefix Len(SA，D)&gt;CommonPrefix Len(SB，D)，则首选SA。类似地，如果CommonPrefix Len(SB，D)&gt;CommonPrefix Len(SA，D)，则优先选择SB。
+ 
+   如果该实现具有在源地址中进行选择的其他手段，则规则8可以被取代。例如，如果实现不知何故知道哪个源地址将导致“最佳”通信性能。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+6.  目的地址选择
+ 
+   目的地地址选择算法获取目的地地址列表，并对这些地址进行排序以产生新的列表。它在这里是根据地址DA和DB的成对比较来指定的，其中DA在原始列表中出现在DB之前。
+ 
+   该算法同时对IPv6和IPv4地址进行排序。要在策略表中查找IPv4地址的属性，必须将该IPv4地址表示为一个IPv4映射地址。
+ 
+   我们写入源地址(D)来指示为目的地D选择的源地址。对于IPv6地址，上一节指定了源地址选择算法。本文档中未指定IPv4地址的源地址选择。
+ 
+   如果没有源地址可用于目的地D，则我们称源(D)未定义。对于IPv6地址，只有当CandidateSource(D)为空集时才是这种情况。
+ 
+   目的地址的配对比较由十条规则组成，这些规则必须按顺序应用。如果规则确定结果，则其余规则不相关，必须忽略。后续规则起到了先前规则的决胜局的作用。有关如何使用成对比较决胜局规则对列表进行排序的详细说明，请参阅上一节。
+ 
+   规则1：避免无法使用的目的地。
+   如果已知无法访问数据库或未定义Source(DB)，则首选DA。同样，如果已知无法访问DA或未定义Source(DA)，则首选数据库。
+ 
+      讨论：一个实现可能知道某个特定的目的地在几个方面是无法到达的。例如，可以通过当前拔下的网络接口到达目的地。例如，该实现可能在一段时间内保留来自邻居不可达检测[RFC4861]的信息。在任何情况下，为本规则的目的而确定不可达性取决于实施情况。
+ 
+   规则2：首选匹配范围。
+   如果Scope(DA) = Scope(Source(DA))且Scope(DB) &lt;&gt; Scope(Source(DB))，则首选DA。同样，如果Scope(DA) &lt;&gt; Scope(Source(DA))且 Scope(DB) = Scope(Source(DB))，则首选DB。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   规则3：避免使用过时的地址。
+   如果 Source（DA） 已弃用，而 Source（DB） 未弃用，则首选 DB。  同样，如果 Source（DA） 未被弃用，而 Source（DB） 被弃用，则首选 DA。
+ 
+   规则4：首选家庭地址。
+   如果 Source（DA） 同时是家庭地址和转交地址，而 Source（DB） 不是，则首选 DA。 同样，如果 Source（DB） 同时是家庭地址和转交地址，而 Source（DA） 不是，则首选 DB。
+ 
+   如果源(DA)只是家庭地址，源(DB)只是转交地址，则首选DA。同样，如果源(DA)只是一个转交地址，源(DB)只是一个家庭地址，那么首选DB。
+ 
+   规则5：选择匹配的标签。
+   如果Label(Source(DA)) = Label(DA) 且 Label(Source(DB)) &lt;&gt; Label(DB)，则首选 DA。 同样，如果 Label(Source(DA)) &lt;&gt; Label(DA) 和 Label(Source(DB)) = Label(DB)，则首选 DB。
+ 
+   规则6：首选高优先级。
+   如果Precedence(DA)&gt;Precedence(DB)，则首选DA。类似地，如果Precedence(DA)<precedence(db)，则优先选择db。 规则7：首选原生传输。="" 如果da是通过封装转换机制(例如，ipv4中的ipv6)到达的，而db不是，则首选db。类似地，如果通过封装可以到达db，而da不是，那么更倾向于da。="" 讨论：ipv6在ipv4基础设施上快速部署(第6个)协议[rfc5969]、站点内自动隧道寻址协议(isatap)[rfc5214]和配置的隧道[rfc4213]是封装转换机制的示例，对于这些转换机制，目标地址没有特定前缀，因此无法在策略表中分配较低的优先级。一种实现方式可以通过使用接口偏好的概念并给予虚拟接口(像ipv6-in-ipv4封装接口)比本地接口(像以太网接口)更低的偏好来概括该规则。="" 规则="" 8:="" 首选较小范围.="" 如果scope(da)<scope(db)，则首选da。同样，如果scope(da)="">Scope(DB)，则首选DB。</precedence(db)，则优先选择db。></pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   规则9：使用最长匹配前缀。
+   当DA和DB属于同一地址族时(两者都是IPv6或都是IPv4)：如果CommonPrefixLen(Source(DA), DA) &gt;  CommonPrefixLen(Source(DB), DB)，则首选DA。类似地，如果CommonPrefixLen(Source(DA), DA) &lt; CommonPrefixLen(Source(DB), DB)，则首选DB。
+ 
+   Rule 10: 其他情况，保持顺序不变.
+   如果在原始列表中，DA在DB之前，则优先选择DA。否则，请选择DB。
+ 
+   如果实现具有其他对目标地址进行排序的方法，则规则 9 和 10 可能会被取代。 例如，如果实现以某种方式知道哪些目标地址将导致“最佳”通信性能。
+ 
+7.  与路由的交互
+ 
+   源地址选择的此规范假定在源地址选择之前完成路由(更准确地说，在具有多个接口的节点上选择传出接口)。但是，在选择其他等价的路由时，实施可能会将源地址考虑因素作为决胜局。
+ 
+   例如，假设一个节点在两条不同的链路上有接口，两条链路都有一个工作正常的默认路由器。这两个接口都有首选的(在RFC 4862意义上)全局地址。当发送到全局目的地址时，如果没有路由理由优先选择一个接口而不是另一个接口，则实现可以优先选择传出接口，该传出接口将允许其使用与目的地共享较长公共前缀的源地址。
+ 
+   支持源地址选择规则5.5的实现(第5节)也使用路由器的选择来影响源地址的选择。例如，假设一台主机位于具有两台路由器的链路上。一台路由器通告全局前缀A，另一台路由器通告全局前缀B。然后，当通过第一台路由器发送时，主机可能更喜欢具有前缀A的源地址，而当通过第二台路由器发送时，则更喜欢具有前缀B的源地址。
+ 
+8.  实施方面的考虑
+ 
+   目的地址选择算法需要有关潜在源地址的信息。一种可能的实现策略是，getaddrInfo()向下调用具有目的地址列表的网络层，在具有可用源地址的全部当前知识的网络层中对该列表进行排序，并将排序后的列表返回给getaddrInfo()。这很简单并且提供了最好的结果，但是它引入了另一个系统调用的开销。减少这种开销的一种方法是在解析器中缓存已排序的地址列表，以便对相同名称的后续调用不需要对列表重新排序。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+ 
+   另一种实现策略是向下调用网络层以检索源地址信息，然后直接在getaddrinfo()的上下文中对地址列表进行排序。为了减少这种方法的开销，可以缓存源地址信息，从而减少跨多个getaddrinfo()调用检索该信息的开销。在这种方法中，实现可能不知道每个目的地的传出接口，因此它可能在目的地地址排序期间使用较宽松的候选集定义。
+ 
+   在任何情况下，如果实现在其目标地址选择的实现中使用缓存的和可能陈旧的信息，或者如果缓存的目标地址列表的排序可能过时，则它必须确保返回给应用程序的目标地址排序不超过一秒的过时。例如，实现可能进行系统调用以检查可能影响这些算法的任何路由表条目、源地址分配或前缀策略表条目是否已更改。另一种策略是使用失效计数器，该计数器在任何基础状态改变时都会递增。通过缓存具有派生状态的当前无效计数器值，然后稍后与当前值进行比较，该实现可以检测派生状态是否可能过时。
+ 
+9.  安全注意事项
+ 
+   本文档对互联网基础设施安全没有直接影响。
+ 
+   请注意，大多数源地址选择算法，包括本文档中指定的算法，都暴露了潜在的隐私问题。不友好的节点可以通过使用请求数据包探测目标节点来推断目标节点的地址之间的相关性，该请求数据包迫使目标主机为回复数据包选择其源地址(可能是因为请求数据包被发送到任播或组播地址，或者可能是因为为攻击选择的上层协议没有为其回复数据包指定特定的源地址)。通过为自己使用不同的地址，不友好的节点可能会导致目标节点暴露目标自己的地址。临时地址的源地址选择默认首选项有助于缓解这一担忧。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+
+   类似地，大多数源和目的地址选择算法，包括本文中指定的算法，都会影响所采用的网络路径的选择(就像与这些算法垂直但与这些算法一起使用的路由算法一样)，从而影响数据是否可以通过比其他路径或网络更可信或更不可信的路径或网络来发送。管理员应该考虑他们在前缀策略表中配置的行的安全影响，就像他们应该考虑路由算法中使用的接口度量的安全影响一样。
+
+   此外，某些地址选择规则可能是可管理配置的。必须注意确保所有管理选项都受到保护，以防非法修改，否则攻击者可能会重定向和/或阻止流量。
+ 
+
+ 
+10.  示例
+ 
+   本节包含多个示例，首先显示默认行为，然后演示策略表配置的实用程序。这些例子是为了说明目的而提供的，不应被解释为规范性的。
+ 
+10.1.  默认源地址选择
+ 
+   源地址选择规则与默认策略表一起产生以下行为：
+ 
+   目标: 2001:db8:1::1
+   候选源地址: 2001:db8:3::1 or fe80::1   
+   结果: 2001:db8::1 (prefer appropriate scope)
+ 
+   目标: ff05::1
+   候选源地址: 2001:db8:3::1 or fe80::1   
+   结果: 2001:db8:3::1 (prefer appropriate scope)
+ 
+   目标: 2001:db8:1::1
+   候选源地址: 2001:db8:1::1 (deprecated) or   2001:db8:2::1
+   结果: 2001:db8:1::1 (prefer same address)
+ 
+   目标: fe80::1
+   候选源地址: fe80::2 (deprecated) or 2001:db8:1::1   
+   结果: fe80::2 (prefer appropriate scope)
+ 
+   目标: 2001:db8:1::1
+   候选源地址: 2001:db8:1::2 or 2001:db8:3::2   
+   结果: 2001:db8:1:::2 (longest matching prefix)</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   目标: 2001:db8:1::1
+   候选源地址: 2001:db8:1::2 (care-of address) or 2001:db8:3::2 (home address)
+   结果: 2001:db8:3::2 (prefer home address)
+ 
+   目标: 2002:c633:6401::1
+   候选源地址: 2002:c633:6401::d5e3:7953:13eb:22e8 (temporary) or 2001:db8:1::2
+   结果: 2002:c633:6401::d5e3:7953:13eb:22e8 (prefer matching label)
+ 
+   目标: 2001:db8:1::d5e3:0:0:1
+   候选源地址: 2001:db8:1::2 (public) or 2001:db8:1::d5e3:7953:13eb:22e8 (temporary)
+   结果: 2001:db8:1::d5e3:7953:13eb:22e8 (prefer temporary address)
+ 
+10.2.  默认目标地址选择
+ 
+   目标地址选择规则与默认策略表和源地址选择规则一起产生以下行为：
+ 
+   候选源地址: 2001:db8:1::2 or fe80::1 or 169.254.13.78   
+   目标地址列表: 2001:db8:1::1 or 198.51.100.121   
+   结果: 2001:db8:1::1 (src 2001:db8:1::2) then 198.51.100.121 (src   169.254.13.78) (prefer matching scope)
+ 
+   候选源地址: fe80::1 or 198.51.100.117
+   目标地址列表: 2001:db8:1::1 or 198.51.100.121
+   结果: 198.51.100.121 (src 198.51.100.117) then 2001:db8:1::1 (src   fe80::1) (prefer matching scope)
+ 
+   候选源地址: 2001:db8:1::2 or fe80::1 or 10.1.2.4
+   目标地址列表: 2001:db8:1::1 or 10.1.2.3
+   结果: 2001:db8:1::1 (src 2001:db8:1::2) then 10.1.2.3 (src   10.1.2.4) (prefer higher precedence)
+ 
+   候选源地址: 2001:db8:1::2 or fe80::2
+   目标地址列表: 2001:db8:1::1 or fe80::1
+   结果: fe80::1 (src fe80::2) then 2001:db8:1::1 (src 2001:db8:1::2)   (prefer smaller scope)
+ 
+   候选源地址: 2001:db8:1::2 (care-of address) or 2001:db8:3::1 (home address) or fe80::2 (care-of address)
+   目标地址列表: 2001:db8:1::1 or fe80::1
+   结果: 2001:db8:1::1 (src 2001:db8:3::1) then fe80::1 (src fe80::2)   (prefer home address)</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   候选源地址: 2001:db8:1::2 or fe80::2 (deprecated)
+   目标地址列表: 2001:db8:1::1 or fe80::1
+   结果: 2001:db8:1::1 (src 2001:db8:1::2) then fe80::1 (src fe80::2)
+   (avoid deprecated addresses)
+ 
+   候选源地址: 2001:db8:1::2 or 2001:db8:3f44::2 or fe80::2
+   目标地址列表: 2001:db8:1::1 or 2001:db8:3ffe::1
+   结果: 2001:db8:1::1 (src 2001:db8:1::2) then 2001:db8:3ffe::1 (src   2001:db8:3f44::2) (longest matching prefix)
+ 
+   候选源地址: 2002:c633:6401::2 or fe80::2
+   目标地址列表: 2002:c633:6401::1 or 2001:db8:1::1
+   结果: 2002:c633:6401::1 (src 2002:c633:6401::2) then 2001:db8:1::1   (src 2002:c633:6401::2) (prefer matching label)
+ 
+   候选源地址: 2002:c633:6401::2 or 2001:db8:1::2 or fe80::2
+   目标地址列表: 2002:c633:6401::1 or 2001:db8:1::1
+   结果: 2001:db8:1::1 (src 2001:db8:1::2) then 2002:c633:6401::1 (src   2002:c633:6401::2) (prefer higher precedence)
+ 
+10.3.  配置IPv6或IPv4的首选项
+ 
+   默认策略表赋予IPv6地址比IPv4地址更高的优先级。这意味着当IPv6和IPv4同样合适时，应用程序将优先使用IPv6而不是IPv4。管理员可以通过赋予 ::ffff:0.0.0.0/96 前缀更高的优先级来将策略表更改为首选的IPv4地址：
+ 
+      Prefix        Precedence Label
+      ::1/128               50     0
+      ::/0                  40     1
+      ::ffff:0:0/96        100     4
+      2002::/16             30     2
+      2001::/32              5     5
+      fc00::/7               3    13
+      ::/96                  1     3
+      fec0::/10              1    11
+      3ffe::/16              1    12
+ 
+   对默认策略表的此更改会产生以下行为：
+ 
+   候选源地址: 2001:db8::2 or fe80::1 or 169.254.13.78
+   目标地址列表: 2001:db8::1 or 198.51.100.121
+   修改前结果: 2001:db8::1 (src 2001:db8::2) then 198.51.100.121   (src 169.254.13.78) (prefer matching scope)</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   候选源地址: fe80::1 or 198.51.100.117
+   目标地址列表: 2001:db8::1 or 198.51.100.121
+   修改前结果: 198.51.100.121 (src 198.51.100.117) then
+   2001:db8::1 (src fe80::1) (prefer matching scope)
+ 
+   候选源地址: 2001:db8::2 or fe80::1 or 10.1.2.4
+   目标地址列表: 2001:db8::1 or 10.1.2.3
+   新结果: 10.1.2.3 (src 10.1.2.4) then 2001:db8::1 (src   2001:db8::2) (prefer higher precedence)
+ 
+10.3.1.  处理损坏的IPv6
+ 
+   在实践中，最近观察到的一个问题发生在主机具有到因特网的IPv4连接，但是由于它具有全局IPv6地址但是与IPv6因特网断开连接，所以主机到因特网的IPv6连接性已经“中断”。由于默认策略表首选项为IPv6，因此这可能会导致不必要的超时。
+ 
+   如上所示，可以通过将表配置为首选IPv4来解决此问题。具有某种手段来检测其未连接到IPv6互联网的实现可以自动执行这一操作。相反，实现可以将其视为其规则1的实现的一部分(避免不可用的目的地)。
+ 
+10.4.  配置链路本地地址的首选项
+ 
+   目的地地址选择规则优先考虑范围较小的目的地。例如，当本地链路目的地和全局范围目的地同样适用时，它们将排在全局范围目的地之前。管理员可以更改策略表以反转此首选项，并在链路本地目的地之前对全局目的地进行排序：
+ 
+      Prefix        Precedence Label
+      ::1/128               50     0
+      ::/0                  40     1
+      ::ffff:0:0/96         35     4
+      fe80::/10             33     1
+      2002::/16             30     2
+      2001::/32              5     5
+      fc00::/7               3    13
+      ::/96                  1     3
+      fec0::/10              1    11
+      3ffe::/16              1    12</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   对默认策略表的此更改会产生以下行为：
+ 
+   候选源地址: 2001:db8::2 or fe80::2
+   目标地址列表: 2001:db8::1 or fe80::1
+   新结果: 2001:db8::1 (src 2001:db8::2) then fe80::1 (src fe80::2)   (prefer higher precedence)
+ 
+   候选源地址: 2001:db8::2 (deprecated) or fe80::2
+   目标地址列表: 2001:db8::1 or fe80::1
+   修改前结果: fe80::1 (src fe80::2) then 2001:db8::1 (src 2001:   db8::2) (avoid deprecated addresses)
+ 
+10.5.  配置多宿主站点
+ 
+   假设一个站点A与另一个站点B之间存在业务关键型关系，为了支持他们的业务需求，这两个站点都与一家特殊的高性能ISP签订了服务合同。这还不包括两个站点与不同的互联网服务提供商之间的正常互联网连接。高性能的ISP价格昂贵，两个站点希望仅将其用于彼此之间的业务关键型流量。
+ 
+   每个站点都有两个全局前缀，一个来自高性能的互联网服务提供商，另一个来自正常的互联网服务提供商。站点A具有来自高性能ISP的前缀 2001:db8:1aaa::/48 和来自其正常ISP的前缀 2001:db8:70aa::/48。站点B具有来自高性能ISP的前缀 2001:db8:1bbb::/48 和来自其正常ISP的前缀 2001:db8:70bb::/48。两个站点中的所有主机都在DNS中注册了两个地址。
+ 
+   两个站点内的路由将大多数流量定向到出口到正常的ISP，但路由将发送到另一个站点的2001前缀的流量定向到高性能ISP的出口。为了防止它们的高性能ISP连接被意外使用，两个站点都实施了入口过滤，以丢弃来自另一个站点以外的高性能ISP的流量。
+ 
+   默认策略表和地址选择规则会产生以下行为：
+ 
+   候选源地址: 2001:db8:1aaa::a or 2001:db8:70aa::a or fe80::a
+   目标地址列表: 2001:db8:1bbb::b or 2001:db8:70bb::b
+   结果: 2001:db8:70bb::b (src 2001:db8:70aa::a) then 2001:db8:1bbb::b   (src 2001:db8:1aaa::a) (longest matching prefix)</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   换句话说，当站点A中的主机发起到站点B中的主机的连接时，流量不会利用它们与高性能ISP的连接。这不是他们想要的行为。
+ 
+   候选源地址: 2001:db8:1aaa::a or 2001:db8:70aa::a or fe80::a
+   目标地址列表: 2001:db8:1ccc::c or 2001:db8:6ccc::c
+   结果: 2001:db8:1ccc::c (src 2001:db8:1aaa::a) then 2001:db8:6ccc::c   (src 2001:db8:70aa::a) (longest matching prefix)
+ 
+   换句话说，当站点A中的主机发起到其他站点C中的主机的连接时，反向流量可能会通过高性能的ISP返回。再说一次，这不是他们想要的行为。
+ 
+   这一困境证明了最长匹配前缀启发式算法在多宿主情况下的局限性。
+ 
+   但是，站点A和B的管理员可以通过配置策略表来实现其所需的行为。例如，他们可以使用以下策略表：
+ 
+      Prefix        Precedence Label
+      ::1/128               50     0
+      2001:db8:1aaa::/48    43     6
+      2001:db8:1bbb::/48    43     6
+      ::/0                  40     1
+      ::ffff:0:0/96         35     4
+      2002::/16             30     2
+      2001::/32              5     5
+      fc00::/7               3    13
+      ::/96                  1     3
+      fec0::/10              1    11
+      3ffe::/16              1    12
+ 
+   此策略表产生以下行为：
+ 
+   候选源地址: 2001:db8:1aaa::a or 2001:db8:70aa::a or fe80::a
+   目标地址列表: 2001:db8:1bbb::b or 2001:db8:70bb::b
+   新结果: 2001:db8:1bbb::b (src 2001:db8:1aaa::a) then 2001:db8:   70bb::b (src 2001:db8:70aa::a) (prefer higher precedence)
+ 
+   换句话说，当站点A中的主机发起到站点B中的主机的连接时，流量会根据需要使用高性能的ISP。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   候选源地址: 2001:db8:1aaa::a or 2001:db8:70aa::a or fe80::a
+   目标地址列表: 2001:db8:1ccc::c or 2001:db8:6ccc::c
+   新结果: 2001:db8:6ccc::c (src 2001:db8:70aa::a) then 2001:db8:1ccc::c (src 2001:db8:70aa::a) (longest matching prefix)
+ 
+   换句话说，当站点A中的主机发起到其他站点C中的主机的连接时，流量会根据需要使用正常的ISP。
+ 
+10.6.  配置ULA首选项
+ 
+   RFC 5220[RFC5220]的第2.1.4、2.2.2和2.2.3节描述了与唯一本地地址(ULA)[RFC4193]相关的地址选择问题。默认情况下，全局IPv6目的地优先于ULA目的地，因为任意ULA不一定可达：
+ 
+   候选源地址: 2001:db8:1::1 or fd11:1111:1111:1::1
+   目标地址列表: 2001:db8:2::2 or fd22:2222:2222:2::2
+   结果: 2001:db8:2::2 (src 2001:db8:1::1) then fd22:2222:2222:2::2   (src fd11:1111:1111:1::1) (prefer higher precedence)
+ 
+   但是，特定于站点的策略条目可用于使站点内的ULA优先于全局地址，如下所示。
+ 
+      Prefix        Precedence Label
+      ::1/128               50     0
+      fd11:1111:1111::/48   45    14
+      ::/0                  40     1
+      ::ffff:0:0/96         35     4
+      2002::/16             30     2
+      2001::/32              5     5
+      fc00::/7               3    13
+      ::/96                  1     3
+      fec0::/10              1    11
+      3ffe::/16              1    12
+ 
+   这样的配置将产生以下效果：
+ 
+   候选源地址: 2001:db8:1::1 or fd11:1111:1111:1::1
+   目标地址列表: 2001:db8:2::2 or fd22:2222:2222:2::2
+   修改前结果: 2001:db8:2::2 (src 2001:db8:1::1) then fd22:2222:   2222:2::2 (src fd11:1111:1111:1::1) (prefer higher precedence)</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   候选源地址: 2001:db8:1::1 or fd11:1111:1111:1::1
+   目标地址列表: 2001:db8:2::2 or fd11:1111:1111:2::2
+   新结果: fd11:1111:1111:2::2 (src fd11:1111:1111:1::1) then 2001:
+   db8:2::2 (src 2001:db8:1::1) (prefer higher precedence)
+ 
+   由于ULA被定义为具有/48站点前缀，因此实现可以选择在具有ULA的机器上自动添加这样的行。
+
+   还值得注意的是，为ULA分配了全局范围。因此，前缀策略表中存在一行或多行非常重要，以致源地址选择不会纯粹基于最长匹配来选择ULA：
+ 
+   候选源地址: 2001:db8:1::1 or fd11:1111:1111:1::1
+   目标地址列表: ff00:1
+   结果: 2001:db8:1::1 (prefer matching label)
+ 
+10.7.  配置6to4首选项
+ 
+   默认情况下，NAT IPv4优先于6to4中继连接：
+ 
+   候选源地址: 2002:c633:6401::2 or 10.1.2.3
+   目标地址列表: 2001:db8:1::1 or 203.0.113.1
+   结果: 203.0.113.1 (src 10.1.2.3) then 2001:db8:1::1 (src 2002:c633:6401::2) (prefer matching label)
+ 
+   但是，在默认情况下，与6to4到6to4连接相比，Nated IPv4现在也是首选的。由于可能在组织内本地使用6to4前缀，因此可以使用站点特定的策略条目来使本地IPv6通信(使用6to4前缀)优先于NAT IPv4，如下所示。
+ 
+      Prefix        Precedence Label
+      ::1/128               50     0
+      2002:c633:6401::/48   45    14
+      ::/0                  40     1
+      ::ffff:0:0/96         35     4
+      2002::/16             30     2
+      2001::/32              5     5
+      fc00::/7               3    13
+      ::/96                  1     3
+      fec0::/10              1    11
+      3ffe::/16              1    12</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   这样的配置将产生以下效果：
+ 
+   候选源地址: 2002:c633:6401:1::1 or 10.1.2.3
+   目标地址列表: 2002:c633:6401:2::2 or 203.0.113.1
+   新结果: 2002:c633:6401:2::2 (src 2002:c633:6401:1::1) then 203.0.113.1 (sec 10.1.2.3) (prefer higher precedence)
+ 
+   由于6to4地址被定义为具有/48站点前缀，因此实现可以选择在具有带有6to4前缀的本机IPv6地址的机器上自动添加这样的行。
+ 
+11.  参考资料
+ 
+11.1.  规范性参考文献
+ 
+   [RFC2119]       Bradner, S., "Key words for use in RFCs to Indicate
+                   Requirement Levels", BCP 14, RFC 2119, March 1997.
+
+   [RFC3056]       Carpenter, B. and K. Moore, "Connection of IPv6
+                   Domains via IPv4 Clouds", RFC 3056, February 2001.
+
+   [RFC3879]       Huitema, C. and B. Carpenter, "Deprecating Site Local
+                   Addresses", RFC 3879, September 2004.
+
+   [RFC4193]       Hinden, R. and B. Haberman, "Unique Local IPv6
+                   Unicast Addresses", RFC 4193, October 2005.
+
+   [RFC4291]       Hinden, R. and S. Deering, "IP Version 6 Addressing
+                   Architecture", RFC 4291, February 2006.
+
+   [RFC4380]       Huitema, C., "Teredo: Tunneling IPv6 over UDP through
+                   Network Address Translations (NATs)", RFC 4380,
+                   February 2006.
+
+   [RFC4862]       Thomson, S., Narten, T., and T. Jinmei, "IPv6
+                   Stateless Address Autoconfiguration", RFC 4862,
+                   September 2007.
+
+   [RFC4941]       Narten, T., Draves, R., and S. Krishnan, "Privacy
+                   Extensions for Stateless Address Autoconfiguration in
+                   IPv6", RFC 4941, September 2007.
+
+   [RFC6145]       Li, X., Bao, C., and F. Baker, "IP/ICMP Translation
+                   Algorithm", RFC 6145, April 2011.</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+11.2.  信息性参考文献
+ 
+   [ADDR-SEL-OPT]  Matsumoto, A., Fujisaki, T., Kato, J., and T. Chown,
+                   "Distributing Address Selection Policy using DHCPv6",
+                   Work in Progress, August 2012.
+
+   [RFC1794]       Brisco, T., "DNS Support for Load Balancing",
+                   RFC 1794, April 1995.
+
+   [RFC1812]       Baker, F., "Requirements for IP Version 4 Routers",
+                   RFC 1812, June 1995.
+
+   [RFC1918]       Rekhter, Y., Moskowitz, R., Karrenberg, D., Groot,
+                   G., and E. Lear, "Address Allocation for Private
+                   Internets", BCP 5, RFC 1918, February 1996.
+
+   [RFC2827]       Ferguson, P. and D. Senie, "Network Ingress
+                   Filtering: Defeating Denial of Service Attacks which
+                   employ IP Source Address Spoofing", BCP 38, RFC 2827,
+                   May 2000.
+
+   [RFC3484]       Draves, R., "Default Address Selection for Internet
+                   Protocol version 6 (IPv6)", RFC 3484, February 2003.
+
+   [RFC3493]       Gilligan, R., Thomson, S., Bound, J., McCann, J., and
+                   W. Stevens, "Basic Socket Interface Extensions for
+                   IPv6", RFC 3493, February 2003.
+
+   [RFC3701]       Fink, R. and R. Hinden, "6bone (IPv6 Testing Address
+                   Allocation) Phaseout", RFC 3701, March 2004.
+
+   [RFC3927]       Cheshire, S., Aboba, B., and E. Guttman, "Dynamic
+                   Configuration of IPv4 Link-Local Addresses",
+                   RFC 3927, May 2005.
+
+   [RFC4007]       Deering, S., Haberman, B., Jinmei, T., Nordmark, E.,
+                   and B. Zill, "IPv6 Scoped Address Architecture",
+                   RFC 4007, March 2005.
+
+   [RFC4191]       Draves, R. and D. Thaler, "Default Router Preferences
+                   and More-Specific Routes", RFC 4191, November 2005.
+
+   [RFC4213]       Nordmark, E. and R. Gilligan, "Basic Transition
+                   Mechanisms for IPv6 Hosts and Routers", RFC 4213,
+                   October 2005.</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   [RFC4861]       Narten, T., Nordmark, E., Simpson, W., and H.
+                   Soliman, "Neighbor Discovery for IP version 6
+                   (IPv6)", RFC 4861, September 2007.
+
+   [RFC5014]       Nordmark, E., Chakrabarti, S., and J. Laganier, "IPv6
+                   Socket API for Source Address Selection", RFC 5014,
+                   September 2007.
+
+   [RFC5214]       Templin, F., Gleeson, T., and D. Thaler, "Intra-Site
+                   Automatic Tunnel Addressing Protocol (ISATAP)",
+                   RFC 5214, March 2008.
+
+   [RFC5220]       Matsumoto, A., Fujisaki, T., Hiromi, R., and K.
+                   Kanayama, "Problem Statement for Default Address
+                   Selection in Multi-Prefix Environments: Operational
+                   Issues of RFC 3484 Default Rules", RFC 5220,
+                   July 2008.
+
+   [RFC5969]       Townsley, W. and O. Troan, "IPv6 Rapid Deployment on
+                   IPv4 Infrastructures (6rd) -- Protocol
+                   Specification", RFC 5969, August 2010.
+
+   [RFC6275]       Perkins, C., Johnson, D., and J. Arkko, "Mobility
+                   Support in IPv6", RFC 6275, July 2011.
+
+   [RFC6598]       Weil, J., Kuarsingh, V., Donley, C., Liljenstolpe,
+                   C., and M. Azinger, "IANA-Reserved IPv4 Prefix for
+                   Shared Address Space", BCP 153, RFC 6598, April 2012.</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+Appendix A.  Acknowledgements
+
+   RFC 3484 [RFC3484] acknowledged the contributions of the IPng Working
+   Group, particularly Marc Blanchet, Brian Carpenter, Matt Crawford,
+   Alain Durand, Steve Deering, Robert Elz, Jun-ichiro itojun Hagino,
+   Tony Hain, M.T. Hollinger, JINMEI Tatuya, Thomas Narten, Erik
+   Nordmark, Ken Powell, Markku Savela, Pekka Savola, Hesham Soliman,
+   Dave Thaler, Mauro Tortonesi, Ole Troan, and Stig Venaas.  In
+   addition, the anonymous IESG reviewers had many great comments and
+   suggestions for clarification.
+
+   This revision was heavily influenced by the work by Arifumi
+   Matsumoto, Jun-ya Kato, and Tomohiro Fujisaki in a working document
+   that made proposals for this revision to adopt, with input from Pekka
+   Savola, Remi Denis-Courmont, Francois-Xavier Le Bail, and the 6man
+   Working Group.  Dmitry Anipko, Mark Andrews, Ray Hunter, and Wes
+   George also provided valuable feedback on this revision.
+ 
+Appendix B.  Changes since RFC 3484
+ 
+   对默认策略表进行了一些更改，这些更改被认为是通用的，在每个合理的网络环境中都不会造成损害。在执行此操作时，请注意尽可能使用与RFC 3484中相同的首选项和标签值，并确保新行使用的标签值不太可能与某些主机上的其他行中已在使用的值冲突。这些更改包括：
+ 
+   1.  添加了Teredo[RFC4380]前缀(2001：：/32)，其中的首选项和标签值已经在流行的实现中广泛使用。
+ 
+   2.  在本机IPv6下面添加了一行ULA(fc00：：/7)，因为它们不是全局可达的，如第10.6节所述。
+ 
+   3.  添加了站点本地地址(fe0：：/10)行，以取消对它们的优先选择，以与第10.3节中的示例保持一致，因为它们已被弃用[RFC3879]。
+ 
+   4.  将6to4(2002：：/32)停用在原生IPv4之下，因为6to4连接如今不那么可靠(预计将随着时间的推移逐步淘汰，而不是变得更加可靠)。它仍然高于Teredo，因为6to4在连接建立时间、带宽和服务器负载方面更有效。
+ 
+   5.  不再优先使用与IPv4兼容的地址(：：/96)，因为它们现在已过时[RFC4291]且不常用。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   6.  增加了一行6个骨骼测试地址(3ffe：：/16)，以取消对它们的优先选择，因为它们也已被淘汰[RFC3701]。
+ 
+   7.  为实现添加了可选功能，以向表中添加特定于站点的ULA前缀和特定于站点的本机6to4前缀的自动行。
+ 
+   同样，对规则进行了一些修改，如下所示：
+ 
+   1.  更改了CommonPrefix Len()的定义，以仅比较最大到源地址前缀长度的位。前面的定义使用了整个源地址，而不仅仅是它的前缀。因此，当源地址和目标地址具有相同的前缀时，接口ID中的公共位以前将通过强制始终选择具有最多公共位的目标地址来覆盖DNS负载平衡[RFC1794]。更新后的定义允许继续使用DNS负载平衡来打破平局。
+ 
+   2.  添加了规则5.5，以允许从由所选下一跳通告的前缀中选择源地址以用于给定目的地。这允许在存在BCP 38[RFC2827]入口过滤和出口过滤的情况下实现更好的连接性。以前，RFC 3484存在通过同一接口到达的多个出口网络的问题，如[RFC5220]中所述。
+ 
+   3.  由于在RFC 4291[RFC4291]的第2.6节中移除了对使用IPv6任播地址作为源地址的限制，因此移除了对源地址候选集中的任播地址的限制。
+ 
+   4.  在第3.2节中更改了RFC 1918[RFC1918]地址到全局范围的映射。以前，它们被映射到站点本地范围。然而，经验已经导致当前的实现已经使用全局作用域。当它们被映射到站点本地时，目的地址选择规则2(首选匹配范围)将导致在诸如第10.7节中描述的场景中优先使用IPv6。对全局范围的更改允许通过前缀策略表进行配置。
+ 
+   5.  将源地址选择规则7的默认建议更改为首选临时地址而不是公共地址，同时提供管理覆盖(除了已指定的特定于应用程序的覆盖之外)。之所以做出这一改变，是因为隐私考虑的重要性越来越大，而且多年来广泛部署的实现都倾向于使用临时地址，而不会出现重大的应用程序问题。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   最后，在编辑上作了一些修改，包括：
+ 
+   1.  更改了示例中的全局IP地址，以使用为文档保留的范围。
+ 
+   2.  在第10.6节和第10.7节中增加了额外的示例。
+ 
+   3.  增加了10.3.1节关于破坏的IPv6的内容。
+ 
+   4.  更新参考文献。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+Authors' Addresses
+ 
+   Dave Thaler (editor)
+   Microsoft
+   One Microsoft Way
+   Redmond, WA  98052
+   USA
+ 
+   Phone: +1 425 703 8835
+   EMail: dthaler@microsoft.com
+ 
+
+   Richard Draves
+   Microsoft Research
+   One Microsoft Way
+   Redmond, WA  98052
+   USA
+ 
+   Phone: +1 425 706 2268
+   EMail: richdr@microsoft.com
+ 
+
+   Arifumi Matsumoto
+   NTT SI Lab
+   Midori-Cho 3-9-11
+   Musashino-shi, Tokyo  180-8585
+   Japan
+ 
+   Phone: +81 422 59 3334
+   EMail: arifumi@nttv6.net
+ 
+
+   Tim Chown
+   University of Southampt on
+   Southampton, Hampshire  SO17 1BJ
+   United Kingdom
+ 
+   EMail: tjc@ecs.soton.ac.uk
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+
+ 
+</pre>
+
+
+
+
+</div>
