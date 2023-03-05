@@ -1,0 +1,2650 @@
+<div class="content" style="float: left; margin: 0px 30%; width: 579px; font-size: 14px;">
+<span class="pre noprint docinfo">[<a href="https://www.rfc-editor.org" title="RFC Editor">RFC Home</a>] [<a href="/rfc/rfc8445.txt">TEXT</a>|<a href="/rfc/pdfrfc/rfc8445.txt.pdf">PDF</a>|<a href="/rfc/rfc8445.html">HTML</a>] [<a href="https://datatracker.ietf.org/doc/rfc8445" title="IETF Datatracker information for this document">Tracker</a>] [<a href="https://datatracker.ietf.org/ipr/search/?rfc=8445&amp;submit=rfc" title="IPR disclosures related to this document">IPR</a>] [<a href="https://www.rfc-editor.org/info/rfc8445" title="Info page">Info page</a>]                  </span><br><span class="pre noprint docinfo">                                                                        </span><br><span class="pre noprint docinfo">                                                       PROPOSED STANDARD</span><br><span class="pre noprint docinfo">Updated by: <a href="/rfc/rfc8863" target="_blank">8863</a>                                                        </span><pre style="height: 780px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;">Internet Engineering Task Force (IETF)                        A. Keranen
+Request for Comments: 8445                                   C. Holmberg
+Obsoletes: 5245                                                 Ericsson
+Category: Standards Track                                   J. Rosenberg
+ISSN: 2070-1721                                              jdrosen.net
+                                                               July 2018
+ 
+
+             互式连接建立(ICE)：一种网络地址转换(NAT)穿越协议
+ 
+Abstract
+ 
+   本文档描述了用于基于UDP的通信的网络地址转换器(NAT)穿越的协议。该协议称为交互式连接建立(ICE)。ICE利用NAT会话穿越实用程序(STUN)协议及其扩展，使用中继NAT(TURN)进行穿越。
+ 
+   本文档将取代 RFC 5245。
+ 
+Status of This Memo
+ 
+   This is an Internet Standards Track document.
+
+   This document is a product of the Internet Engineering Task Force
+   (IETF).  It represents the consensus of the IETF community.  It has
+   received public review and has been approved for publication by the
+   Internet Engineering Steering Group (IESG).  Further information on
+   Internet Standards is available in Section 2 of RFC 7841.
+
+   Information about the current status of this document, any errata,
+   and how to provide feedback on it may be obtained at
+   https://www.rfc-editor.org/info/rfc8445.
+</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+Copyright Notice
+
+   Copyright (c) 2018 IETF Trust and the persons identified as the
+   document authors.  All rights reserved.
+
+   This document is subject to BCP 78 and the IETF Trust's Legal
+   Provisions Relating to IETF Documents
+   (https://trustee.ietf.org/license-info) in effect on the date of
+   publication of this document.  Please review these documents
+   carefully, as they describe your rights and restrictions with respect
+   to this document.  Code Components extracted from this document must
+   include Simplified BSD License text as described in Section 4.e of
+   the Trust Legal Provisions and are provided without warranty as
+   described in the Simplified BSD License.
+
+   This document may contain material from IETF Documents or IETF
+   Contributions published or made publicly available before November
+   10, 2008.  The person(s) controlling the copyright in some of this
+   material may not have granted the IETF Trust the right to allow
+   modifications of such material outside the IETF Standards Process.
+   Without obtaining an adequate license from the person(s) controlling
+   the copyright in such materials, this document may not be modified
+   outside the IETF Standards Process, and derivative works of it may
+   not be created outside the IETF Standards Process, except to format
+   it for publication as an RFC or to translate it into languages other
+   than English.</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+目录
+ 
+   1.  引言          . . . . . . . . . . . . . . . . . . . . . . . .   5
+   2.  ICE概述         . . . . . . . . . . . . . . . . . . . . . . .   6
+     2.1.  收集候选人            . . . . . . . . . . . . . . . . . .   8
+     2.2.  连接性检查          . . . . . . . . . . . . . . . . . . .  10
+     2.3.  提名候选人对并完成 ICE                        . . . . . .  12
+     2.4.  ICE 重启    . . . . . . . . . . . . . . . . . . . . . . .  13
+     2.5.  精简实现              . . . . . . . . . . . . . . . . . .  13
+   3.  ICE 使用  . . . . . . . . . . . . . . . . . . . . . . . . . .  13
+   4.  术语        . . . . . . . . . . . . . . . . . . . . . . . . .  13
+   5.  ICE候选人聚会和交流                   . . . . . . . . . . . .  17
+     5.1.  完整实现            . . . . . . . . . . . . . . . . . . .  17
+       5.1.1.  收集候选人            . . . . . . . . . . . . . . . .  18
+         5.1.1.1.  Host Candidates . . . . . . . . . . . . . . . . .  18
+         5.1.1.2.  服务器自反和中继候选                    . . . . .  20
+         5.1.1.3.  计算 Foundation       . . . . . . . . . . . . . .  21
+         5.1.1.4.  Keeping Candidates Alive  . . . . . . . . . . . .  21
+       5.1.2.  Prioritizing Candidates . . . . . . . . . . . . . . .  22
+         5.1.2.1.  推荐公式            . . . . . . . . . . . . . . .  22
+         5.1.2.2.  Guidelines for Choosing Type and Local
+                   Preferences . . . . . . . . . . . . . . . . . . .  23
+       5.1.3.  Eliminating Redundant Candidates  . . . . . . . . . .  23
+     5.2.  Lite Implementation Procedures  . . . . . . . . . . . . .  23
+     5.3.  Exchanging Candidate Information  . . . . . . . . . . . .  24
+     5.4.  ICE Mismatch  . . . . . . . . . . . . . . . . . . . . . .  26
+   6.  ICE Candidate Processing  . . . . . . . . . . . . . . . . . .  26
+     6.1.  Procedures for Full Implementation  . . . . . . . . . . .  26
+       6.1.1.  Determining Role  . . . . . . . . . . . . . . . . . .  26
+       6.1.2.  Forming the Checklists  . . . . . . . . . . . . . . .  28
+         6.1.2.1.  Checklist State . . . . . . . . . . . . . . . . .  28
+         6.1.2.2.  Forming Candidate Pairs . . . . . . . . . . . . .  28
+         6.1.2.3.  Computing Pair Priority and Ordering Pairs  . . .  31
+         6.1.2.4.  Pruning the Pairs . . . . . . . . . . . . . . . .  31
+         6.1.2.5.  Removing Lower-Priority Pairs . . . . . . . . . .  31
+         6.1.2.6.  Computing Candidate Pair States . . . . . . . . .  32
+       6.1.3.  ICE State . . . . . . . . . . . . . . . . . . . . . .  36
+       6.1.4.  Scheduling Checks . . . . . . . . . . . . . . . . . .  36
+         6.1.4.1.  Triggered-Check Queue . . . . . . . . . . . . . .  36
+         6.1.4.2.  Performing Connectivity Checks  . . . . . . . . .  36
+     6.2.  Lite Implementation Procedures  . . . . . . . . . . . . .  38
+   7.  Performing Connectivity Checks  . . . . . . . . . . . . . . .  38
+     7.1.  STUN 扩展       . . . . . . . . . . . . . . . . . . . . .  38
+       7.1.1.  PRIORITY  . . . . . . . . . . . . . . . . . . . . . .  38
+       7.1.2.  USE-CANDIDATE . . . . . . . . . . . . . . . . . . . .  38
+       7.1.3.  ICE-CONTROLLED and ICE-CONTROLLING  . . . . . . . . .  39
+     7.2.  STUN Client Procedures  . . . . . . . . . . . . . . . . .  39
+       7.2.1.  Creating Permissions for Relayed Candidates . . . . .  39</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+       7.2.2.  Forming Credentials . . . . . . . . . . . . . . . . .  39
+       7.2.3.  Diffserv Treatment  . . . . . . . . . . . . . . . . .  40
+       7.2.4.  Sending the Request . . . . . . . . . . . . . . . . .  40
+       7.2.5.  Processing the Response . . . . . . . . . . . . . . .  40
+         7.2.5.1.  Role Conflict . . . . . . . . . . . . . . . . . .  40
+         7.2.5.2.  Failure . . . . . . . . . . . . . . . . . . . . .  41
+           7.2.5.2.1.  Non-Symmetric Transport Addresses . . . . . .  41
+           7.2.5.2.2.  ICMP Error  . . . . . . . . . . . . . . . . .  41
+           7.2.5.2.3.  Timeout . . . . . . . . . . . . . . . . . . .  41
+           7.2.5.2.4.  Unrecoverable STUN Response . . . . . . . . .  41
+         7.2.5.3.  Success . . . . . . . . . . . . . . . . . . . . .  42
+           7.2.5.3.1.  Discovering Peer-Reflexive Candidates . . . .  42
+           7.2.5.3.2.  Constructing a Valid Pair . . . . . . . . . .  43
+           7.2.5.3.3.  Updating Candidate Pair States  . . . . . . .  44
+           7.2.5.3.4.  Updating the Nominated Flag . . . . . . . . .  44
+         7.2.5.4.  Checklist State Updates . . . . . . . . . . . . .  44
+     7.3.  STUN Server Procedures  . . . . . . . . . . . . . . . . .  45
+       7.3.1.  Additional Procedures for Full Implementations  . . .  45
+         7.3.1.1.  Detecting and Repairing Role Conflicts  . . . . .  46
+         7.3.1.2.  Computing Mapped Addresses  . . . . . . . . . . .  47
+         7.3.1.3.  Learning Peer-Reflexive Candidates  . . . . . . .  47
+         7.3.1.4.  Triggered Checks  . . . . . . . . . . . . . . . .  47
+         7.3.1.5.  Updating the Nominated Flag . . . . . . . . . . .  49
+       7.3.2.  Additional Procedures for Lite Implementations  . . .  49
+   8.  Concluding ICE Processing . . . . . . . . . . . . . . . . . .  50
+     8.1.  Procedures for Full Implementations . . . . . . . . . . .  50
+       8.1.1.  Nominating Pairs  . . . . . . . . . . . . . . . . . .  50
+       8.1.2.  Updating Checklist and ICE States . . . . . . . . . .  51
+     8.2.  Procedures for Lite Implementations . . . . . . . . . . .  52
+     8.3.  Freeing Candidates  . . . . . . . . . . . . . . . . . . .  53
+       8.3.1.  Full Implementation Procedures  . . . . . . . . . . .  53
+       8.3.2.  Lite Implementation Procedures  . . . . . . . . . . .  53
+   9.  ICE Restarts  . . . . . . . . . . . . . . . . . . . . . . . .  53
+   10. ICE Option  . . . . . . . . . . . . . . . . . . . . . . . . .  54
+   11. Keepalives  . . . . . . . . . . . . . . . . . . . . . . . . .  54
+   12. Data Handling . . . . . . . . . . . . . . . . . . . . . . . .  55
+     12.1.  Sending Data . . . . . . . . . . . . . . . . . . . . . .  55
+       12.1.1.  Procedures for Lite Implementations  . . . . . . . .  56
+     12.2.  Receiving Data . . . . . . . . . . . . . . . . . . . . .  56
+   13. Extensibility Considerations  . . . . . . . . . . . . . . . .  57
+   14. Setting Ta and RTO  . . . . . . . . . . . . . . . . . . . . .  57
+     14.1.  General  . . . . . . . . . . . . . . . . . . . . . . . .  57
+     14.2.  Ta . . . . . . . . . . . . . . . . . . . . . . . . . . .  58
+     14.3.  RTO  . . . . . . . . . . . . . . . . . . . . . . . . . .  58
+   15. Examples  . . . . . . . . . . . . . . . . . . . . . . . . . .  59
+     15.1.  Example with IPv4 Addresses  . . . . . . . . . . . . . .  60
+     15.2.  Example with IPv6 Addresses  . . . . . . . . . . . . . .  65</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   16. STUN Extensions . . . . . . . . . . . . . . . . . . . . . . .  69
+     16.1.  Attributes . . . . . . . . . . . . . . . . . . . . . . .  69
+     16.2.  New Error-Response Codes . . . . . . . . . . . . . . . .  70
+   17. Operational Considerations  . . . . . . . . . . . . . . . . .  70
+     17.1.  NAT and Firewall Types . . . . . . . . . . . . . . . . .  70
+     17.2.  Bandwidth Requirements . . . . . . . . . . . . . . . . .  70
+       17.2.1.  STUN and TURN Server-Capacity Planning . . . . . . .  71
+       17.2.2.  Gathering and Connectivity Checks  . . . . . . . . .  71
+       17.2.3.  Keepalives . . . . . . . . . . . . . . . . . . . . .  72
+     17.3.  ICE and ICE-Lite . . . . . . . . . . . . . . . . . . . .  72
+     17.4.  Troubleshooting and Performance Management . . . . . . .  72
+     17.5.  Endpoint Configuration . . . . . . . . . . . . . . . . .  73
+   18. IAB Considerations  . . . . . . . . . . . . . . . . . . . . .  73
+     18.1.  Problem Definition . . . . . . . . . . . . . . . . . . .  73
+     18.2.  Exit Strategy  . . . . . . . . . . . . . . . . . . . . .  74
+     18.3.  Brittleness Introduced by ICE  . . . . . . . . . . . . .  74
+     18.4.  Requirements for a Long-Term Solution  . . . . . . . . .  75
+     18.5.  Issues with Existing NAPT Boxes  . . . . . . . . . . . .  75
+   19. Security Considerations . . . . . . . . . . . . . . . . . . .  76
+     19.1.  IP Address Privacy . . . . . . . . . . . . . . . . . . .  76
+     19.2.  Attacks on Connectivity Checks . . . . . . . . . . . . .  77
+     19.3.  Attacks on Server-Reflexive Address Gathering  . . . . .  80
+     19.4.  Attacks on Relayed Candidate Gathering . . . . . . . . .  80
+     19.5.  Insider Attacks  . . . . . . . . . . . . . . . . . . . .  81
+       19.5.1.  STUN Amplification Attack  . . . . . . . . . . . . .  81
+   20. IANA Considerations . . . . . . . . . . . . . . . . . . . . .  82
+     20.1.  STUN Attributes  . . . . . . . . . . . . . . . . . . . .  82
+     20.2.  STUN Error Responses . . . . . . . . . . . . . . . . . .  82
+     20.3.  ICE Options  . . . . . . . . . . . . . . . . . . . . . .  82
+   21. Changes from RFC 5245 . . . . . . . . . . . . . . . . . . . .  83
+   22. References  . . . . . . . . . . . . . . . . . . . . . . . . .  84
+     22.1.  Normative References . . . . . . . . . . . . . . . . . .  84
+     22.2.  Informative References . . . . . . . . . . . . . . . . .  85
+   Appendix A.  Lite and Full Implementations  . . . . . . . . . . .  89
+   Appendix B.  Design Motivations . . . . . . . . . . . . . . . . .  90
+     B.1.  Pacing of STUN Transactions . . . . . . . . . . . . . . .  90
+     B.2.  Candidates with Multiple Bases  . . . . . . . . . . . . .  92
+     B.3.  Purpose of the Related-Address and Related-Port
+           Attributes  . . . . . . . . . . . . . . . . . . . . . . .  94
+     B.4.  Importance of the STUN Username . . . . . . . . . . . . .  95
+     B.5.  The Candidate Pair Priority Formula . . . . . . . . . . .  96
+     B.6.  Why Are Keepalives Needed?  . . . . . . . . . . . . . . .  96
+     B.7.  Why Prefer Peer-Reflexive Candidates? . . . . . . . . . .  97
+     B.8.  Why Are Binding Indications Used for Keepalives?  . . . .  97
+     B.9.  Selecting Candidate Type Preference . . . . . . . . . . .  97
+   Appendix C.  Connectivity-Check Bandwidth . . . . . . . . . . . .  99
+   Acknowledgements  . . . . . . . . . . . . . . . . . . . . . . . . 100
+   Authors' Addresses  . . . . . . . . . . . . . . . . . . . . . . . 100</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+1.  引言
+ 
+   在对等体之间建立通信会话的协议通常涉及为数据源和接收器交换IP地址和端口。但是，当通过网络地址转换器(NAT)操作时，这会带来挑战[RFC3235]。这些协议还寻求在参与者之间直接创建数据流，以便它们之间不存在应用层中介。这样做是为了减少数据延迟、减少丢包，并降低部署应用程序的运营成本。但是，这很难通过NAT实现。对造成这种情况的原因的全面处理超出了本规范的范围。
+ 
+   已经定义了许多解决方案来允许这些协议通过NAT运行。这些协议包括应用层网关(ALG)、中间盒控制协议[RFC3303]、最初的简单UDP穿越NAT(STUN)规范[RFC3489](请注意，RFC 3489已被RFC 5389淘汰)、领域特定IP[RFC3102][RFC3103]以及使其工作所需的会话描述扩展，例如实时控制协议(RTCP)的会话描述协议(SDP)属性[RFC4566][RFC3605]。遗憾的是，这些技术各有利弊，在某些网络拓扑中每种技术都是最优的，但在另一些网络拓扑中却是糟糕的选择。其结果是，管理员和实施者正在对部署其解决方案的网络的拓扑结构做出假设。这给系统带来了复杂性和脆弱性。
+ 
+   本规范将交互式连接建立(ICE)定义为一种用于基于UDP的数据流的NAT穿越的技术(尽管ICE已扩展为处理其他传输协议，如TCP[RFC6544])。ICE通过交换多个IP地址和端口来工作，然后通过对等连接检查来测试这些地址和端口的连接性。使用ICE使用特定机制(例如，在提供/应答交换中)来交换IP地址和端口，并且使用STUN[RFC5389]来执行连通性检查。ICE还利用 Traversal Using Relay around NAT (TURN)[RFC5766]。由于ICE为每个媒体流交换多个IP地址和端口，因此它还允许为多宿主和双堆栈主机选择地址。因此，RFC 5245[RFC5245]不推荐使用以前在RFC 4091[RFC4091]和RFC 4092[RFC4092]中定义的解决方案。
+ 
+   附录B提供了有关在设计ICE时做出的设计决策的背景信息和动机。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+2.  ICE概述
+ 
+   在典型的ICE部署中，有两个要通信的端点(ICE代理)。请注意，ICE不打算用于信令协议的NAT穿越，该信令协议假定通过另一种机制提供。ICE假设代理能够在彼此之间建立信令连接。
+ 
+   最初，代理对自己的拓扑一无所知。具体地说，代理可能在NAT(或多层NAT)之后，也可能不在NAT之后。ICE允许代理发现有关其拓扑的足够信息，以潜在地找到他们可以用来建立数据会话的一条或多条路径。
+ 
+   图1显示了典型的ICE部署。代理标记为L和R。L和R都位于各自的NAT之后，尽管它们可能不知道这一点。NAT的类型及其属性也是未知的。L和R能够参与候选交换过程，其目的是在L和R之间建立数据会话。通常，该交换将通过信令服务器(例如，SIP代理)发生。
+ 
+   除了代理、信令服务器和NAT之外，ICE通常与网络中的STUN或TURN服务器配合使用。每个代理可以有自己的STUN或TURN服务器，也可以是相同的。
+ 
+                               +---------+
+             +--------+        |Signaling|         +--------+
+             | STUN   |        |Server   |         | STUN   |
+             | Server |        +---------+         | Server |
+             +--------+       /           \        +--------+
+                             /             \
+                            /               \
+                           / &lt;- Signaling -&gt; \
+                          /                   \
+                   +--------+               +--------+
+                   |  NAT   |               |  NAT   |
+                   +--------+               +--------+
+                      /                             \
+                     /                               \
+                 +-------+                       +-------+
+                 | Agent |                       | Agent |
+                 |   L   |                       |   R   |
+                 +-------+                       +-------+
+ 
+                     Figure 1: ICE Deployment Scenario</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+   ICE背后的基本思想如下：每个代理都有各种候选传输地址(特定传输协议的IP地址和端口的组合，在本规范中始终是UDP)，它可以用来与另一个代理通信。
+   这些可能包括：
+ 
+   o  直接连接的网络接口上的传输地址。
+ 
+   o  NAT公共端的转换后的传输地址(“服务器自反”地址)。
+ 
+   o  从TURN服务器分配的传输地址(“转发地址”)。
+ 
+   潜在地，L的任何候选传输地址可用于与R的任何候选传输地址通信。然而，在实践中，许多组合都不会奏效。例如，如果L和R都位于NAT之后，则其直接连接的接口地址不太可能直接通信(这就是为什么需要ICE！)。ICE的目的是发现哪些地址对可以工作。ICE的方法是系统地尝试所有可能的配对(按仔细排序的顺序)，直到找到一个或多个可行的配对。
+ 
+
+
+
+
+
+
+2.1.  收集候选人
+ 
+   为了执行 ICE，ICE 代理会识别并收集一个或多个候选地址。 候选具有传输地址 - 特定传输协议的 IP 地址和端口的组合（此处仅指定 UDP）。 有不同类型的候选人;有些派生自物理或逻辑网络接口，有些则可以通过 STUN 和 TURN 发现。
+ 
+   第一类候选是具有直接从本地接口获取的传输地址的候选项。 这样的候选人被称为“宿主候选人”。 本地接口可以是以太网或 Wi-Fi，也可以是通过隧道机制（如虚拟专用网络 （VPN） 或移动 IP （MIP））获取的接口。 在所有情况下，此类网络接口对代理来说都显示为本地接口，可以从中分配端口（以及候选项）。
+ 
+   接下来，代理使用STUN或TURN来获得其他候选者。它们有两种类型：NAT公共端的转换地址(服务器反身候选地址)和TURN服务器上的地址(中继候选地址)。当使用轮次服务器时，从轮次服务器获得两种类型的候选。如果仅使用STUN服务器，则只能从它们获得服务器自反候选。图2显示了这些候选人与主持人候选人的关系。在此图中，使用TURN发现了这两种类型的候选人。在图中，符号X：x表示IP地址X和UDP端口x。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+ 
+                      To Internet
+ 
+                          |
+                          |
+                          |  /------------  Relayed
+                      Y:y | /               Address
+                      +--------+
+                      |        |
+                      |  TURN  |
+                      | Server |
+                      |        |
+                      +--------+
+                          |
+                          |
+                          | /------------  Server
+                   X1':x1'|/               Reflexive
+                    +------------+         Address
+                    |    NAT     |
+                    +------------+
+                          |
+                          | /------------  Local
+                      X:x |/               Address
+                      +--------+
+                      |        |
+                      | Agent  |
+                      |        |
+                      +--------+
+ 
+
+                     Figure 2: Candidate Relationships
+ 
+   当代理从IP地址和端口X：X发送TURN分配请求时，NAT(假设存在一个)将创建绑定X1‘：X1’，将该服务器自反候选映射到主机候选X：X。从主机候选发送的传出分组将由NAT转换为服务器自反候选。NAT将发送到服务器自反候选者的传入数据包转换为主机候选者，并转发到代理。与给定的服务器自反候选者相关联的主机候选者是“base”。
+ 
+      注：“Base”是指代理发送特定候选人的地址。因此，作为一种退化的情况，主持人候选人也有基础，但与主持人候选人是一样的。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+   当代理和TURN服务器之间存在多个NAT时，TURN请求将在每个NAT上创建绑定，但代理将只发现最外层的服务器自反候选(距离TURN服务器最近的候选)。如果代理不在NAT之后，则基本候选将与服务器自反候选相同，并且服务器自反候选是冗余的，将被淘汰。
+ 
+   然后，分配请求到达TURN服务器。TURN服务器从其本地IP地址Y分配端口Y，并生成分配响应，将该中继候选通知给代理。TURN服务器还通过将ALLOCATE请求的源传输地址复制到ALLOCATE响应中来通知代理服务器自反候选X1‘：X1’。TURN服务器充当分组中继器，在L和R之间转发业务。为了将业务发送到L，R在Y：Y将业务发送到TURN服务器，TURN服务器将业务转发到X1‘：X1’，X1‘通过NAT将其映射到X：X并递送到L。
+ 
+   当仅使用STUN服务器时，代理向其STUN服务器发送STUN绑定请求[RFC5389]。STUN服务器将通过将绑定请求的源传输地址复制到绑定响应中来通知代理服务器自反候选X1‘：X1’。
+ 
+2.2.  连通性检查
+ 
+   一旦L收集了它的所有候选者，它就按照从高到低的优先级对它们进行排序，并通过信令信道将它们发送给R。当R从L接收候选对象时，它执行相同的收集过程，并使用自己的候选对象列表进行响应。在此过程结束时，每个ICE代理都有其候选人和其同行的候选人的完整列表。它将它们配对，产生候选对。为了查看哪些对可以正常工作，每个代理都会安排一系列连接检查。每个检查是STUN请求/响应事务，客户端将通过从本地候选向远程候选发送STUN请求来对特定候选对执行STUN请求/响应事务。
+ 
+   连通性检查的基本原则很简单：
+ 
+   1.  按优先顺序对候选对进行排序。
+ 
+   2.  按优先顺序发送每个候选人对的检查。
+ 
+   3.  确认从其他代理收到的检查。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   当两个代理都对候选对执行检查时，结果是4次握手：
+ 
+                  L                        R
+                  -                        -
+                  STUN request -&gt;             \  L's
+                            &lt;- STUN response  /  check
+
+                             &lt;- STUN request  \  R's
+                  STUN response -&gt;            /  check
+
+                    Figure 3: Basic Connectivity Check
+ 
+   重要的是要注意，STUN请求被发送到要传输数据的IP地址和端口(例如，RTP、RTCP或其他协议)。因此，代理使用数据包的内容而不是接收它们的端口对STUN和数据进行多路分解。
+ 
+   由于STUN绑定请求用于连通性检查，因此STUN绑定响应将在代理与其对等方之间的任何NAT的公共端包含代理的转换传输地址。如果此传输地址与代理已经学习到的其他候选地址不同，则它表示一个新的候选(对等自反候选)，然后ICE会像测试任何其他候选一样对其进行测试。
+ 
+   因为上面的算法搜索所有候选对，如果存在工作对，无论以什么顺序尝试候选，算法最终都会找到它。为了产生更快(更好)的结果，候选者会按指定的顺序进行排序。排序后的候选对的结果列表称为“核对表”。
+ 
+   代理通过周期性地发送针对列表上的下一个候选对的STUN请求来检查核对表。这些被称为“普通检查”。当STUN事务成功时，一个或多个候选对将成为所谓的“有效对”，并将被添加到称为“有效列表”的候选对列表中。
+ 
+   作为优化，一旦R得到L的检查消息，R就调度连通性检查消息发送到同一候选对上的L。这被称为“触发检查”，它加速了查找有效对的过程。
+ 
+   在握手结束时，L和R都知道它们可以在两个方向上端到端地发送(和接收)消息。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   一般而言，优先级算法的设计使相似类型的候选获得相似的优先级，从而使更直接的路由(即，没有数据中继或NAT的路由)比间接路由(具有数据中继或NAT的路由)更受欢迎。然而，在这些指导方针下，代理人在如何调整他们的算法方面有相当大的自由裁量权。
+ 
+   数据流可以由多个组件(需要它们自己的候选集合的数据流片段，例如RTP和RTCP)组成。
+ 
+2.3.  提名候选对并达成ICE
+ 
+   ICE将一个ICE代理指定为控制代理，另一个指定为受控代理。对于数据流的每个分量，控制代理(从有效列表)提名用于数据的有效对。提名的确切时间取决于本地策略。
+ 
+   在提名时，控制代理允许检查继续，直到找到数据流的每个分量的至少一个有效对，然后它挑选有效对并在该对上发送STUN请求，使用属性向受控对等体指示它已被提名。这如图4所示。
+ 
+             L                        R
+             -                        -
+             STUN request -&gt;             \  L's
+                       &lt;- STUN response  /  check
+
+                        &lt;- STUN request  \  R's
+             STUN response -&gt;            /  check
+
+             STUN request + attribute -&gt; \  L's
+                       &lt;- STUN response  /  check
+
+                           Figure 4: Nomination
+ 
+   一旦受控代理接收到具有该属性的STUN请求，它将检查(除非检查已经完成)相同的对。如果上述事务成功，则代理将为该对设置指定标志，并将取消对该数据流组件的任何未来检查。一旦代理为数据流的每个分量设置了提名标志，这些对就成为所选的对。此后，只有选定的对将用于发送和接收与该数据流相关联的数据。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+2.4.  ICE 重启
+ 
+   一旦ICE结束，任何一个ICE代理都可以随时为一个或所有数据流重新启动。这是通过发送指示重启的更新的候选信息来完成的。
+ 
+2.5.  精简实现
+ 
+   某些ICE代理将始终连接到公共互联网，并拥有一个公共IP地址，它可以在该地址上接收来自任何通信方的数据包。为了使这些设备更容易支持ICE，ICE定义了一种特殊类型的实现，称为“Lite”(与正常的完全实现形成对比)。Lite代理只使用候选主机，不生成连接检查或运行状态机，尽管它们需要能够响应连接检查。
+ 
+3.  ICE 用法
+ 
+   本文档规定了ICE与协议的一般用途，这些协议提供了在ICE代理之间交换候选信息的方法。使用ICE的不同协议(称为使用协议)的具体细节(即，如何编码候选信息和实际的候选交换过程)在单独的使用文档中描述。
+ 
+   允许代理交换候选信息的一种机制是使用提供/应答语义(基于[RFC3264])作为SIP协议[RFC3261][ICE-SIP-SDP]的一部分。
+ 
+   [RFC7825]定义了实时流协议(RTSP)的ICE用法。但是，请注意，ICE的用法基于RFC 5245。
+ 
+4.  术语
+ 
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",   "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and   "OPTIONAL" in this document are to be interpreted as described in   BCP 14 [RFC2119] [RFC8174] when, and only when, they appear in all   capitals, as shown here.
+ 
+   读者需要熟悉[RFC5389]中定义的术语和UDP的NAT行为要求[RFC4787]。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   本规范使用了以下附加术语：
+ 
+   ICE会话：ICE会话包括从候选集合开始的所有与ICE相关的操作，然后是ICE代理之间的交互(候选交换、连接检查、提名和保持连接)，直到释放所有候选或触发ICE重启。
+ 
+   ICE代理，代理：ICE代理(有时简称为“代理”)是ICE候选交换中涉及的协议实现。典型的候选人交换涉及两个代理。
+ 
+   启动对等体、启动代理、启动器：启动代理是启动 ICE 候选交换过程的 ICE 代理。
+ 
+   响应对等体、响应代理、响应者：响应代理是接收和响应由发起代理发起的候选交换过程的ICE代理。
+ 
+   ICE候选交换：ICE代理交换执行ICE所需的信息(例如，候选和密码)的过程。具有SDP编码的提议/应答[RFC3264]是可用于交换候选信息的协议的一个示例。
+ 
+   对等：从会话中的一个ICE代理的角度来看，它的对等是另一个代理。具体地说，从发起代理的角度来看，对等方是响应代理。从响应代理的角度来看，对等方是发起代理。
+ 
+   传输地址：IP地址和传输协议(如UDP或TCP)端口的组合。
+ 
+   数据、数据流、数据会话：当使用ICE建立数据会话时，使用某种协议传输数据。媒体通常通过RTP传输，由RTP数据包流组成。数据会话是指在使用ICE创建和测试的路径上的对等体之间交换的数据分组。
+ 
+   候选人，候选人信息：作为接收数据的潜在联系点的传输地址。候选者还具有属性--它们的类型(服务器自反、中继或主机)、优先级、Foundation和基础。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   组件：组件是数据流的一部分。数据流可能需要多个组件，每个组件都必须工作才能使数据流作为一个整体工作。对于RTP/RTCP数据流，除非在同一端口中多路复用RTP和RTCP，否则每个数据流有两个组件--一个用于RTP，一个用于RTCP。组件有一个候选对，其他组件不能使用该对。
+ 
+   候选主机：通过从主机上的IP地址绑定到特定端口而获得的候选主机。这包括物理接口和逻辑接口上的IP地址，例如通过VPN获取的IP地址。
+ 
+   服务器自反候选：其IP地址和端口是在ICE代理通过NAT将数据包发送到服务器(如STUN服务器)后由NAT为ICE代理分配的绑定的候选。
+ 
+   对等自反候选：其IP地址和端口是在ICE代理通过NAT向其对等发送数据包后由NAT为ICE代理分配的绑定的候选。
+ 
+   转播候选：从转接服务器等转播服务器获得的候补。
+ 
+   基本地址：ICE代理发送特定候选人的传输地址。对于主机、服务器自反式和对等自反式候选项，基准与主机候选项相同。对于被转发的候选，基数与被转发的候选相同(即，TURN服务器用来发送的传输地址)。
+ 
+   相关地址和端口：与候选人相关的传输地址，用于诊断和其他目的。如果候选是服务器或对等自反的，则相关地址和端口等于该服务器或对等自反候选的基本地址。如果候选被中继，则相关地址和端口等于向客户端提供该被中继候选的分配响应中的映射地址。如果候选项是主机候选项，则相关地址和端口与主机候选项相同。
+ 
+   Foundation：冻结算法中用于对相似候选进行分组的任意字符串。对于具有相同类型、基本IP地址、协议(UDP、TCP等)以及STUN或TURN服务器的两个候选者来说，这是相同的。如果其中任何一个是不同的，那么Foundation也将不同。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   本地候选人：ICE代理已获得并可能发送给其对等方的候选人。
+ 
+   远程候选人：ICE代理从对等方收到的候选人。
+ 
+   默认目的地/候选地址：数据流组件的默认目的地是不支持ICE的ICE代理将使用的传输地址。组件的默认候选项是其传输地址与该组件的默认目标匹配的组件。
+ 
+   候选人对：包含一个本地候选人和一个远程候选人的对。
+ 
+   检查、连通性检查、STUN检查：用于验证连通性的STUN绑定请求。检查从本地候选者的基地发送到候选者对的远程候选者。
+ 
+   Checklist：ICE代理将用来生成检查的一组有序的候选对。
+ 
+   普通检查：由ICE代理生成的连通性检查，其结果是定期触发的定时器指示其发送检查。
+ 
+   触发检查：作为从对等体接收到连通性检查的结果而生成的连通性检查。
+ 
+   有效对：其本地候选者等于成功连通性检查响应的映射地址并且其远程候选者等于连接性检查请求被发送到的目的地址的候选者对。
+ 
+   有效列表：已由成功的STUN事务验证的数据流的候选对的有序集合。
+ 
+   核对表集合：所有核对表的有序列表。顺序由每个ICE使用情况确定。
+ 
+   完整实现：执行本规范定义的完整功能集的ICE实现。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   精简实现：省略某些功能的ICE实现，只实现非精简实现的对等体所需的数量，以获得ICE的好处。精简实现不维护任何状态机，也不生成连接检查。
+ 
+   控制代理：提名候选对的ICE代理。在任何会话中，总是有一个控制代理和一个受控代理。
+ 
+   受控代理：等待控制代理提名候选代理的ICE代理。
+ 
+   提名：控制代理向受控代理指示ICE代理将使用哪个候选对来发送和接收数据的过程。本说明书中定义的提名过程在RFC 5245中称为“常规提名”。在RFC 5245中被称为“主动提名”的提名过程在本规范中已被弃用。
+ 
+   被提名的，提名标志：一旦候选人对的提名成功，该候选人对就成为被提名的，其提名标志的值被设置为真。
+ 
+   所选对、所选候选对：用于发送和接收数据流分量的数据的候选对被称为“所选对”。在为数据流产生所选对之前，可以使用与数据流的组件相关联的任何有效对来发送和接收该组件的数据。一旦数据流的每个分量都有提名对，提名对就成为数据流的选定对。与所选择的对相关联的候选被称为“所选择的候选”。
+ 
+   使用协议，ICE用法：使用ICE进行NAT穿越的协议。使用规范定义了关于如何将此处定义的过程应用于该协议的特定于协议的细节。
+ 
+   计时器Ta：用于生成新的STUN或TURN事务的计时器。
+ 
+   定时器RTO(重传超时)：给定STUN或TURN事务的重传定时器。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+5.  ICE 候选人收集交换
+ 
+   作为ICE流程的一部分，发起代理和响应代理都会收集候选者，区分优先顺序并消除多余的候选者，并按照使用协议(ICE用法)的定义与对等体交换候选者信息。候选编码机制的细节和候选信息交换的语义不在本规范的讨论范围内。
+ 
+5.1.  完整实现
+ 
+5.1.1.  收集候选人
+ 
+   ICE代理在认为沟通迫在眉睫时收集候选人。 启动代理可以根据用户界面提示或启动会话的显式请求执行此操作。 每个候选人都有一个传输地址。 它也有类型和基础。  此规范定义和收集了四种类型 - 主机候选、服务器反射候选、对等反射候选和中继候选。 服务器反射候选者使用STUN或TURN收集，中继候选者通过TURN获得。  作为连接检查的结果，在 ICE 的后期阶段获得对等反射候选者。
+ 
+   在响应代理处收集候选人的过程与发起代理的过程相同。 建议响应代理在收到候选人信息后立即开始此过程，然后再提醒用户与 ICE 会话关联的应用程序。
+ 
+5.1.1.1.  Host Candidates
+ 
+   通过绑定到连接到主机上接口(物理或虚拟，包括VPN接口)的IP地址上的端口来获得候选主机。
+ 
+   对于ICE代理希望使用的每个数据流的每个组件，代理应获取主机拥有的每个IP地址的候选地址，以下列出的例外情况除外。代理通过绑定到特定IP地址上的UDP端口来获取每个候选地址。宿主候选者(实际上是每个候选者)总是与它作为候选者的特定组件相关联。
+ 
+   每个组件都有一个分配给它的ID，称为“组件ID”。对于RTP/RTCP数据流，除非RTP和RTCP都在同一UDP端口(RTP/RTCP多路复用)中进行复用，否则RTP本身的组件ID为1，RTCP的组件ID为2。在RTP/RTCP多路复用的情况下，RTP和RTCP的组件ID均为1。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   当获得候选时，除非代理确定将使用RTP/RTCP多路复用(即，代理知道另一个代理也支持并愿意使用RTP/RTCP多路复用)，或者除非代理仅支持RTP/RTCP多路复用，否则代理必须获得RTCP的单独候选。如果代理已获得RTCP候选，并最终使用RTP/RTCP多路传输，则该代理不需要对RTCP候选执行连接检查。没有组件ID 2本身并不意味着使用RTCP/RTP多路传输，因为这也可能意味着不使用RTCP。
+ 
+   如果代理使用RTP和RTCP的单独候选，如果代理具有K个IP地址，则最终将有2*K个主机候选。
+ 
+   注意，当获得其候选时，响应代理通常将知道另一个代理是否支持RTP/RTCP多路复用，在这种情况下，它将不需要获得用于RTCP的单独候选。然而，没有组件ID 2本身并不意味着使用RTCP/RTP多路传输，因为这也可能意味着不使用RTCP。
+ 
+   不鼓励使用除RTP/RTCP流以外的多个组件，因为这会增加ICE处理的复杂性。如果需要多个组件，则每个组件的组件ID应从1开始并递增1。
+ 
+   每个主持人候选人的基础地址都设置为候选人本身。
+ 
+   候选主机从所有IP地址收集，但以下地址除外：
+ 
+   o  来自环回接口的地址不得包含在候选地址中。
+ 
+   o  不推荐使用的与IPv4兼容的IPv6地址[RFC4291]和IPv6站点本地单播地址[RFC3879]不得包含在候选地址中。
+ 
+   o  除非使用ICE的应用程序不支持IPv4(即，它是仅支持IPv6的应用程序[RFC4038])，否则不应将IPv4映射的IPv6地址包括在候选地址中。
+ 
+   o  如果收集与使用阻止位置跟踪的机制生成的IPv6地址对应的一个或多个候选主机[RFC7721]，则不能收集与允许位置跟踪、在同一接口上配置且属于同一网络前缀的IPv6地址对应的候选主机。类似地，当收集与使用阻止位置跟踪的机制生成的IPv6地址相对应的主机候选时，则不得收集与IPv6链路本地地址[RFC4291]相对应的主机候选。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+     
+
+
+
+ 
+   IPv6默认地址选择规范[RFC6724]指定临时地址[RFC4941]优先于永久地址。
+ 
+5.1.1.2.  服务器自反式和中继候选人
+ 
+   ICE代理应该收集服务器自反式和中继式候选者。然而，在某些网络中可能不需要使用STUN和TURN服务器，并且使用TURN服务器可能很昂贵，因此一些部署可能选择不使用它们。如果代理未收集服务器自反或中继候选，建议实施该功能并通过配置将其禁用，以便在将来条件发生变化时可以通过配置重新启用该功能。
+ 
+   代理将每个候选主机与其配置或已通过某种方式发现的STUN或TURN服务器配对。建议配置域名，使用[RFC5389]中的DNS程序(使用SRV记录和“STUN”服务)来发现STUN服务器，使用[RFC5766]中的DNS程序(使用SRV记录和“TURN”服务)来发现TURN服务器。
+ 
+   当有多个STUN或TURN服务器可用时(或者当它们通过DNS记录获知并且返回多个结果时)，代理可以收集所有这些服务器的候选者，并且应该收集至少其中一个的候选者(一个STUN服务器和一个TURN服务器)。它通过将候选主机与STUN或TURN服务器配对来实现这一点，并且对于每一对，代理从候选主机向服务器发送绑定或分配请求。对STUN服务器的绑定请求不会经过身份验证，并且响应中的任何备用服务器属性都将被忽略。代理必须支持[RFC5389]中定义的绑定请求的向后兼容模式。分配请求应使用客户端通过某些其他方式获得的长期凭据进行身份验证。
+ 
+   收集过程使用定时器Ta来控制。每次Ta到期时，代理可以生成另一个新的STUN或TURN事务。该事务可以是由于可恢复错误(例如身份验证失败)而失败的先前事务的重试，也可以是针对新的候选主机和STUN或TURN服务器对的事务。代理在每次TA到期时生成事务的频率不应超过一次。有关如何设置Ta和STUN重传定时器RTO的指导，请参见第14节。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   代理将接收绑定或分配响应。成功的ALLOCATE响应将在XOR-RELAYED-ADDRESS属性中为代理提供服务器自反候选(从映射地址获得)和中继候选。如果分配请求因服务器缺乏资源而被拒绝，则代理应改为发送绑定请求以获取服务器自反候选。绑定响应将仅向代理提供服务器自反候选(也从映射地址获得)。服务器自反候选的基础是从中发送分配或绑定请求的主机候选。继任候选人的基础是该候选人本身。如果被转发的候选人与主机候选人相同(这种情况在极少数情况下会发生)，则必须丢弃被转发的候选人。
+ 
+   如果仅支持IPv6的代理位于使用Nat64[RFC6146]和DNS64[RFC6147]技术的网络中，则它还可以从仅支持IPv4的STUN或TURN服务器收集IPv4服务器自反式和/或中继式候选者。仅限IPv6的代理还应利用IPv6前缀发现[RFC7050]来发现Nat64使用的IPv6前缀(如果有)，并相应地为每个仅限IPv6的接口生成服务器自反候选。NAT64服务器自反候选项的优先级与IPv4服务器自反候选项相同。
+ 
+5.1.1.3.  计算 Foundation
+ 
+   ICE代理为每个候选人分配一个 Foundation。当以下所有条件都成立时，两名候选人具有相同的 Foundation：
+ 
+   o  它们具有相同的类型(主机、中继、服务器自反或对等自反)。
+ 
+   o  它们的基本地址具有相同的IP地址(端口可以不同)。
+ 
+   o  对于反身性和中继性候选对象，用于获取它们的STUN或TURN服务器具有相同的IP地址(代理用来联系STUN或TURN服务器的IP地址)。
+ 
+   o  它们是使用相同的传输协议(TCP、UDP)获得的。
+ 
+   类似地，如果两个候选者的类型不同，它们的Foundation不同，它们的基础地址具有不同的IP地址，用于获取它们的STUN或TURN服务器具有不同的IP地址(代理用来联系STUN或TURN服务器的IP地址)，或者它们的传输协议不同。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+5.1.1.4.  Keeping Candidates Alive
+ 
+   一旦分配了服务器自反式和中继式候选者，它们必须保持活动状态，直到ICE处理完成，如第8.3节所述。对于通过绑定请求获知的服务器自反候选对象，必须通过对服务器的附加绑定请求来保持绑定有效。使用刷新事务完成分配的刷新，如[RFC5766]中所述。刷新请求还将刷新服务器自反候选者。
+ 
+   主机候选地址不会超时，但由于多种原因，候选地址可能会更改或消失。ICE代理应监控其使用的接口，使其基础已消失的候选无效，并在出现新的IP地址(在新的或当前使用的接口上)时适当地获取新的候选。
+ 
+5.1.2.  确定候选人的优先顺序
+ 
+   确定优先顺序的过程导致为每个候选者分配优先级。数据流的每个候选必须具有唯一的优先级，该优先级必须是介于1和(2**31-1)之间的正整数。ICE将使用此优先级来确定连通性检查的顺序和候选人的相对优先级。较高的优先级值比较低的值具有更高的优先级。
+ 
+   ICE代理应使用第5.1.2.1节中的公式计算此优先级，并使用第5.1.2.2节中的指导原则选择其参数。如果代理选择使用不同的公式，ICE可能需要更长的时间才能收敛，因为代理在检查中不会进行协调。
+ 
+   对候选进行优先级排序的流程在发起代理和响应代理之间是通用的。
+ 
+5.1.2.1.  推荐公式
+ 
+   推荐的公式使用以下公式组合了候选类型(服务器自反、对等自反、中继和主机)的首选项、为其获取候选的IP地址的首选项和组件ID：
+ 
+   priority = (2^24)*(type preference) +
+              (2^8)*(local preference) +
+              (2^0)*(256 - component ID)
+ 
+   类型首选项必须是介于0(最低优先级)和126(最高优先级)之间的整数，对于同一类型的所有候选人必须相同，对于不同类型的候选人必须不同。对等自反的类型偏好必须高于服务器自反式。将该值设置为0意味着此类型的候选人将仅作为最后手段使用。请注意，根据第5.1.1节的程序收集的候选人永远不会是对等自反的候选人；这类候选人是从ICE执行的连通性检查中学习的。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+
+
+
+
+
+ 
+   本地首选项必须是介于0(最低首选项)和65535(最高首选项)之间的整数。如果只有一个IP地址，则应将此值设置为65535。如果对于具有相同类型的特定数据流的特定组件有多个候选，则本地首选项对于每一个都必须是唯一的。如果ICE代理是双堆栈，则应根据[RFC8421]中描述的当前最佳实践设置本地首选项。
+ 
+   组件ID必须是介于1和256之间(包括1和256)的整数。
+ 
+5.1.2.2.  候选类型和本地首选项的指导原则
+ 
+   类型首选项的值对于主机候选项为 126，对于对等自反候选项为 110，对于服务器自反候选项为 100，对于中继候选项为 0。
+ 
+   如果ICE代理是多宿主的并且具有多个IP地址，则应遵循[RFC8421]中的建议。如果使用多个TURN服务器，则以与多宿主本地候选相似的方式选择从TURN服务器获得的候选的本地优先级：使用本地优先级值来指示不同服务器之间的偏好，但该偏好对于每个服务器必须是唯一的。
+ 
+   在选择类型首选项时，代理可能会考虑延迟、丢包、成本、网络拓扑、安全性、隐私等因素。
+ 
+5.1.3.  淘汰多余的候选项
+ 
+   接下来，ICE代理(发起和响应)删除多余的候选对象。两个候选人可以有相同的传输地址但不同的基本地址，这不会被认为是多余的。通常，当代理不在NAT之后时，服务器自反候选和主机候选将是冗余的。当且仅当一个候选的传输地址和基本地址等于另一个候选的传输地址和基本地址时，该候选才是冗余的。代理应剔除优先级较低的冗余候选。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+5.2.  精简实施程序s
+ 
+   Lite实现仅使用host候选。对于每个IP地址，独立于IP地址族，必须有零个或一个候选地址。在Lite实现中，ICE不能用于在候选者之间进行动态选择。因此，不建议包含来自特定IP地址系列的多个候选地址，因为只有连通性检查才能真正确定是使用一个地址还是使用另一个地址。相反，建议拥有多个公共IP地址的代理运行完整的ICE实施，以确保其地址得到最佳利用。
+ 
+   每个组件都有一个分配给它的ID，称为“组件ID”。对于RTP/RTCP数据流，除非RTCP与RTP在同一端口中进行多路复用，否则RTP本身的组件ID为1，RTCP的组件ID为2。如果代理使用RTCP而不进行多路传输，则它必须获得候选RTCP。然而，没有组件ID 2本身并不意味着使用RTCP/RTP多路传输，因为这也可能意味着不使用RTCP。
+ 
+   每个候选人都被分配了一个Foundation。对于从不同IP地址分配的两个候选人，Foundation必须不同；否则必须相同。每个IP地址递增的简单整数就足够了。此外，在同一数据流的所有候选中，必须为每个候选分配唯一的优先级。如果使用第5.1.2.1节中的公式计算优先级，则类型优先级值应设置为126。如果主机仅为IPV4，则本地首选项值应设置为65535。如果主机是IPv6或双堆栈，则本地首选项值应设置为 RFC 6724[RFC6724]中描述的IP地址的优先级值。
+ 
+   接下来，代理为每个数据流的每个分量选择默认候选者。如果主机仅为IPv4，则每个数据流的每个组件都只有一个候选者；因此，该候选者是默认的。如果主机仅为IPv6，则默认候选地址通常为全局作用域IPv6地址。双堆栈主机应允许配置默认候选主机是使用IPv4还是IPv6，并且配置需要基于管理员认为在当前网络环境中哪一种更有可能成功。
+ 
+   本部分中的步骤在发起代理和响应代理之间是通用的。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+5.3.  交换候选信息
+ 
+   ICE代理(发起和响应)需要交换以下关于候选人的信息。每种ICE用法都必须定义如何与使用协议交换信息。本节介绍需要交换的信息。
+ 
+   Candidates：一名或多名候选人。对于每名候选人：
+ 
+      Address：候选者的IP地址和传输协议端口。
+ 
+      Transport:  候选者的传输协议。如果使用协议仅在单个传输协议上运行，则可以省略这一点。
+ 
+      Foundation:  最多32个字符的序列。
+ 
+      Component ID：候选人的组件ID。如果使用协议不使用组件的概念，则可以省略这一点。
+ 
+      Priority：候选者的32位优先级。
+ 
+      Type：候选人的类型。
+ 
+      Related Address and Port：候选者的相关IP地址和端口。如果代理不想透露它们，例如出于隐私原因，则可以省略它们或将它们设置为无效值。
+ 
+      可扩展性参数：正在使用的协议可能会定义将来添加新的每个候选ICE参数的方法。
+ 
+   简化版或完全版：代理是精简版还是完全版。
+ 
+   连接检查调整值：代理希望使用的连接检查的调整值。如果代理希望使用定义的缺省值，则可以省略这一点。
+ 
+   用户名片段和密码：用于执行连接检查的值。这些值必须是不可猜测的，至少128位随机数生成器输出用于生成密码，至少24位输出用于生成用户名片段。
+ 
+   扩展：新的媒体流或会话级属性(ICE选项)。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   如果使用的协议容易受到ICE不匹配的影响并且能够检测到ICE不匹配(第5.4节)，则检测代理需要一种方法来将该信息传达给它的对等方。它是一个布尔标志。
+ 
+   使用的协议可能需要(也可能不需要)处理与不支持ICE的旧实现的向后兼容性。如果支持并且正在使用到非ICE的后备机制，则假设使用协议除了ICE参数之外还提供了一种传送默认候选(其IP地址和端口)的方式。
+ 
+   一旦代理发送了它的候选信息，它必须准备好接收关于每个候选的STUN和数据分组。如第12.1节所述，数据分组可以在其作为数据的默认目的地出现之前被发送给候选者。
+ 
+5.4.  ICE 不匹配
+ 
+   某些中间盒，例如ALG，可以以破坏ICE的方式改变信令信息(例如，通过重写SDP中的IP地址)。这被称为“ICE不匹配”。如果使用的协议容易受到ICE不匹配的影响，则响应代理需要能够检测到它，并将ICE不匹配的情况通知对等ICE代理。
+ 
+   每个使用协议都需要定义使用协议是否容易受到ICE不匹配的影响，如何检测ICE不匹配，以及在检测到ICE不匹配时是否需要采取特定操作。
+ 
+6.  ICE 候选处理
+ 
+   一旦ICE代理收集了其候选人并与其对等方交换了候选人(第5节)，它将确定自己的角色。此外，全面实施将形成核对表，并开始执行与对等设备的连接检查。
+ 
+6.1.  完整实现程序
+ 
+6.1.1.  决定角色
+ 
+   对于每个会话，每个ICE代理(发起和响应)都承担一个角色。有两个角色--控制和受控。控制代理负责选择用于通信的最终候选对。以下各节详细描述了控制和受控代理所遵循的实际程序。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   确定角色和对行为的影响的规则如下：
+ 
+   两个代理都是完整实现：发起ICE流程的启动代理必须担任控制角色，而另一个代理必须担任受控角色。两个代理都将形成核对表、运行ICE状态机并生成连接检查。控制代理将执行第8.1节中的逻辑以提名将成为(如果与提名相关联的连通性检查成功)所选对的对，然后两个代理结束ICE，如第8.1.2节所述。
+ 
+   一个代理完整实现，一个精简实现：完整代理必须承担控制角色，精简代理必须承担受控角色。完整的代理将形成核对表、运行ICE状态机并生成连接检查。该代理将执行第8.1节中的逻辑来提名将成为(如果与提名相关联的连通性检查成功)所选对的对，并使用第8.1.2节中的逻辑来结束ICE。Lite实现将只侦听、接收和响应连接检查，然后结束ICE，如第8.2节所述。对于Lite实现，每个数据流的ICE处理状态被认为是Running，而ICE整体的状态是Running。
+ 
+   两者都是精简实现：启动ICE处理的启动代理必须扮演控制角色，而另一个代理必须扮演受控角色。在这种情况下，不会发送任何连接检查。相反，一旦交换了候选，每个代理执行第8节中描述的处理，而不进行连接检查。这两个代理都可能认为他们被控制或控制。在后一种情况下，通过启用候选交换的信令协议中的眩光检测功能来解决冲突。每个数据流的ICE处理状态被认为是Running，而ICE的整体状态是Running。
+ 
+   一旦确定了会话的角色，它们将在会话的整个生命周期中持续存在。角色可以作为ICE重启的一部分重新确定(第9节)，但除非满足以下一个或多个标准，否则ICE代理不得作为ICE重启的一部分重新确定角色：
+ 
+   完整变为精简：如果控制代理是完整，并切换到精简，则如果对等代理也是完整实现，则必须重新确定角色。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   角色冲突：如果ICE重启导致角色冲突，则可能会根据第7.3.1.1节中的角色冲突程序重新确定角色。
+ 
+   注意：在某些第三方呼叫控制(3PCC)[RFC3725]情况下，ICE重启可能会导致角色冲突。
+ 
+   注意：在确定角色之前，代理需要相互通知他们是完整的还是精简的。该机制特定于信令协议，超出了本文档的范围。
+ 
+   如果对等方发起角色重新确定，则代理必须接受，即使这样做的标准不满足也是如此。如果对等设备符合RFC 5245，则可能会发生这种情况。
+ 
+6.1.2.  生成 Checklists
+ 
+   每个数据流都有一个核对表。为了形成核对表，发起和响应ICE代理形成候选对、计算对优先级、按优先级对进行排序、修剪对、删除优先级较低的对以及设置核对表状态。如果将候选添加到核对表中(例如，由于检测到对等反身候选)，则代理将针对更新的核对表重新执行这些步骤。
+ 
+6.1.2.1.  Checklist 状态
+ 
+   每个核对表都有一个状态，用于捕获与该核对表关联的数据流的ICE检查状态。这些状态包括：
+ 
+   Running:  核对表既没有完成，也没有失败。核对表最初设置为运行状态。
+ 
+   Completed:  核对表包含数据流的每个组成部分的指定对。
+ 
+   Failed:  核对表中没有数据流的每个组件的有效对，并且核对表中的所有候选对都处于失败或成功状态。换句话说，核对表中至少有一个组件的候选对都处于失败状态，这意味着该组件失败了，这意味着核对表失败了。
+ 
+6.1.2.2.  生成候选对
+ 
+   ICE代理将具有相同IP地址族的相同数据流的相同分量的每个本地候选者与每个远程候选者配对。有可能一些本地候选人不会与远程候选人配对，一些远程候选人也不会与本地候选人配对。如果一个代理不包括数据流的所有组件的候选者，就会发生这种情况。如果发生这种情况，则该数据流的组件数量被有效地减少，并且被认为等于由每个代理在数据流的所有组件上提供的最大组件ID在两个代理之间的最小值。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+ 
+
+
+
+
+
+
+
+ 
+   在RTP的情况下，当一个代理提供RTCP候选，而另一个不提供时，就会发生这种情况。作为另一个例子，发起方可以在同一端口上多路传输RTP和RTCP[RFC5761]。但是，由于发起代理不知道对等代理是否可以执行这种多路传输，因此它在不同的端口上包含RTP和RTCP候选。如果对等代理可以执行这种多路传输，它将只包括每个候选的单个组件--用于组合的RTP/RTCP多路复用器。ICE最终会表现得好像这位候选人只有一个组件部分。
+ 
+   在IPv6中，一台主机的每个接口有多个候选主机是很常见的。为了保持生成的候选对数量合理，并避免极不可能工作的候选对，IPv6本地链路地址不得与本地链路地址以外的地址配对。
+ 
+   本地候选项和远程候选项都是特定组件的默认候选项的候选对称为该组件的“默认候选对”。 这是在两个代理都不是 ICE 感知的情况下用于传输数据的对。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   图5显示了传输地址、候选者、候选者对和核对表的属性以及它们之间的关系。
+ 
+              +--------------------------------------------+
+              |                                            |
+              | +---------------------+                    |
+              | |+----+ +----+ +----+ |   +Type            |
+              | || IP | |Port| |Tran| |   +Priority        |
+              | ||Addr| |    | |    | |   +Foundation      |
+              | |+----+ +----+ +----+ |   +Component ID    |
+              | |      Transport      |   +Related Address |
+              | |        Addr         |                    |
+              | +---------------------+   +Base            |
+              |             Candidate                      |
+              +--------------------------------------------+
+              *                                         *
+              *    *************************************
+              *    *
+            +-------------------------------+
+            |                               |
+            | Local     Remote              |
+            | +----+    +----+   +default?  |
+            | |Cand|    |Cand|   +valid?    |
+            | +----+    +----+   +nominated?|
+            |                    +State     |
+            |                               |
+            |                               |
+            |          Candidate Pair       |
+            +-------------------------------+
+            *                              *
+            *                  ************
+            *                  *
+            +------------------+
+            |  Candidate Pair  |
+            +------------------+
+            +------------------+
+            |  Candidate Pair  |
+            +------------------+
+            +------------------+
+            |  Candidate Pair  |
+            +------------------+
+
+                 Checklist
+
+
+                Figure 5: Conceptual Diagram of a Checklist</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+6.1.2.3.  计算配对优先级和配对排序
+ 
+   ICE代理计算每个候选对的优先级。设G是由控制代理提供的候选者的优先级。设D为受控代理提供的候选者的优先级。配对的优先级计算如下：
+ 
+      pair priority = 2^32*MIN(G,D) + 2*MAX(G,D) + (G&gt;D?1:0)
+ 
+   代理按照候选对优先级的降序对每个核对表进行排序。如果两个对具有相同的优先级，则它们之间的顺序是任意的。
+ 
+6.1.2.4.  修剪配对
+ 
+   该候选对的排序列表用于确定将执行的连通性检查序列。每一次检查都涉及从本地候选人向远程候选人发送请求。由于ICE代理不能直接从自反候选(服务器自反或对等自反)发送请求，而只能从其基础发送请求，因此代理接下来将遍历候选对的排序列表。对于每一对本地候选者是反身性的，候选者必须被它的基础所取代。
+ 
+   代理修剪每个核对表。这是通过删除候选对来实现的，如果该候选对与同一核对表中的较高优先级的候选对是冗余的。如果两个候选人的本地候选人具有相同的基础，而他们的远程候选人是相同的，则两个候选人对是多余的。结果是一个有序的候选对序列，称为该数据流的“核对表”。
+ 
+6.1.2.5.  删除较低优先级对
+ 
+   为了限制第19.5.1节中描述的攻击，ICE代理必须限制该代理在核对表集中的所有核对表中执行的连接检查的总数。这是通过限制核对表集合中候选对的总数来实现的。清单集的候选对的默认限制为100，但该值必须是可配置的。在每个核对表中，通过丢弃较低优先级的候选对，直到核对表集合中的候选对的总数小于限制值，来强制实施该限制。应该均匀地进行丢弃，以使每个核对表中的候选对的数量减少相同的量。
+ 
+   建议尽可能选择比默认值更低的下限值，并将该值设置为可能在实际部署配置中创建的合理候选对的最大数量。配置要求旨在提供一种工具，用于在部署后发现有问题的情况下在现场修复此值。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+ 
+6.1.2.6.  计算候选对状态
+ 
+   清单中的每个候选人对都有一个 foundation (该对中本地和远程候选人的 foundation 的组合)和以下状态之一：
+ 
+   Waiting:  检查还未发送，但并没有被冻结。
+ 
+   In-Progress:  已发送此对的检查，但事务正在进行中。
+ 
+   Succeeded:  已经为这对发送了检查，并产生了成功的结果。
+ 
+   Failed:  已为该对发送了检查，但检查失败(从未收到对检查的响应，或收到失败响应)。
+ 
+   Frozen:  尚未发送此对的检查，只有在该对解冻并进入等待状态后，才能发送检查。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   对在状态之间移动，如图6所示。
+ 
+
+      +-----------+
+      |           |
+      |           |
+      |  Frozen   |
+      |           |
+      |           |
+      +-----------+
+            |
+            |unfreeze
+            |
+            V
+      +-----------+         +-----------+
+      |           |         |           |
+      |           | perform |           |
+      |  Waiting  |--------&gt;|In-Progress|
+      |           |         |           |
+      |           |         |           |
+      +-----------+         +-----------+
+                                  / |
+                                //  |
+                              //    |
+                            //      |
+                           /        |
+                         //         |
+               failure //           |success
+                     //             |
+                    /               |
+                  //                |
+                //                  |
+              //                    |
+             V                      V
+      +-----------+         +-----------+
+      |           |         |           |
+      |           |         |           |
+      |   Failed  |         | Succeeded |
+      |           |         |           |
+      |           |         |           |
+      +-----------+         +-----------+
+ 
+              Figure 6: 配对状态机 (FSM)</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   通过执行以下一系列步骤来计算核对表中每一对的初始状态：
+ 
+   1.  核对表放在一个有序的列表中(顺序由每次ICE使用情况决定)，称为“核对表集合”。
+ 
+   2.  ICE代理最初将所有候选对置于冻结状态。
+ 
+   3.  代理将核对表集中的所有核对表设置为运行状态。
+ 
+   4.  对于每个 foundation，代理将恰好一个候选对的状态设置为 Waiting 状态(解冻它)。通过在具有该 foundation 的第一个核对表(根据使用定义的核对表设置顺序)中找到第一个候选对(按最低组件ID排序，如果组件ID相等，则按最高优先级排序)来选择要解冻的候选对。
+ 
+   注意：上述过程与RFC 5245不同，在RFC 5245中，只有第一个核对表中的候选对最初处于等待状态。现在，它适用于第一个核对表中具有该基础的候选对，即使核对表不是核对表集中的第一个。
+ 
+   下表说明了一个示例。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   表格图例:
+ 
+   每行(m1，m2，...)。表示与数据流关联的核对表。m1代表核对表集合中的第一个核对表。
+ 
+   每列(f1、f2、...)。代表着一个foundation。给定列中的每个候选对共享相同的foundation。
+ 
+   f-cp 表示处于冻结状态的候选对。
+ 
+   w-cp 表示处于等待状态的候选对。
+ 
+   1.  代理将核对表集中的所有配对设置为冻结状态。
+ 
+         f1    f2    f3    f4    f5
+       -----------------------------
+   m1 | f-cp  f-cp  f-cp
+      |
+   m2 | f-cp  f-cp  f-cp  f-cp
+      |
+   m3 | f-cp                    f-cp
+ 
+
+   2.  对于每个foundation，具有最低组件ID的候选对被置于等待状态，除非与相同foundation相关联的候选对已经在核对表集中的其他检查清单之一中被置于等待状态。
+ 
+         f1    f2    f3    f4    f5
+       -----------------------------
+   m1 | w-cp  w-cp  w-cp
+      |
+   m2 | f-cp  f-cp  f-cp  w-cp
+      |
+   m3 | f-cp                    w-cp
+ 
+                        Table 1: Pair State Example
+ 
+   在第一核对表(m1)中，每个基础的候选对被置于等待状态，因为还没有用于相同基础的对被置于等待状态。
+ 
+   在第二核对表(m2)中，基础f4的候选对处于等待状态。基础f1、f2和f3的候选对保持在冻结状态，因为这些基础的候选对已经被置于等待状态(在核对表M1内)。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+ 
+   在第三核对表(m3)中，基础f5的候选对处于等待状态。基础f1的候选对保持在冻结状态，因为该基础的候选对已经被置于等待状态(在核对表M1内)。
+ 
+   一旦处理了每个核对表，核对表集中每个foundation 的一个候选对就被置于等待状态。
+ 
+6.1.3.  ICE 状态
+ 
+   ICE代理的状态由核对表的状态确定。如果所有核对表都已完成，则状态为已完成；如果所有核对表都失败，则状态为失败；否则，状态为正在运行。
+ 
+6.1.4.  检查计划
+ 
+6.1.4.1.  Triggered-Check 队列
+ 
+   一旦ICE代理计算了核对表并创建了核对表集合，如第6.1.2节所述，代理将开始执行连接检查(普通和触发)。对于触发的连通性检查，代理为每个检查表维护一个FIFO队列，称为“触发检查队列”，其中包含要在下一个可用机会发送检查的候选对。触发检查队列最初是空的。
+ 
+6.1.4.2.  执行连接检查
+ 
+   普通和触发的连通性检查的生成由定时器 Ta 管理。一旦设置了核对表集合中候选对的初始状态，就按照第7节中的步骤对处于运行状态的第一个核对表中的候选对执行检查。此后，每当 Ta 触发核对表集中处于运行状态的下一个核对表时，就会选取该核对表中的候选对，并对该核对表中的候选对象执行检查。在处理完所述核对表集合中处于运行状态的最后一个核对表之后，再次选取第一个核对表，依此类推。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   每当TA触发时，ICE代理将通过执行以下步骤来检查选中的核对表中的候选对：
+ 
+   1.  如果与清单相关联的触发检查队列包含一个或多个候选对，则代理从队列中移除顶部对，对该对执行连通性检查，将候选对状态设置为进行中，并中止后续步骤。
+ 
+   2.  如果没有处于等待状态的候选对，并且如果有一个或多个处于冻结状态的对，则代理检查与处于冻结状态的每个对相关联的 foundation 。对于给定的 foundation ，如果(在核对表集中的任何核对表中)没有处于正在等待或正在进行状态的对，则工程师会将候选对状态设置为等待并继续下一步。
+ 
+   3.  如果有一个或多个候选对处于等待状态，则代理挑选处于等待状态的最高优先级候选对(如果有多个具有相同优先级的对，则选择具有最低组件ID的对)，对该对执行连通性检查，将候选对状态设置为进行中，并中止后续步骤。
+ 
+   4.  如果达到此步骤，则不能对选中的核对表执行检查。因此，在不等待计时器Ta再次期满的情况下，选择处于运行状态的下一个核对表并返回到步骤#1。如果对于处于运行状态的每个单独的核对表都发生这种情况，意味着没有剩余的候选对来执行连通性检查，则中止这些步骤。
+ 
+   一旦代理选择了要对其执行连通性检查的候选对，代理就开始检查，并将绑定请求从与该对的本地候选相关联的基地发送到该对的远程候选，如第7.2.4节中所述。
+ 
+   根据本地策略，代理可以随时选择终止对检查表集中的一个或多个检查表执行连接检查。然而，只有控制代理人才能缔结ICE(第8节)。
+ 
+   为了计算检查的消息完整性，代理使用从其对等方获得的候选信息获取的远程用户名片段和密码。本地用户名片段由代理直接为其自己的候选者所知。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+6.2.  精简实施程序
+ 
+   除了验证对等体的ICE支持和确定其在ICE处理中的角色之外，精简实现跳过了第6节中的大多数步骤。
+ 
+   如果Lite实现是控制代理(仅当对等ICE代理也是Lite实现时才会发生)，则它基于候选交换中的候选对(对于IPv4，只有一个对)来选择候选对，然后在需要时使用反映该选择的新候选信息来更新对等(仅用于IPv4的主机从不需要它)。
+ 
+7.  执行连接检查
+ 
+   本节介绍如何执行连接检查。
+ 
+   ICE代理必须符合[RFC5389]。完整实现既充当STUN客户端又充当STUN服务器，而精简实现仅充当STUN服务器(因为它不生成连接检查)。
+ 
+7.1.  STUN 扩展
+ 
+   ICE使用以下属性扩展STUN：PRIORITY、USE-CANDIDATE、ICE-CONTROLLED和ICE-CONTROLLING。这些属性在第16.1节中有正式定义。本节介绍属性的用法。
+ 
+   这些属性仅适用于ICE连接检查。
+ 
+7.1.1.  PRIORITY
+ 
+   优先级属性必须包括在绑定请求中，并被设置为由第5.1.2节中的算法为本地候选计算的值，但具有对等自反式候选的候选类型首选项。
+ 
+7.1.2.  USE-CANDIDATE
+ 
+   控制代理必须包括使用-候选属性才能提名候选对(第8.1.1节)。受控代理不得在绑定请求中包括Use-Candiate属性。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+7.1.3.  ICE-CONTROLLED and ICE-CONTROLLING
+ 
+   控制代理必须在绑定请求中包括ICE-CONTROLLING属性。受控代理必须在绑定请求中包括ICE-CONTROLLED属性。
+ 
+   发生 ICE 角色冲突时，任一属性的内容都用作仲裁值（第 7.3.1.1 节）。
+ 
+7.2.  STUN 客户端程序
+ 
+7.2.1.  为被中继的候选人创建权限
+ 
+   如果使用转发的本地候选发送连接性检查，则客户端必须首先创建权限(如果它之前尚未创建权限)。如果它已经告诉TURN服务器为给定的被中继候选创建对远程候选的IP地址的许可，则它将在先前创建一个许可。要创建权限，ICE代理应遵循[RFC5766]中定义的程序。必须针对远程候选人的IP地址创建权限。建议代理将TURN通道的创建推迟到ICE完成，在这种情况下，连接检查的权限通常使用CreatePermission请求创建。一旦建立，代理必须保持权限有效，直到ICE结束。
+ 
+7.2.2.  生成凭证
+ 
+   连接检查绑定请求必须利用STUN短期凭证机制。
+ 
+   凭据的用户名由对等体提供的用户名片段与发送请求的ICE代理的用户名片段串联而成，中间用冒号(“：”)分隔。
+ 
+   该密码等于对等体提供的密码。
+ 
+   例如，考虑ICE代理L是引发剂而ICE代理R是响应剂的情况。代理L包括其候选者的用户名片段 LFRAG 和密码 LPASS。代理R提供了用户名片段 RFRAG 和密码 RPASS 。从L到R的连通性检查使用用户名 RFRAG：LFRAG 和密码 RPASS。从R到L的连通性检查使用用户名LFRAG：RFRAG 和密码 LPASS。响应使用与请求相同的用户名和密码(请注意，响应中不存在用户名属性)。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+7.2.3.  Diffserv Treatment
+ 
+   如果代理在其将发送的数据包中使用差分服务代码点(DSCP)标记[RFC2475]，则代理应将相同的标记应用于其将发送的绑定请求和响应。
+ 
+   如果在数据包上使用了多个DSCP标记，则代理应选择其中一个标记用于连接检查。
+ 
+7.2.4.  发送请求
+ 
+   通过从与本地候选相关联的基地向远程候选发送绑定请求来生成连通性检查。[RFC5389]介绍如何构造和生成绑定请求。
+ 
+   在执行连接检查时，不能假定支持向后兼容RFC 3489。必须使用指纹机制进行连接检查。
+ 
+7.2.5.  处理响应
+ 
+   本节定义了处理特定于ICE连接检查的绑定响应的其他步骤。
+ 
+   当接收到绑定响应时，使用事务ID[RFC5389]将其与相应的绑定请求相关联，然后将该响应与为其发送绑定请求的候选对相关联。在此之后，响应将按照角色冲突、失败或成功的程序进行处理，按照以下程序进行。
+ 
+7.2.5.1.  角色冲突
+ 
+   如果绑定请求生成487(角色冲突)错误响应(第7.3.1.1节)，并且如果ICE代理在请求中包含ICE-CONTROLLED属性，则代理必须切换到控制角色。如果代理在请求中包含ICE-CONTROLLING属性，则代理必须切换到受控角色。
+ 
+   一旦代理切换了其角色，代理必须将其检查生成487错误响应的候选对添加到与该对所属的检查表相关联的触发检查队列中，并将候选对状态设置为等待。当稍后执行触发的连接性检查时，绑定请求的ICE-CONTROLING/ICE-CONTROL属性将指示代理的新角色。代理必须更改仲裁值。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   注意：角色切换需要代理重新计算配对优先级(第6.1.2.3节)，因为优先级值取决于角色。
+ 
+   注意：角色切换还将影响代理是否负责提名候选对，以及一旦ICE结束，代理是否负责启动与对等设备交换更新的候选信息。
+ 
+7.2.5.2.  失败
+ 
+   本节介绍候选对状态设置为失败的情况。
+ 
+   注意：当ICE代理由于连接检查错误而将候选对状态设置为FAILED时，代理不会更改具有相同 foundation 的其他候选对的状态。
+ 
+7.2.5.2.1.  非对称传输地址
+ 
+   ICE代理必须检查绑定请求和响应中的源和目标传输地址是否对称。也就是说，响应的源IP地址和端口必须等于绑定请求发送到的目的IP地址和端口，并且响应的目的IP地址和端口必须等于发送绑定请求的源IP地址和端口。如果地址不对称，代理必须将候选对状态设置为失败。
+ 
+7.2.5.2.2.  ICMP 错误
+ 
+   ICE代理可以支持处理ICMP错误以进行连通性检查。如果代理支持ICMP错误的处理，并且绑定请求生成硬ICMP错误，则代理应将候选对的状态设置为失败。实施者需要注意，在决定如何以及是否处理ICMP错误时，ICMP错误可用作拒绝服务(DoS)攻击的方法。
+ 
+7.2.5.2.3.  超时
+ 
+   如果绑定请求事务超时，ICE代理必须将候选对状态设置为失败。
+ 
+7.2.5.2.4.  无法恢复的STUN 响应
+ 
+   如果绑定请求生成无法恢复的STUN错误响应[RFC5389]，ICE代理应将候选对状态设置为FAILED。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+7.2.5.3.  成功
+ 
+   如果以下每个条件均为真，则认为连接检查成功：
+ 
+   o  绑定请求生成了成功响应；以及
+ 
+   o  绑定请求和响应中的源和目标传输地址是对称的。
+ 
+   如果检查被认为是成功的，ICE代理将(按顺序)执行以下各节中描述的操作。
+ 
+7.2.5.3.1.  发现对等自反候选者
+ 
+   ICE代理必须检查来自STUN响应的映射地址。如果传输地址与代理所知的任何本地候选地址都不匹配，则映射的地址表示一个新的候选地址：对等自反候选。与其他候选人一样，对等自反有类型、基础、优先顺序和foundation。它们的计算方法如下：
+ 
+   o  类型是对等自反。
+ 
+   o  基础是发出绑定请求的候选对的本地候选。
+ 
+   o  优先级是绑定请求中的优先级属性的值。
+ 
+   o  foundation 在第5.1.1.3节中介绍。
+ 
+   然后，将对等自反候选添加到数据流的本地候选列表中。用户名片段和密码与该数据流的所有其他本地候选者相同。
+ 
+   ICE代理不需要将对等自反候选者与远程候选者配对，因为根据第7.2.5.3.2节中的程序将创建有效的候选者对。如果代理希望将对等自反候选与将被生成的有效对中的远程候选之外的远程候选配对，则代理可以向包括对等自反候选的对等方提供更新的候选信息。这将导致对等自反候选者与所有其他远程应聘者配对。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+7.2.5.3.2.  构造有效的配对
+ 
+   ICE代理构造一个候选者对，其本地候选者等于响应的映射地址，其远程候选者等于请求发送到的目的地址。这被称为“有效配对”。
+ 
+   有效配对可能等于生成连通性检查的对、核对表中的不同对或当前不在核对表中的对。
+ 
+   代理维护一个单独的列表，称为“有效列表”。核对清单集中的每个核对清单都有一个有效的清单。有效列表将包含有效对。最初，每个有效列表都是空的。
+ 
+   有效列表中的每个有效对都有一个标志，称为“提名标志”。当有效对被添加到有效列表时，标志值被设置为‘FALSE’。
+ 
+   有效对将被添加到有效列表，如下所示：
+ 
+   1.  如果有效对等于生成检查列表的对，则将该对添加到与该对所属的核对表相关联的有效列表中；或。
+ 
+   2.  如果有效对等于核对表中的另一对，则将该对添加到与该对的核对表相关联的有效列表。生成检查的对未添加到有效列表中；或。
+ 
+   3.  如果有效对不在任何核对表中，则代理使用第6.1.2节中的算法，基于每个候选者的优先级计算该对的优先级。当地候选人的优先顺序取决于其类型。除非类型是对等自反的，否则优先级等于在候选交换中为该候选用信号通知的优先级。如果类型是对等自反的，则等于代理在刚刚完成的绑定请求中放置的优先级属性。从对等点的候选信息中获取远程候选的优先级。如果候选人没有出现在那里，则该检查是对新的远程候选人的触发检查。在这种情况下，优先级被用作触发刚刚完成的检查的绑定请求中的优先级属性的值。然后将该对添加到有效列表中。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   注意：有效的配对不会出现在任何核对表中，这是非常常见的。回想一下，核对表中有些对的本地候选对象从不是自反的；这些对将其本地候选对象转换为自反候选对象的基础，如果它们是多余的，则将其修剪掉。当对绑定请求的响应到达时，如果两者之间存在NAT，则映射的地址将是自反的。在这种情况下，有效的配对将具有与清单中的任何配对都不匹配的本地候选。
+ 
+7.2.5.3.3.  更新候选对状态
+ 
+   ICE代理将生成检查的候选对和构建的有效对(可能不同)的状态设置为成功。
+ 
+   代理必须将所有清单中具有相同 foundation 的所有其他冻结候选对的状态设置为等待。
+ 
+   注意：在给定的核对表中，具有相同 foundation 的候选对通常具有不同的组件ID值。
+ 
+7.2.5.3.4.  更新提名标志
+ 
+   如果控制代理发送具有USE-CANDIDATE属性的绑定请求，并且如果ICE代理接收到对该请求的成功响应，则代理将该对的指定标志设置为真。如果请求失败(第7.2.5.2节)，代理必须从有效列表中删除候选对，将候选对状态设置为失败，并将核对表状态设置为失败。
+ 
+   如果受控代理接收到对代理发送的绑定请求的成功响应，并且该绑定请求是由设置了 USE-CANDIDATE 属性的接收绑定请求触发的(第7.3.1.4节)，则代理将该对的指定标志设置为真。如果触发的请求失败，代理必须从有效列表中删除候选对，将候选对状态设置为失败，并将核对表状态设置为失败。
+ 
+   一旦为数据流的一个组件设置了指定标志，它就结束对该组件的ICE处理(第8节)。
+ 
+7.2.5.4.  检查列表状态更新
+ 
+   无论连接检查是成功还是失败，完成检查都可能需要更新核对表状态。对于核对表集合中的每个核对表，如果所有候选对都处于失败或成功状态，并且如果在与核对表相关联的数据流的每个分量的有效列表中没有有效对，则核对表的状态被设置为失败。如果有效列表中的每个组件都有有效对，则核对表的状态设置为成功。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+ 
+7.3.  STUN 服务器程序
+ 
+   ICE代理(Lite或Full)必须准备好根据其最近的候选人交换中包括的每个候选人来接收具有约束力的请求。
+ 
+   代理必须使用短期凭据机制(即消息完整性属性)来验证请求并执行消息完整性检查。同样，必须对响应使用短期凭据机制。如果用户名由冒号分隔的两个值组成，则代理必须将其视为有效，其中第一个值等于代理在用于正在进行的会话的候选交换中生成的用户名片段。发起代理有可能(并且实际上很有可能)在从其对等方接收候选之前接收绑定请求。如果发生这种情况，代理必须立即生成响应(包括7.3.1.2节中描述的映射地址的计算)。此时，代理有足够的信息来生成响应；不需要来自对等方的密码。收到答案后，必须继续执行所需的其余步骤；即，请参见第7.3.1.3、7.3.1.4和7.3.1.5节以了解完整实现。在应答之前接收到多个STUN请求的情况下，这可能会导致几个对在触发检查队列中排队。
+ 
+   代理不得使用备用服务器机制，也不得支持RFC 5389中定义的向后兼容机制(用于使用RFC 3489中的协议)。它必须利用指纹机制。
+ 
+   如果代理在其数据包中使用DSCP标记[RFC2475]，它应该将相同的标记应用于绑定响应。这同样适用于端点可能应用于数据分组的任何第2层标记。
+ 
+7.3.1.  全面实施的其他程序
+ 
+   当完全实现接受绑定请求时，本小节定义了适用于完全实现的附加服务器过程。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+7.3.1.1.  检测和修复角色冲突
+ 
+   在ICE的某些用法(如3PCC)中，两个ICE代理可能最终选择相同的角色，从而导致角色冲突。本节介绍了一种检测和修复角色冲突的机制。用法文档必须指定是否需要此机制。
+ 
+   代理必须检查 ICE-CONTROLLING 或 ICE-CONTROLLED 属性的绑定请求。它必须遵循以下程序：
+ 
+   o  如果代理处于控制角色，并且请求中存在 ICE-CONTROLLING 属性：
+ 
+      *  如果代理的 tiebreaker 值大于或等于 ICE-CONTROLLING 属性的内容，则代理将生成绑定错误响应，并包括值为487(角色冲突)的 ERROR-CODE 属性，但保留其角色。
+ 
+      *  如果代理的 tiebreaker 小于 ICE-CONTROLING 属性的内容，则代理切换到受控角色。
+ 
+   o  如果代理处于受控角色，并且请求中存在 ICE-CONTROLLED 属性：
+ 
+      *  如果代理的 tiebreaker 大于或等于 ICE-CONTROLLED 属性的内容，则代理切换到控制角色。
+ 
+      *  如果代理的 tiebreaker 值小于 ICE-CONTROLLED 属性的内容，则代理将生成绑定错误响应，并包括值为487(角色冲突)的错误代码属性，但保留其角色。
+ 
+   o  如果代理是受控角色并且请求中存在 ICE-CONTROLLING 属性，或者如果代理是控制角色并且请求中存在 ICE-CONTROLLED 属性，则不存在冲突。
+ 
+   角色的更改将需要代理重新计算配对优先级(第6.1.2.3节)，因为这些优先级是角色的函数。角色的改变也将影响代理人是否负责选择提名对，并在ICE结束时启动与更新的候选人信息的交流。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   如果代理对绑定请求生成了成功的响应，则遵循7.3.1节中的其余小节，即使代理改变了角色。
+ 
+7.3.1.2.  计算映射地址
+ 
+   对于在被中继的候选上接收的请求，用于STUN处理(即，生成 XOR-MAPPED-ADDRESS 属性)的源传输地址是TURN服务器所看到的传输地址。如果绑定请求是通过数据指示递送的，则该源传输地址将出现在数据指示消息的XOR对等地址属性中。如果绑定请求是通过ChannelData消息传递的，则源传输地址是绑定到通道的地址。
+ 
+7.3.1.3.  学习对等自反候选
+ 
+   如果请求的源传输地址与任何现有的远程候选者都不匹配，则表示一个新的对等自反远程候选者。此候选人的结构如下：
+ 
+   o  类型是对等自反.
+ 
+   o  优先级是绑定请求中的优先级属性的值
+ 
+   o  foundation 是一个任意值，不同于所有其他远程候选人的foundation 。如果任何后续的候选人交换包含这个对等自反候选人，它将标志着候选人的实际 foundation 。
+ 
+   o  组件ID是请求被发送到的本地候选者的组件ID。
+ 
+   此候选人将被添加到远程候选人列表中。但是，ICE代理商不会将此候选人与任何本地候选人配对。
+ 
+7.3.1.4.  触发检查
+ 
+   接下来，代理构造一个对，其本地候选具有在其上接收STUN请求的传输地址(如代理所见)，并且远程候选等于请求来自的源传输地址(其可以是刚刚获知的对等体自反远程候选)。本地候选将是主机候选(对于未通过中继接收请求的情况)或中继候选(对于通过中继接收请求的情况)。本地候选人永远不能是服务器反身的候选人。由于两个候选者对代理来说都是已知的，它可以获得它们的优先级并计算候选者对的优先级。然后在核对表中查找这一对。可能会出现以下几种结果之一：</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+ 
+   o  当配对情侣已经在检查列表上时：
+ 
+      *  如果该对的状态为SUCCESS，则不会执行任何进一步操作。
+ 
+      *  如果该对的状态为正在进行中，则代理取消正在进行的交易。取消意味着代理将不会重新传输与连接检查事务相关联的绑定请求，不会将没有响应视为失败，而是将等待事务超时的持续时间以获得响应。此外，代理必须将该对放入与该核对表相关联的触发核对表中，并将该对的状态设置为等待，以便触发该对的新的连通性检查。创建新的连通性检查能够尽快验证进行中的对，而不必等待与原始连通性检查事务相关联的绑定请求的重新传输。
+ 
+      *  如果该对的状态为等待、冻结或失败，则代理必须将该对排入与核对表相关联的触发核对表中(如果尚未出现)，并将该对的状态设置为等待，以便触发该对的新连接检查。请注意，从失败到等待的状态更改也可能触发关联核对表的状态更改。
+ 
+   执行这些步骤是为了在两个代理都位于NAT之后时快速完成ICE。
+ 
+   o  如果该配对不在检查表上：
+ 
+      *  根据其优先级将该对插入到检查表中。
+ 
+      *  其状态设置为等待。
+ 
+      *  该对被排入触发检查队列。
+ 
+   当要发送触发检查时，它的构造和处理如第7.2.4节所述。这些过程要求代理知道对等方的传输地址、用户名片段和密码。远程候选者的用户名片段等于刚收到的绑定请求中用户名冒号之后的部分。使用该用户名片段，代理可以检查从其对等方接收的候选(在分叉的情况下可能有多个候选)，并找到该用户名片段。然后选择相应的密码。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+ 
+7.3.1.5.  更新提名标志
+ 
+   如果受控代理接收到设置了 USE-CANDIDATE 属性的绑定请求，并且ICE代理接受了该请求，则以下操作基于第7.3.1.4节中计算的配对的状态：
+ 
+   o  如果该对的状态为SUCCESS，则意味着该对先前发送的检查产生了成功的响应并生成了有效的对(第7.2.5.3.2节)。代理将有效对的提名标志值设置为真。
+ 
+   o  如果接收到的绑定请求触发了要在触发检查队列中排队的新检查(第7.3.1.4节)，一旦发送了检查，并且如果它生成了成功的响应并生成了有效的对，则代理将该对的指定标志设置为真。如果请求失败(第7.2.5.2节)，代理必须从有效列表中删除候选对，将候选对状态设置为失败，并将核对表状态设置为失败。
+ 
+   如果受控代理不接受来自控制代理的请求，则受控代理必须用适当的错误代码响应(例如，400)拒绝提名请求[RFC5389]。
+ 
+   一旦为数据流的组件设置了提名标志，它就结束对该组件的ICE处理。请参见第8节。
+ 
+7.3.2.  Lite实施的其他步骤
+ 
+   如果受控代理接收到具有设置的使用-候选属性的绑定请求，并且如果ICE代理接受该请求，则代理构建候选对，该候选对的本地候选具有在其上接收该请求的传输地址，并且其远程候选等于所接收的请求的源传输地址。该候选对被分配了任意优先级，并被放入相关核对表的有效列表中。代理将该对的指定标志设置为真。
+ 
+   一旦为数据流的组件设置了提名标志，它就结束对该组件的ICE处理。请参见第8节。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+8.  结束 ICE 流程
+ 
+   本节介绍ICE代理如何完成ICE。
+ 
+8.1.  全面实施的程序
+ 
+   结束ICE涉及由控制代理提名对和更新状态机制。
+ 
+8.1.1.  提名对
+ 
+   在提名之前，控制代理让连接性检查继续进行，直到满足某个停止标准。之后，基于评估标准，控制代理从有效列表中的有效对中挑选一对用于提名。
+ 
+   一旦控制代理选择了用于提名的有效对，它就重复产生该有效对的连通性检查(通过将产生检查的对排队到触发检查队列中)，这次使用 USE-CANDIDATE 属性(第7.2.5.3.4节)。受控的程序在第7.3.1.5节中描述。
+ 
+   最终，如果提名成功，则控制代理和受控代理在数据流的每个分量的有效列表中都将有一个单独的被提名对。一旦ICE代理将核对表的状态设置为已完成(当数据流的每个组件都有指定对时)，该对将成为该代理的选定对，并用于发送和接收数据流的该组件的数据。
+ 
+   如果代理不能为数据流的每个分量产生所选择的对，则该代理必须采取适当的动作来通知另一代理，例如通过移除该流。确切的操作超出了本规范的范围。
+ 
+   停止连通性检查和挑选要提名的配对的标准不在本规范的范围内。它们是一个局部优化的问题。唯一的要求是，代理最终必须选择一个且只有一个候选对，并为该对生成一个带有USE-CANDIDATE属性集的检查。
+ 
+   一旦控制代理成功地提名了候选对(第7.2.5.3.4节)，代理不得为ICE会话内的数据流的相同分量提名另一对。要执行此操作，需要重新启动ICE。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   不支持该规范(即，根据RFC 5245实现的)的控制代理可以提名一个以上的候选对。在RFC 5245中，这被称为“积极提名”。如果控制代理提名了多个候选对，并且受控代理接受了多个提名请求，则代理必须产生选定的对并使用具有最高优先级的对。
+ 
+   支持此规范的端点使用‘ice2’ICE选项(第10节)应防止根据RFC 5245实施的控制代理使用激进提名。
+ 
+   注意：在RFC 5245中，“积极提名”的使用允许代理在最终选择配对之前连续提名配对，以便允许发送关于这些配对的数据。在本规范中，数据始终可以在任何有效的对上发送，而无需指定。因此，不再需要激进的提名。
+ 
+8.1.2.  更新核对表和ICE状态
+ 
+   对于控制代理和受控代理，当数据流的一个组件的候选对被指定时，它可能会影响与该数据流相关联的核对表中的其他对。它还可能影响核对表的状态：
+ 
+   o  一旦数据流组件的候选对已被提名，并且与数据流相关联的核对表的状态正在运行，ICE代理必须从核对表和触发检查队列中删除相同组件的所有候选对。如果配对的状态为正在进行，则代理将取消正在进行的事务。取消意味着代理将不会重新传输与连接检查事务相关联的绑定请求，不会将没有响应视为失败，而是将等待事务超时的持续时间以获得响应。
+ 
+   o  一旦为数据流的每个组件指定了候选对，并且与数据流相关联的核对表的状态为正在运行，则ICE代理将核对表的状态设置为完成。
+ 
+   o  一旦数据流组件的候选对已被提名，代理必须继续响应它可能仍然接收到的针对被提名对以及与数据流相关联的核对表中的任何剩余候选对的任何绑定请求。如第7.3.1.4节所定义，当配对的状态为成功时，代理将不再在收到该配对的绑定请求时生成触发检查。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+    
+ 
+   一旦核对表集中每个核对表的状态完成，代理就会将ICE会话的状态设置为已完成。
+ 
+   如果核对表的状态为FAILED，则ICE无法成功完成与核对表关联的数据流的处理。正确的行为取决于核对表集中核对表的状态。如果控制代理希望在没有与失败的核对表相关联的数据流的情况下继续会话，并且如果仍有一个或多个核对表处于运行或完成模式，则代理可以允许ICE处理继续。代理必须采取适当的措施来移除故障数据流。如果控制代理不想继续会话并且必须终止会话，则ICE会话的状态设置为失败。
+ 
+   如果核对表集中每个核对表的状态为FAILED，则ICE会话的状态设置为FAILED。除非控制代理希望在没有数据流的情况下继续会话，否则它必须终止会话。
+ 
+8.2.  Lite实施的步骤
+ 
+   当ICE结束时，精简的ICE代理可以释放ICE未使用的候选主机，如第8.3节所述。
+ 
+   如果对等方是完全代理，则一旦精简代理接受候选对的提名请求，精简代理就认为该对是被提名的。一旦存在针对数据流的每个组件的提名对，这些对就成为针对数据流的组件的所选对。一旦精简代理为所有数据流的所有组件产生了选定的对，ICE会话状态就被设置为完成。
+ 
+   如果对等方是精简代理，则代理将本地候选与远程候选配对，这些候选具有相同的数据流，并且具有相同的组件、传输协议和IP地址族。对于每个数据流的每个分量，如果只有一个候选对，则将该对添加到有效列表。如果有多个配对，建议工程师按照RFC 6724[RFC6724]的步骤选择配对并将其添加到有效列表中。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   如果所有数据流的所有组件都有一对，则ICE处理的状态为完成。否则，控制代理必须发送更新的候选列表，以协调选择不同候选对的不同代理。在且仅在更新的候选交换完成之后，ICE处理才完成。
+ 
+8.3.  释放候选
+ 
+8.3.1.  完整的实施程序
+ 
+   本节中的规则描述了代理何时可以安全地停止发送或接收对未成为选定候选人(即未与选定候选人对关联)的候选人的检查，以及何时释放候选人。
+ 
+   一旦核对表达到已完成状态，代理应再等待三秒钟，然后它可以停止响应检查或对除成为选定候选人的候选人之外的所有本地候选人生成触发检查。一旦所有ICE会话已经停止使用给定的本地候选(一个候选可以由多个ICE会话使用，例如，在分叉场景中)，代理可以释放该候选。三秒钟的延迟处理使用积极提名的情况，选择的配对可以在ICE完成后快速更改。
+ 
+   释放服务器自反候选者从来都不是显式的；它发生在缺乏保持连接的情况下。
+ 
+8.3.2.  精简实施程序
+ 
+   一个Lite实现可以在ICE处理对于使用这些候选人的所有ICE会话达到已完成状态时立即释放未成为选定候选人的候选人。
+ 
+9.  ICE 重启
+ 
+   ICE代理可以重新启动现有数据流的ICE。ICE重启会刷新数据流的所有先前状态(代理角色除外)。ICE重启和全新数据会话之间的唯一区别是，在重启期间，可以使用现有数据会话继续发送数据，而新的数据会话始终需要确定角色。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   以下操作只能通过使用ICE重新启动来完成(代理必须使用ICE重新启动才能执行此操作)：
+ 
+   o  更改数据流的目的地。
+ 
+   o  从简单的实现到完整的实现。
+ 
+   o  从完整实现到精简实现。
+ 
+   要重新启动ICE，代理必须更改正在重新启动的数据流的密码和用户名片段。
+ 
+   当ICE重新启动时，新ICE会话的候选集合可能包括当前ICE会话中使用的一些、不包含或所有候选对象。
+ 
+   如第6.1.1节所述，代理不得将重新确定角色作为ICE重启的一部分，除非满足要求重新确定角色的某些标准。
+ 
+10.  ICE 选项
+ 
+   本节定义了一个新的ICE选项‘ice2’。当ICE代理在候选交换中包括‘ice2’时，ICE选项表示它符合此规范。例如，代理商不会使用RFC 5245中定义的积极提名程序。此外，它将确保符合RFC 5245的对等方也不使用激进提名，这是RFC 5245第14节对收到未知ICE选项的对等方的要求。
+ 
+   符合此规范的代理必须使用‘ice2’选项通知对等方遵守情况。
+ 
+   注意：‘ice2’选项的编码和用于将其传送到对等体的消息是特定于协议的。SDP[RFC4566]的编码在[ICE-SIP-SDP]中定义。
+ 
+11.  Keepalives
+ 
+   所有端点必须为每个数据会话发送保持连接。这些保持活动用于保持NAT绑定在数据会话中处于活动状态。应使用其对等方支持的格式发送保持连接。ICE端点允许为UDP流提供基于STUN的keepalives，因此，当ICE代理是完全ICE实施并且正在与支持ICE(精简或完全)的对等设备通信时，必须使用STUN keepalives。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   如果在过去Tr秒内未在每个候选对上发送任何数据包，则代理必须在用于发送数据的每个候选对上发送keepalive 。代理应使用15秒的Tr值。代理可以使用更大的值，但不得使用小于15秒的值。
+ 
+   一旦为数据流产生了选定的对，则仅在这些对上发送保持连接。
+ 
+   如果数据流被删除，代理必须停止在数据流上发送Keepalive。如果ICE会话终止，代理必须停止在所有数据流上发送保持连接。
+ 
+   代理可以为 Tr 使用另一个值，例如，基于配置或网络/NAT 特征。 例如，如果代理具有发现介入NAT的绑定生存期的动态方法，则它可以使用该值来确定Tr。在更受控制的网络环境中部署ICE的管理员应在其环境中将Tr设置为尽可能长的持续时间。
+ 
+   当 STUN 用于保持连接时，使用 STUN 绑定指示 [RFC5389]。 指示不得使用任何身份验证机制。 它应该包含指纹属性以帮助解复用，但它不应该包含任何其他属性。 它仅用于保持 NAT 绑定处于活动状态。 绑定指示使用用于数据的相同本地和远程候选项发送。 虽然绑定指示用于保持连接，但代理也必须准备好接收连接检查。 如果收到连接检查，则会生成响应，如 [RFC5389] 中所述，但对 ICE 处理没有影响。
+ 
+   默认情况下，工程师必须使用STUN Keepalives。单独的ICE用法和ICE扩展可以指定特定于使用/扩展的Keepalive。
+ 
+12.  数据处理
+ 
+12.1.  发送数据
+ 
+   在为数据流生成选定的对之前，ICE 代理可以发送任何有效对上的数据。
+ 
+   一旦为数据流产生了选定的对，代理必须仅在这些对上发送数据。
+ 
+   代理将数据从本地候选人的基地址发送到远程候选人。在本地中继候选的情况下，使用[RFC5766]中定义的程序通过基地址(位于TURN服务器)转发数据。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   如果本地候选是被转发的候选，则建议代理在TURN服务器上创建指向远程候选的通道。这是使用[RFC5766]第 ；11节中定义的频道创建程序来完成的。
+ 
+   数据流组件的选定对为：
+ 
+   o  如果该数据流的核对表的状态为RUNNING，并且由于ICE重启而没有先前为该组件选择的对，则为空。
+ 
+   o  如果数据流的核对表的状态为RUNNING，并且由于ICE重启而存在用于该组件的先前选择的对，则等于该数据流的组件的先前选择的对。
+ 
+   除非代理能够为与数据流相关联的每个组件产生选定的对，否则代理不能继续为与该数据流相关联的任何组件发送数据。
+ 
+12.1.1.  精简实现程序
+ 
+   精简实现不能发送数据，直到它有一个有效的列表，该列表包含该数据流的每个组件的候选对。一旦发生这种情况，ICE代理就可以开始发送数据分组。为此，它将数据发送到该对中的远程候选(将分组的目的地址和端口设置为等于该远程候选)，并将从与用于发送数据的候选对相关联的基地发送该数据。如果是被转发的候选对象，则使用[RFC5766]中定义的程序，从代理发送数据并通过基地(位于TURN服务器)转发。
+ 
+12.2.  接收数据
+ 
+   即使ICE代理仅被允许使用有效的候选对(并且，一旦产生了所选对，则仅在所选对上)发送数据，ICE实施在默认情况下应准备接收在与对等体的最新候选交换中提供的关于任何候选的数据。ICE用法可以定义与此不同的规则，例如，通过定义直到为数据流产生了所选对才发送数据。
+ 
+   当代理接收到具有特定RTP/RTCP数据流的新源或目标IP地址的RTP数据包时，建议代理重新调整其抖动缓冲区。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   RFC 3550[RFC3550]的第8.2节描述了用于检测同步源(SSRC)冲突和环路的算法。这些算法的部分基础是看到具有相同SSRC的不同源传输地址。然而，当使用ICE时，当数据流在候选之间切换时，有时会发生这样的变化。作为进行媒体数据传输的STUN交换的结果，代理将能够确定数据流来自相同的对等体。因此，如果源传输地址发生变化，但媒体数据分组来自相同的对等代理，则不能将其视为SSRC冲突。
+ 
+13.  可扩展性考虑因素
+ 
+   该规范对会话中的两个ICE代理如何协调以获得为数据选择的候选对集做出了非常具体的选择。预计未来的规范将希望更改这些算法，无论是像计时器微调这样的简单更改，还是像修改优先级算法这样的更大更改。进行这样的更改时，在会话中提供两个代理之间的互操作性是至关重要的。
+ 
+   首先，ICE提供了ICE选项概念。 对 ICE 的每个扩展或更改都与一个 ICE 选项相关联。 当代理支持此类扩展或更改时，它会向对等代理提供 ICE 选项作为候选交换的一部分。
+ 
+   实现互操作性的复杂性之一是，ICE依赖于在两个代理上运行的分布式算法来收敛于一组商定的候选对。如果两个代理运行不同的算法，则很难保证在相同的候选对上收敛。第8节中描述的提名程序通过将选择算法完全委托给控制代理来消除一些紧密协调的需要，即使两个代理使用不同的配对优先级算法，ICE也将完美收敛。这种收敛的关键之一是触发检查，它确保提名的对通过两个代理的验证。
+ 
+   ICE还可扩展到RTP以外的其他数据流和UDP以外的传输协议。针对非RTP数据流的ICE扩展需要指定它们使用多少组件并为其分配组件ID，从1开始表示最重要的组件ID。新传输协议的规范必须定义ICE处理中的各个步骤与UDP有何不同(如果有的话)。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+14.  设置Ta和RTO
+ 
+14.1.  General
+ 
+   在ICE收集阶段(第5.1.1节)和ICE执行连接检查(第7节)期间，ICE代理触发STUN和TURN事务。这些事务以Ta指示的速率调整，并且基于STUN事务的重传计时器(RTO)来计算每个事务的重传间隔[RFC5389]。
+ 
+   本节介绍如何在ICE收集阶段和ICE执行连接检查时计算Ta和RTO值。
+ 
+   注意：以前，在RFC 5245中，根据ICE是否用于实时数据流(例如，RTP)，定义了不同的公式来计算Ta和RTO。
+ 
+   下面的公式导致了这样一种行为，即在执行重传之前，代理将针对每个单次连接检查发送其第一个分组。这可以在RTO(表示重传间隔)的公式中看到。这些公式随要执行的检查次数N而变化。因此，ICE保持了一个很好的恒定速率，但它对丢包变得更加敏感。任何连通性检查的第一个单个数据包的丢失可能会导致验证该对需要很长时间，相反，优先级较低的检查(但没有数据包丢失的检查)更有可能首先完成。这导致ICE的性能不佳，选择较低优先级的对而不是较高优先级的对。
+ 
+14.2.  Ta
+ 
+   ICE代理应使用默认Ta值50 ms，但也可以根据关联数据的特征使用其他值。
+ 
+   如果代理要使用非缺省值的Ta值，则该代理必须在ICE会话建立期间向其对等设备指示建议的值。两个代理都必须使用建议的值中较高的值。如果代理没有建议值，则在比较哪个值较大时，该代理将使用默认值。
+ 
+   ICE代理应使用默认Ta值50 ms，但也可以根据关联数据的特征使用其他值。
+
+   无论为每个代理选择的Ta值如何，来自所有代理的所有事务的组合(如果给定的实现运行多个并发代理)的发送频率不得超过每5毫秒一次(就好像有一个全局Ta值用于调整所有代理的速度)。有关在ICE中使用5 ms值的背景，请参见附录B.1。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+ 
+   注意：附录C显示了使用不同Ta值所需带宽的示例。
+ 
+14.3.  RTO
+ 
+   在ICE收集阶段，ICE代理应使用以下公式计算RTO值：
+ 
+     RTO = MAX (500ms, Ta * (Num-Of-Cands))
+ 
+     Num-Of-Cands: 服务器自反和中继候选的数量
+ 
+   对于连接检查，代理应使用以下公式计算RTO值：
+ 
+     RTO = MAX (500ms, Ta * N * (Num-Waiting + Num-In-Progress))
+ 
+     N: 要执行的连接检查的总数。
+ 
+     Num-Waiting: 处于等待状态的检查表中的检查次数。
+ 
+     Num-In-Progress: 核对表集中处于进行中状态的检查数。
+ 
+     请注意，随着处于正在等待和正在进行中状态的检查数量的变化，每个事务的RTO将有所不同。
+ 
+
+   代理可以使用上述机制以外的其他机制来计算RTO值。代理不得使用小于500毫秒的RTO值。
+ 
+15.  示例
+ 
+   本节显示两个ICE示例：一个使用IPv4地址，另一个使用IPv6地址。
+ 
+   为便于理解，使用具有助记符名称的变量列出传输地址。名称的格式为 entity-type-seqno：“entity”是指传输地址所在的IP地址为“L”、“R”、“STUN”或“NAT”之一的实体。对于公共的传输地址，类型为“pub”；对于私有的传输地址，类型为“prv”[RFC1918]。最后，seq-no是对于特定实体上的相同类型的每个传输地址不同的序列号。每个变量都有一个IP地址和端口，分别由varname.IP和varname.PORT表示，其中varname是变量的名称。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+ 
+   在呼叫流本身中，STUN消息使用几个属性进行注释。“S=”属性指示消息的源传输地址。“D=”属性表示消息的目的传输地址。在STUN绑定响应消息中使用“MA=”属性，它指的是映射的地址。“Use-Cand”表示存在USE-CANDIDATE属性。
+ 
+   调用流示例省略了STUN身份验证操作，而专注于两个完整实现之间的单个数据流。
+ 
+15.1.  使用IPv4地址的示例。
+ 
+   下面的示例使用的是图7所示的拓扑。
+ 
+
+                                  +-------+
+                                  |STUN   |
+                                  |Server |
+                                  +-------+
+                                      |
+                           +---------------------+
+                           |                     |
+                           |      Internet       |
+                           |                     |
+                           +---------------------+
+                             |                |
+                             |                |
+                      +---------+             |
+                      |   NAT   |             |
+                      +---------+             |
+                           |                  |
+                           |                  |
+                        +-----+            +-----+
+                        |  L  |            |  R  |
+                        +-----+            +-----+
+ 
+                        Figure 7: Example Topology</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   在本例中，ICE代理L和R是完整的ICE实现。两个代理都有一个IPv4地址，并且都配置了相同的STUN服务器。NAT具有与端点无关的映射属性和与地址相关的过滤属性。ICE代理、STUN服务器和NAT的IP地址如下所示：
+ 
+   ENTITY                   IP Address  Mnemonic name
+   --------------------------------------------------
+   ICE Agent L:             10.0.1.1    L-PRIV-1
+   ICE Agent R:             192.0.2.1   R-PUB-1
+   STUN Server:             192.0.2.2   STUN-PUB-1
+   NAT (Public):            192.0.2.3   NAT-PUB-1
+
+
+             L             NAT           STUN             R
+             |STUN alloc.   |              |              |
+             |(1) STUN Req  |              |              |
+             |S=$L-PRIV-1   |              |              |
+             |D=$STUN-PUB-1 |              |              |
+             |-------------&gt;|              |              |
+             |              |(2) STUN Req  |              |
+             |              |S=$NAT-PUB-1  |              |
+             |              |D=$STUN-PUB-1 |              |
+             |              |-------------&gt;|              |
+             |              |(3) STUN Res  |              |
+             |              |S=$STUN-PUB-1 |              |
+             |              |D=$NAT-PUB-1  |              |
+             |              |MA=$NAT-PUB-1 |              |
+             |              |&lt;-------------|              |
+             |(4) STUN Res  |              |              |
+             |S=$STUN-PUB-1 |              |              |
+             |D=$L-PRIV-1   |              |              |
+             |MA=$NAT-PUB-1 |              |              |
+             |&lt;-------------|              |              |
+             |(5) L's Candidate Information|              |
+             |-------------------------------------------&gt;|
+             |              |              |              | STUN
+             |              |              |              | alloc.
+             |              |              |(6) STUN Req  |
+             |              |              |S=$R-PUB-1    |
+             |              |              |D=$STUN-PUB-1 |
+             |              |              |&lt;-------------|
+             |              |              |(7) STUN Res  |
+             |              |              |S=$STUN-PUB-1 |
+             |              |              |D=$R-PUB-1    |
+             |              |              |MA=$R-PUB-1   |
+             |              |              |-------------&gt;|</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+             |(8) R's Candidate Information|              |
+             |&lt;-------------------------------------------|
+             |              |         (9) Bind Req        |Begin
+             |              |         S=$R-PUB-1          |Connectivity
+             |              |         D=$L-PRIV-1         |Checks
+             |              |         &lt;-------------------|
+             |              |         Dropped             |
+             |(10) Bind Req |              |              |
+             |S=$L-PRIV-1   |              |              |
+             |D=$R-PUB-1    |              |              |
+             |-------------&gt;|              |              |
+             |              |(11) Bind Req |              |
+             |              |S=$NAT-PUB-1  |              |
+             |              |D=$R-PUB-1    |              |
+             |              |----------------------------&gt;|
+             |              |(12) Bind Res |              |
+             |              |S=$R-PUB-1    |              |
+             |              |D=$NAT-PUB-1  |              |
+             |              |MA=$NAT-PUB-1 |              |
+             |              |&lt;----------------------------|
+             |(13) Bind Res |              |              |
+             |S=$R-PUB-1    |              |              |
+             |D=$L-PRIV-1   |              |              |
+             |MA=$NAT-PUB-1 |              |              |
+             |&lt;-------------|              |              |
+             |Data          |              |              |
+             |===========================================&gt;|
+             |              |              |              |
+             |              |(14) Bind Req |              |
+             |              |S=$R-PUB-1    |              |
+             |              |D=$NAT-PUB-1  |              |
+             |              |&lt;----------------------------|
+             |(15) Bind Req |              |              |
+             |S=$R-PUB-1    |              |              |
+             |D=$L-PRIV-1   |              |              |
+             |&lt;-------------|              |              |
+             |(16) Bind Res |              |              |
+             |S=$L-PRIV-1   |              |              |
+             |D=$R-PUB-1    |              |              |
+             |MA=$R-PUB-1   |              |              |
+             |-------------&gt;|              |              |
+             |              |(17) Bind Res |              |
+             |              |S=$NAT-PUB-1  |              |
+             |              |D=$R-PUB-1    |              |
+             |              |MA=$R-PUB-1   |              |
+             |              |----------------------------&gt;|
+             |Data          |              |              |
+             |&lt;===========================================|</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+             |              |              |              |
+                                .......
+             |              |              |              |
+             |(18) Bind Req |              |              |
+             |S=$L-PRIV-1   |              |              |
+             |D=$R-PUB-1    |              |              |
+             |USE-CAND      |              |              |
+             |-------------&gt;|              |              |
+             |              |(19) Bind Req |              |
+             |              |S=$NAT-PUB-1  |              |
+             |              |D=$R-PUB-1    |              |
+             |              |USE-CAND      |              |
+             |              |----------------------------&gt;|
+             |              |(20) Bind Res |              |
+             |              |S=$R-PUB-1    |              |
+             |              |D=$NAT-PUB-1  |              |
+             |              |MA=$NAT-PUB-1 |              |
+             |              |&lt;----------------------------|
+             |(21) Bind Res |              |              |
+             |S=$R-PUB-1    |              |              |
+             |D=$L-PRIV-1   |              |              |
+             |MA=$NAT-PUB-1 |              |              |
+             |&lt;-------------|              |              |
+             |              |              |              |
+
+                          Figure 8: Example Flow
+ 
+   消息1-4：代理L从其本地IP地址收集候选主机，并从该本地IP地址向STUN服务器发送STUN绑定请求。该请求创建NAT绑定。绑定的NAT公共IP地址成为代理L的服务器自反候选地址。
+ 
+   消息5：代理L使用与ICE使用相关联的信令协议向代理R发送其本地候选信息。
+ 
+   消息6-7：代理R从其本地IP地址收集候选主机，并从该候选主机向STUN服务器发送STUN绑定请求。由于代理R不在NAT之后，因此R的服务器自反候选者将与主机候选者相同。
+ 
+   消息8：代理R使用与ICE使用相关联的信令协议将其本地候选信息发送给代理L。
+ 
+   由于两个代理都是完全的ICE实现，启动代理(代理L)成为控制代理。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   代理 L 和 R 都配对候选人。 两种代理最初都有两对。 但是，代理 L 将修剪包含其服务器反射候选对象的对，从而只生成一个 （L1）。 在代理 L 中，此对具有 $L_PRIV_1 的本地候选项和 $R_PUB_1 的远程候选项。 在代理 R 中，有两对。 优先级最高的对 （R1） 具有 $R_PUB_1 的本地候选项和 $L_PRIV_1 的远程候选项，第二对 （R2） 具有 $R_PUB_1 的本地候选项和 $NAT_PUB_1 的远程候选项。 配对如下所示（配对编号仅供参考）：
+ 
+                            Pairs
+   ENTITY                   Local         Remote     Pair #     Valid
+   ------------------------------------------------------------------
+   ICE Agent L:             L_PRIV_1      R_PUB_1       L1
+
+   ICE Agent R:             R_PUB_1       L_PRIV_1      R1
+                            R_PUB_1       NAT_PUB_1     R2
+ 
+   消息9：代理R发起对#2的连通性检查。由于该对的远程候选地址是代理L的私有地址，因此检查不会成功，因为请求不能从R路由到L，并且将被网络丢弃。
+ 
+   消息10-13：代理L启动对L1的连通性检查。检查成功，L创建一个新的对(L2)。新对的本地候选是$NAT_PUB_1，远程候选是$R_PUB_1。该对(L2)被添加到代理L的有效列表中。代理L现在可以根据需要在该对(L2)上发送和接收数据。
+ 
+                            Pairs
+   ENTITY                   Local         Remote     Pair #     Valid
+   ------------------------------------------------------------------
+   ICE Agent L:             L_PRIV_1      R_PUB_1       L1
+                            NAT_PUB_1     R_PUB_1       L2        X
+
+   ICE Agent R:             R_PUB_1       L_PRIV_1      R1
+                            R_PUB_1       NAT_PUB_1     R2
+ 
+   消息14-17：当代理R接收到来自代理L的绑定请求时(消息11)，它将启动触发的连通性检查。该对与代理R的现有对之一(R2)匹配。检查成功，并且该对(R2)被添加到代理R的有效列表中。如果愿意，代理R现在可以在该对(R2)上发送和接收数据。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+                            Pairs
+   ENTITY                   Local         Remote     Pair #     Valid
+   ------------------------------------------------------------------
+   ICE Agent L:             L_PRIV_1      R_PUB_1       L1
+                            NAT_PUB_1     R_PUB_1       L2        X
+ 
+   ICE Agent R:             R_PUB_1       L_PRIV_1      R1
+                            R_PUB_1       NAT_PUB_1     R2        X
+ 
+   消息18-21：在某一时刻，控制代理(代理L)决定在有效列表中提名一对(L2)。它对该对(L2)执行连通性检查，并在绑定请求中包括USE-CANDIDATE属性。当检查成功时，代理L将该对(L2)的提名标志值设置为‘真’，并且代理R将匹配对(R2)的提名标志值设置为‘真’。由于没有更多的组件与该流相关联，因此提名对成为选定的对。因此，对该流的处理进入完成状态。ICE进程也进入已完成状态。
+ 
+15.2.  使用IPv6地址的示例
+ 
+   下面的示例使用的是图9所示的拓扑。
+ 
+                                +-------+
+                                |STUN   |
+                                |Server |
+                                +-------+
+                                    |
+                         +---------------------+
+                         |                     |
+                         |      Internet       |
+                         |                     |
+                         +---------------------+
+                            |                |
+                            |                |
+                            |                |
+                            |                |
+                            |                |
+                            |                |
+                            |                |
+                         +-----+          +-----+
+                         |  L  |          |  R  |
+                         +-----+          +-----+
+ 
+                        Figure 9: Example Topology</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   在本例中，ICE代理L和R是完整的ICE实现。两个代理都有一个IPv6地址，并且都配置了相同的STUN服务器。ICE代理和STUN服务器的IP地址如下所示：
+ 
+   ENTITY                   IP Address  mnemonic name
+   --------------------------------------------------
+   ICE Agent L:             2001:db8::3   L-PUB-1
+   ICE Agent R:             2001:db8::5   R-PUB-1
+   STUN Server:             2001:db8::9   STUN-PUB-1
+ 
+
+
+             L                           STUN             R
+             |STUN alloc.                  |              |
+             |(1) STUN Req                 |              |
+             |S=$L-PUB-1                   |              |
+             |D=$STUN-PUB-1                |              |
+             |----------------------------&gt;|              |
+             |(2) STUN Res                 |              |
+             | S=$STUN-PUB-1               |              |
+             | D=$L-PUB-1                  |              |
+             | MA=$L-PUB-1                 |              |
+             |&lt;----------------------------|              |
+             |(3) L's Candidate Information|              |
+             |-------------------------------------------&gt;|
+             |                             |              | STUN
+             |                             |              | alloc.
+             |                             |(4) STUN Req  |
+             |                             |S=$R-PUB-1    |
+             |                             |D=$STUN-PUB-1 |
+             |                             |&lt;-------------|
+             |                             |(5) STUN Res  |
+             |                             |S=$STUN-PUB-1 |
+             |                             |D=$R-PUB-1    |
+             |                             |MA=$R-PUB-1   |
+             |                             |-------------&gt;|
+             |(6) R's Candidate Information|              |
+             |&lt;-------------------------------------------|
+             |(7) Bind Req                 |              |
+             |S=$L-PUB-1                   |              |
+             |D=$R-PUB-1                   |              |
+             |-------------------------------------------&gt;|
+             |(8) Bind Res                 |              |
+             |S=$R-PUB-1                   |              |
+             |D=$L-PUB-1                   |              |
+             |MA=$L-PUB-1                  |              |
+             |&lt;-------------------------------------------|</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+             |Data                         |              |
+             |===========================================&gt;|
+             |                             |              |
+             |(9) Bind Req                 |              |
+             |S=$R-PUB-1                   |              |
+             |D=$L-PUB-1                   |              |
+             |&lt;-------------------------------------------|
+             |(10) Bind Res                |              |
+             |S=$L-PUB-1                   |              |
+             |D=$R-PUB-1                   |              |
+             |MA=$R-PUB-1                  |              |
+             |-------------------------------------------&gt;|
+             |Data                         |              |
+             |&lt;===========================================|
+             |                             |              |
+                                .......
+             |                             |              |
+             |(11) Bind Req                |              |
+             |S=$L-PUB-1                   |              |
+             |D=$R-PUB-1                   |              |
+             |USE-CAND                     |              |
+             |-------------------------------------------&gt;|
+             |(12) Bind Res                |              |
+             |S=$R-PUB-1                   |              |
+             |D=$L-PUB-1                   |              |
+             |MA=$L-PUB-1                  |              |
+             |&lt;-------------------------------------------|
+             |              |              |              |
+
+                          Figure 10: Example Flow
+ 
+   消息1-2：代理L从其本地IP地址收集候选主机，并从中向STUN服务器发送STUN绑定请求。由于代理L不在NAT之后，因此L的服务器自反候选者将与主机候选者相同。
+ 
+   消息3：代理L使用与ICE使用相关联的信令协议向代理R发送其本地候选信息。
+ 
+   消息4-5：代理R从其本地IP地址收集候选主机，并从该候选主机向STUN服务器发送STUN绑定请求。由于代理R不在NAT之后，因此R的服务器自反候选者将与主机候选者相同。
+ 
+   消息6：代理R使用与ICE使用相关联的信令协议将其本地候选信息发送给代理L。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   由于两个代理都是完全的ICE实现，启动代理(代理L)成为控制代理。
+ 
+   特工L和R都将候选人配对。两个代理最初各有一对。在代理L，对(L1)具有本地候选$L_PUB_1和远程候选$R_PUB_1。在代理R，对(R1)具有本地候选$R_PUB_1和远程候选$L_PUB_1。配对如下所示(配对编号仅供参考)：
+ 
+                            Pairs
+   ENTITY                   Local         Remote     Pair #     Valid
+   ------------------------------------------------------------------
+   ICE Agent L:             L_PUB_1       R_PUB_1       L1
+
+   ICE Agent R:             R_PUB_1       L_PUB_1       R1
+ 
+   消息7-8：代理L启动对L1的连通性检查。检查成功，并且该对(L1)被添加到代理L的有效列表中。代理L现在可以在该对(L1)上发送和接收数据，如果它愿意的话。
+ 
+                            Pairs
+   ENTITY                   Local         Remote     Pair #     Valid
+   ------------------------------------------------------------------
+   ICE Agent L:             L_PUB_1       R_PUB_1       L1         X
+
+   ICE Agent R:             R_PUB_1       L_PUB_1       R1
+ 
+   消息9-10：当代理R接收到来自代理L的绑定请求时(消息7)，它将启动触发的连通性检查。该对与代理R的现有对(R1)匹配。检查成功，并且代理R将对(R1)添加到代理R的有效列表中。如果需要，代理R现在可以在对(R1)上发送和接收数据。
+ 
+                            Pairs
+   ENTITY                   Local         Remote     Pair #     Valid
+   ------------------------------------------------------------------
+   ICE Agent L:             L_PUB_1       R_PUB_1       L1         X
+
+   ICE Agent R:             R_PUB_1       L_PUB_1       R1         X
+ 
+   消息11-12：在某一时刻，控制代理(代理L)决定在有效列表中提名一对(L1)。它对该对(L1)执行连通性检查，并在绑定请求中包括Use-Candiate属性。当检查成功时，代理L将该对(L1)的提名标志值设置为‘真’，并且代理R将匹配对(R1)的提名标志值设置为‘真’。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   由于没有更多的组件与该流相关联，因此提名对成为选定的对。因此，对该流的处理进入完成状态。ICE进程也进入已完成状态。
+ 
+16.  STUN 扩展
+ 
+16.1.  属性
+ 
+   本规范定义了四个STUN属性：PRIORITY、USE-CANDIDATE, ICE-CONTROLLED 和ICE-CONTROLLING。
+ 
+   PRIORITY 属性指示要与对等自反候选相关联的优先级，如果通过该检查将发现一个候选的话。它是一个32位无符号整数，属性值为0x0024。
+ 
+   USE-CANDIDATE 属性指示由该检查产生的候选对将用于数据传输。该属性没有内容(该属性的长度字段为零)；它充当一个标志。它的属性值为0x0025。
+ 
+   绑定请求中存在 ICE-CONTROLLED 属性。该属性指示客户端认为它当前处于受控角色中。该属性的内容是一个网络字节顺序的64位无符号整数，其中包含一个随机数。这个数字被用来解决角色冲突，当它被称为“决胜值”时。ICE代理必须对ICE会话内的所有绑定请求、所有流使用相同的编号，除非它已收到487响应，在这种情况下，它必须更改编号(第7.2.5.1节)。当ICE重新启动时，代理可能会更改号码。
+ 
+   绑定请求中存在ICE-CONTROLING属性。该属性指示客户端认为它当前处于控制角色中。该属性的内容是一个网络字节顺序的64位无符号整数，其中包含一个随机数。对于ICE控制的属性，该数字用于解决角色冲突。代理必须对ICE会话内的所有绑定请求和所有流使用相同的编号，除非它已收到487响应，在这种情况下，它必须更改编号(第7.2.5.1节)。当ICE重新启动时，代理可能会更改号码。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+16.2.  新的错误响应代码
+ 
+   本规范定义了单个错误响应代码：
+ 
+   487(角色冲突)：绑定请求包含ICE-CONTROLLING 或 ICE-CONTROLLED属性，表示ICE角色与服务器冲突。远程服务器比较了客户端和服务器的决胜值，确定客户端需要切换角色。
+ 
+17.  运营商考虑
+ 
+   本节讨论与运营终端将使用ICE的网络的运营商相关的问题。
+ 
+17.1.  NAT和防火墙类型
+ 
+   ICE旨在与现有的NAT和防火墙设备配合使用。因此，无需更换或重新配置现有防火墙和NAT设备即可促进ICE的部署。事实上，开发ICE是为了在IP语音(VoIP)运营商无法控制IP网络基础设施(包括防火墙和NAT)的环境中部署。
+ 
+   也就是说，ICE最适合NAT设备“行为”兼容的环境，符合[RFC4787]和[RFC5382]中定义的建议。在具有行为兼容NAT的网络中，ICE将在不需要TURN服务器的情况下工作，从而提高语音质量，减少呼叫建立时间，并减少对网络运营商的带宽需求。
+ 
+17.2.  带宽要求
+ 
+   ICE的部署可以与运营商需要考虑的可用网络容量进行多次交互。
+ 
+17.2.1.  STUN和TURN服务器-容量规划
+ 
+   首先，ICE使用TURN和STUN服务器，这些服务器通常位于数据中心。STUN服务器需要的带宽相对较少。对于每个数据流的每个分量，将存在从每个客户端到STUN服务器的一个或多个STUN事务。在基本的纯语音IPv4 VoIP部署中，每个呼叫将有四个事务(主叫方和被叫方各有一个用于RTP和一个用于RTCP)。每个事务是单个请求和单个响应，前者为20字节长，后者为28字节长。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   因此，如果系统有N个用户，并且每个用户在忙时进行四个呼叫，则这将需要N*1.7bps。对于100万用户来说，这是1.7 Mbps，这是一个非常小的数字(相对而言)。
+ 
+   TURN流量更大。 除了实际数据的流量外，TURN服务器还将看到与STUN量相等的流量（实际上，如果部署了TURN服务器，则不需要单独的STUN服务器）。 需要 TURN 进行数据中继的呼叫量高度依赖于网络拓扑，并且可能且将随时间而变化。 在具有 100% 行为兼容的 NAT 的网络中，它正好为零。
+ 
+   在多媒体场景中(例如，音频和视频会议)以及当参加会议的人数增加时，上述规划考虑因素变得更加重要。
+ 
+17.2.2.  收集和连接检查
+ 
+   收集候选数据和执行连接检查的过程可能会占用大量带宽。ICE的设计是为了使这两个过程保持同步。收集和连接检查阶段的目的是在ICE进程结束后以与数据流量本身消耗的带宽大致相同的带宽生成流量。这样做是为了确保如果网络设计为支持特定类型(语音、视频或仅文本)的通信流量，则它将有足够的容量来支持对该数据的ICE检查。一旦ICE结束，随后的ICE持久连接将导致总带宽利用率的微幅增加；然而，这通常是非常小的增加。
+ 
+   收集和检查阶段导致的拥塞已被证明是未使用调整的部署中的一个问题。通常，访问链路会变得拥塞，因为端点会以尽可能快的速度向网络发送大量检查。因此，网络运营商需要确保其ICE实施支持调整功能。虽然这种调整确实增加了呼叫建立时间，但它使ICE网络更友好，更易于部署。
+ 
+17.2.3.  Keepalives
+ 
+   STUN Keepalive(以STUN绑定指示的形式)在数据会话中间发送。但是，只有在没有实际数据流量的情况下才会发送它们。在具有连续媒体且不使用语音活动检测(VAD)的部署中，或者在VAD与短间隔(最大1秒)舒适噪声一起使用的部署中，永远不会使用保持连接，并且带宽使用量不会增加。当使用无舒适噪声的VAD时，将在静默期间发送保持连接。这涉及到每15-20秒发送一个信息包，远低于有语音时每20-30毫秒发送一次的信息包。因此，keepalives 不会对容量规划产生任何实际影响。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+ 
+17.3.  ICE and ICE-Lite
+ 
+   混合使用 ICE 和 ICE-lite 的部署相互互操作。 它们已被明确设计为这样做。
+ 
+   然而，ICE-Lite只能部署在有限的用例中。这些案例以及这样做所涉及的注意事项都记录在附录A中。
+ 
+17.4.  故障排除和性能管理
+ 
+   ICE利用端到端连接检查，并将大部分处理放在端点中。这给网络运营商带来了一个挑战--他们如何排除ICE部署的故障？他们怎么知道ICE的表现呢？
+ 
+   ICE有内置的功能来帮助处理这些问题。通常部署在网络运营商的数据中心的信令服务器将看到传达ICE参数的候选交换机的内容。这些参数包括每个候选服务器的类型(主机、服务器自反或转发)，以及它们的相关地址。一旦ICE处理完成，就会发生更新的候选交换，用信号通知所选地址(及其类型)。执行此更新的信令完全是为了让网络设备(例如连接到信令的诊断工具)了解ICE处理的结果。
+ 
+   因此，通过信令服务器生成的日志，网络运营商可以观察到每个呼叫使用了什么类型的候选以及ICE选择了什么地址。这是帮助评估ICE表现的主要信息。
+ 
+17.5.  终端配置
+ 
+   ICE依赖于配置到终端的几条数据。该配置数据包括计时器、TURN服务器的凭据以及STUN和TURN服务器的主机名。ICE本身不提供这种配置的机制。相反，假设此信息附加到用于配置端点中的所有其他参数的任何机制。对于SIP电话，已经定义了配置框架[RFC6080]等标准解决方案。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+18.  IAB 注意事项
+ 
+   IAB研究了“单边自我地址固定”(Unsaf)问题，这是ICE代理试图通过协作协议反射机制确定其在NAT另一端的另一个域中的地址的一般过程[RFC3424]。ICE就是执行这类功能的协议的一个例子。有趣的是，ICE的进程不是单边的，而是双边的，这种差异对IAB提出的问题有重大影响。事实上，ICE可以被认为是双边自我地址固定(B-SAF)协议，而不是UnSAF协议。无论如何，IAB已经规定，为此目的开发的任何协议都必须记录一组特定的考虑因素。本部分符合这些要求。
+ 
+18.1.  问题定义
+ 
+   根据RFC 3424，任何UNSAF提案都需要提供：
+ 
+      明确界定将通过 UNSAF 提案解决的特定、有限范围的问题。不应将短期解决方案一概而论地解决其他问题。这样的概括导致了对假定的短期解决办法的长期依赖和使用--这意味着称其为“短期”不再准确。
+ 
+   ICE正在解决的具体问题包括：
+ 
+      为两个对等体提供了确定可用于通信的传输地址集的手段。
+ 
+      为代理提供了确定其希望与之通信的另一对等体可到达的地址的手段。
+ 
+18.2.  退出策略
+ 
+   根据RFC 3424，任何UNSAF提案都需要提供：
+ 
+      对退出战略/过渡计划的描述。更好的短期修复是那些随着适当技术的部署自然会越来越少使用的修复。
+ 
+   ICE 本身并不容易被逐步淘汰。然而，即使在全球连接的互联网中，它也是有用的，例如，用作检测路由器故障是否暂时中断连接的手段。ICE还有助于防止某些与NAT无关的安全攻击。然而，ICE所做的是帮助逐步淘汰其他联合国安全援助框架机制。ICE有效地在这些机制中挑选，优先考虑较好的机制，剥夺较差的机制。随着IPv6的引入，NAT开始消失，服务器自反式和中继式候选地址(这两种形式的Unsaf地址)根本不会被使用，因为存在到本地候选主机的更高优先级连接。因此，服务器的使用率越来越低，当使用率降至零时，最终可能会被移除。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+
+
+
+ 
+ 
+   事实上，ICE可以帮助从IPv4过渡到IPv6。它可以用来确定当两个双堆栈主机通过SIP通信(使用IPv6)时是使用IPv6还是使用IPv4。它还允许同时具有6to4和本征v6连接的网络确定在与对等设备通信时使用哪个地址。
+ 
+18.3.  ICE带来的脆弱性
+ 
+  根据RFC 3424，任何UNSAF提案都需要提供：
+ 
+      讨论可能使系统更加“脆弱”的具体问题。例如，涉及在多个网络层使用数据的方法会产生更多依赖，增加调试挑战，并使过渡变得更加困难。
+ 
+   ICE 实际上消除了现有UNSAF机制的脆性。特别是，经典的STUN(如RFC 3489[RFC3489]中所述)有几个脆性点。其中之一是发现过程，该过程需要ICE代理尝试对其背后的NAT类型进行分类。这个过程很容易出错。对于ICE，这个发现过程根本没有使用。不是单方面评估地址的有效性，而是通过测量与对等设备的连通性来动态确定其有效性。确定连接性的过程非常稳健。
+ 
+   经典的STUN和任何其他单边机制的另一个弱点是它绝对依赖额外的服务器。ICE使用服务器来分配单向地址，但它允许代理在可能的情况下直接连接。因此，在某些情况下，当使用ICE时，STUN服务器的故障仍然允许调用进行。
+ 
+   经典STUN的另一个脆弱性是，它假设STUN服务器位于公共互联网上。有趣的是，对于ICE，这并不是必要的。在各种地址域中可以有大量的STUN服务器。ICE将发现提供了可用地址的地址。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   经典STUN最让人头疼的地方是，它并不适用于所有网络拓扑。在每个代理和STUN服务器之间存在共享NAT的情况下，传统的STUN可能无法工作。有了ICE，这一限制就消除了。
+ 
+   Classic STUN还引入了一些安全注意事项。幸运的是，ICE也减轻了这些安全方面的考虑。
+ 
+   因此，ICE用于修复经典STUN中引入的脆性，并且它不会在系统中引入任何额外的脆性。
+ 
+   这些改进的代价是ICE增加了会话建立时间。
+ 
+18.4.  对长期解决方案的要求
+ 
+   根据RFC 3424，任何UNSAF提案都需要提供以下内容：
+ 
+      确定长期、合理的技术解决方案的需求；为找到正确的长期解决方案做出贡献。
+ 
+   我们从RFC 3489得出的结论保持不变。然而，我们认为ICE实际上是有帮助的，因为我们相信它可以成为长期解决方案的一部分。
+ 
+18.5.  现有NAPT盒的问题
+ 
+   根据RFC 3424，任何UNSAF提案都需要提供：
+ 
+      利用现有的、已部署的 NA[P]Ts和经验报告讨论所提到的实际问题的影响。
+ 
+   许多NAT盒现在正被部署到市场上，试图提供“通用”的ALG功能。这些通用ALG在包中以文本或二进制形式搜索IP地址，如果它们与绑定匹配，则重写它们。这会干扰经典的STUN效果。但是，STUN[RFC5389]的更新使用了对通用ALG隐藏这些二进制地址的编码。
+ 
+   对于基于UDP的绑定，现有的NAPT盒具有不确定且通常较短的到期时间。这要求实现定期发送保持连接以维护这些绑定。ICE使用默认的15秒，这是一个非常保守的估计。最终，随着时间的推移，随着NAT盒变得符合行为[RFC4787]，这个最小保持活动将变得确定和众所周知，并且ICE计时器可以调整。有一种方法可以发现和控制最小保活间隔，那就更好了。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+ 
+ 
+19.  安全注意事项
+ 
+19.1.  IP地址隐私
+ 
+   探测候选的过程会向任何网络侦听攻击者透露客户端及其对等体的源地址，而交换候选的过程会向能够看到协商的任何攻击者透露地址。某些地址(例如通过VPN用户的本地接口收集的服务器自反地址)可能是敏感信息。如果无法缓解这些潜在的攻击，ICE用法可以定义用于控制向协商和/或探测过程透露哪些地址的机制。各个实现还可以具有特定于实现的规则，用于控制哪些地址被揭示。例如，[WebRTC-IP处理]提供了有关通过ICE为WebRTC应用程序泄露IP地址的隐私方面的附加信息。建议在可能出现此类问题的ICE实现中提供编程或用户界面，以控制使用哪些网络接口来生成候选对象。
+ 
+   基于对等点提供的候选类型以及针对这些候选执行的连通性测试的结果，对等点可能能够确定本地网络的特征，例如，如果不同的定时对于对等点是显而易见的。在限制范围内，对等方可能能够探测本地网络。
+ 
+   ICE系统中可能存在多种类型的攻击。这些小节考虑这些攻击及其对策。
+ 
+19.2.  对连接检查的攻击
+ 
+   攻击者可能会试图中断STUN连接检查。最终，所有这些攻击都会欺骗ICE代理，使其对连通性检查的结果产生不正确的想法。根据攻击类型的不同，攻击者需要具有不同的能力。在某些情况下，攻击者需要在连接检查的路径上。在其他情况下，攻击者不需要在路径上，只要它能够生成STUN连接检查即可。虽然对连通性检查的攻击通常由网络实体执行，但如果攻击者能够控制端点，则它可能能够触发连通性检查攻击。攻击者可能尝试并导致的错误结论包括：</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   假无效：攻击者可以欺骗一对代理，使其认为候选对无效，但事实并非如此。这可以用来使代理更喜欢不同的候选(例如攻击者注入的候选人)，或者通过强迫所有候选失败来中断呼叫。
+ 
+   假有效：攻击者可以欺骗一对代理，使其认为候选对是有效的，但实际上并非如此。这可能会导致代理继续会话，但随后无法接收任何数据。
+ 
+   错误的对等自反候选：攻击者可以使代理在不期望的情况下发现新的对等自反候选。这可用于将数据流重定向到DoS目标或攻击者，用于窃听或其他目的。
+ 
+   False Valid on False Candidate:  攻击者已经使代理相信存在地址不会实际路由到该代理的候选(例如，通过注入虚假的对等自反候选或虚假的服务器自反候选)。然后，攻击者发起攻击，迫使代理相信该候选人是有效的。
+ 
+      如果攻击者可以导致错误的对等自反性候选或对错误的候选有效，则它可以发起[RFC5389]中描述的任何攻击。
+ 
+   要强制错误的无效结果，攻击者必须等待来自其中一个代理的连接检查被发送。如果是，攻击者需要使用不可恢复的错误响应(如400)注入一个假响应，或者丢弃该响应，使其永远不会到达代理。然而，由于候选实际上是有效的，所以原始请求可能到达对等代理并导致成功响应。攻击者需要通过DoS攻击、第2层网络中断或其他技术强制丢弃此数据包或其响应。如果它不这样做，成功响应也会到达发起者，提醒它可能的攻击。攻击者生成虚假响应的能力通过STUN短期凭据机制得到缓解。为了处理此响应，攻击者需要密码。如果候选交换信令是安全的，攻击者将没有密码，其响应将被丢弃。
+ 
+  </pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+  欺骗的ICMP硬错误(类型3，代码2-4)也可用于创建虚假的无效结果。如果ICE代理实现了对这些ICMP错误的响应，则攻击者能够生成ICMP消息，并将该消息传递给发送连接检查的代理。代理对ICMP错误消息的验证是其唯一的防御措施。对于类型3代码=4，外部IP报头不提供验证，除非连接检查是在df=0的情况下发送的。对于由主机发起的代码2或3，地址应为远程代理的主机、自反或中继候选IP地址中的任何一个。ICMP消息包括触发错误的消息的IP报头和UDP报头。这些字段也需要进行验证。IP目标和UDP目标端口需要匹配目标候选地址和端口或候选的基地址。源IP地址和端口可以是与发送连接检查的代理相同的基地址的任何候选地址。因此，任何有权访问候选人交换的攻击者都将拥有必要的信息。因此，验证是一种弱防御，对于没有源地址验证的网络中的非路径攻击者，发送欺骗的ICMP攻击也是可能的。
+ 
+   强制假的有效结果的工作方式与此类似。攻击者需要等待来自每个代理的绑定请求，并注入一个假的成功响应。同样，由于STUN短期凭据机制，为了让攻击者注入有效的成功响应，攻击者需要密码。或者，攻击者可以将有效的成功响应路由(例如，使用隧道机制)到代理，该有效的成功响应通常会被网络丢弃或拒绝。
+ 
+   可以使用虚假请求或响应，或者通过重放来强制执行错误的对等自反候选结果。我们首先考虑虚假请求和响应的案例。它要求攻击者向一个代理发送绑定请求，该代理带有虚假候选者的源IP地址和端口。此外，攻击者需要等待来自其他代理的绑定请求，并生成带有包含假候选的XOR映射地址属性的假响应。与这里描述的其他攻击一样，这种攻击通过STUN消息完整性机制和安全候选交换得到缓解。
+ 
+   用数据包重放来强制错误的对等点自反候选结果是不同的。攻击者等待，直到其中一个代理发送支票。它拦截该请求，并将其重放到具有伪造源IP地址的另一个代理。它还需要阻止原始请求到达远程代理，方法是发起DoS攻击以导致丢弃数据包或使用第2层机制强制丢弃该数据包。由于完整性检查通过(完整性检查不能也不覆盖源IP地址和端口)，重放的分组在另一个代理处被接收和接受。然后，它会得到响应。该响应将包含与假候选人的XOR映射地址，并且它将被发送给该假候选人。然后，攻击者需要接收它，并将其转发给发起者。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   然后，另一个代理将发起对该错误候选的连通性检查。此验证需要成功。这需要攻击者对错误的候选人强制执行错误有效。使用STUN和候选交换的完整性机制来防止注入虚假请求或响应以实现该目标。因此，这种攻击只能通过回放来发起。要做到这一点，攻击者需要截获对该错误候选人的检查，并对另一个代理重播该检查。然后，它需要拦截响应，并将其回放。
+ 
+   除非假冒候选人确认攻击者的身份，否则这种攻击很难发动。这是因为它要求攻击者拦截和重播由两台不同主机发送的数据包。如果两个代理位于不同的网络上(例如，通过公共互联网)，则此攻击可能很难协调，因为它需要同时针对网络不同部分上的两个不同端点进行。
+ 
+   如果攻击者本身是由假候选人识别的，那么攻击就更容易协调。然而，如果数据路径是安全的(例如，使用安全实时传输协议(SRTP)[RFC3711])，攻击者将无法处理数据分组，而只能丢弃它们，从而有效地禁用数据流。但是，此攻击要求代理中断数据包，以阻止连接检查到达目标。在这种情况下，如果目标是中断数据流，那么使用相同的机制中断它要容易得多，而不是攻击ICE。
+ 
+19.3.  对服务器自反式地址收集的攻击
+ 
+   ICE端点利用STUN绑定请求从STUN服务器收集服务器自反候选对象。这些请求不会以任何方式进行身份验证。因此，攻击者可以使用多种技术向客户端提供虚假的服务器自反候选者：
+ 
+   o  攻击者可以危害DNS，从而导致DNS查询返回恶意STUN服务器地址。该服务器可以向客户端提供虚假的服务器自反候选者。虽然不需要DNSSEC来解决此攻击，但可通过DNS安全来缓解此攻击。
+ 
+   o  可以观察STUN消息的攻击者(如共享网段上的攻击者，如Wi-Fi)可以注入有效并将被客户端接受的虚假响应。
+ 
+   o  攻击者可以危害STUN服务器，并使其使用错误的映射地址发送响应。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   通过这些攻击获取的错误映射地址将被用作建立ICE会话的服务器自反候选地址。为了使该候选者真正用于数据，攻击者还需要攻击连接性检查，尤其是对错误的候选者强制假有效。如果虚假地址标识了第四方(既不是发起者、响应者也不是攻击者)，则很难发起这种攻击，因为它需要攻击会话中每个ICE代理生成的检查，并且如果SRTP本身标识了攻击者，则SRTP可以阻止它。
+ 
+   如果攻击者选择不攻击连接检查，那么它所能做的最坏的事情就是阻止使用服务器自反候选。然而，如果对等代理至少有一个被攻击的代理可以到达的候选，STUN连通性检查本身将提供可用于数据交换的对等自反候选。对等自反候选人通常比服务器自反候选人更受欢迎。因此，仅对STUN地址收集的攻击通常不会对会话产生任何影响。
+ 
+19.4.  对中继候选人收集的攻击
+ 
+   攻击者可能会试图中断转发的候选人的收集，迫使客户端相信它有一个虚假的转发候选人。与TURN服务器的交换使用长期凭证进行身份验证。因此，注入虚假响应或请求将不起作用。此外，与绑定请求不同，分配请求不容易受到具有修改的源IP地址和端口的重放攻击，因为源IP地址和端口不被用来向客户端提供其被中继的候选。
+ 
+   即使攻击者使客户端相信错误转发的候选项，只有当连接检查成功时，才会使用这样的候选项。因此，攻击者需要对错误的候选对象发起错误有效攻击，这是一个很难协调的攻击。
+ 
+19.5.  内部攻击
+ 
+   除了攻击者是第三方试图插入虚假候选人信息或STUN消息的攻击外，当攻击者是ICE交换中经过身份验证的有效参与者时，还可能使用ICE进行攻击。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+19.5.1.  STUN 放大攻击
+ 
+   STUN 放大攻击类似于语音锤攻击，攻击者会导致其他代理将语音数据包定向到攻击目标。但是，不是将语音数据包定向到目标，而是将STUN连接检查定向到目标。攻击者发送了大量的候选人，比如说，50个。响应代理接收候选信息并开始其针对目标的检查，因此永远不会生成响应。在WebRTC的情况下，用户甚至可能不知道这种攻击正在进行，因为它可能是由用户获取的恶意JavaScript代码在后台触发的。应答者将每隔Ta ms(比方说Ta=50ms)开始新的连通性检查。然而，由于候选的数量很大，重发定时器被设置为大量。因此，将以每Ta毫秒一个的间隔发送分组，然后在之后以递增的间隔发送分组。因此，STUN不会以比发送数据更快的速度发送数据包，并且STUN数据包只会短暂存在，直到会话的ICE失败。尽管如此，这是一个放大机制。
+ 
+   要消除放大是不可能的，但可以通过各种启发式方法来缩小体积。ICE代理应将其执行的连接检查总数限制在100次。此外，代理可以限制他们将接受的候选人数量。
+ 
+   通常，希望避免此类攻击的协议会迫使发起方在发送下一条消息之前等待响应。然而，在ICE 的情况下，这是不可能的。无法区分以下两种情况：
+ 
+   o  没有响应，因为发起方正被用来对不会响应的可疑目标发起DoS攻击。
+ 
+   o  没有响应，因为启动器无法访问IP地址和端口。
+ 
+   在第二种情况下，将在下一次机会发送另一张检查，而在前一种情况下，不会发送进一步的检查。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+20.  IANA 注意事项
+ 
+   原始ICE规范注册了四个STUN属性和一个新的STUN错误响应。STUN属性和错误响应在此处重现。此外，该规范还注册了一个新的ICE选项。
+ 
+20.1.  STUN 属性
+ 
+   IANA 注册了四个STUN属性：
+ 
+      0x0024 PRIORITY
+      0x0025 USE-CANDIDATE
+      0x8029 ICE-CONTROLLED
+      0x802A ICE-CONTROLLING
+ 
+20.2.  STUN 错误响应
+ 
+   IANA注册了以下STUN错误响应代码：
+ 
+    487   角色冲突: 客户端断言的ICE角色(控制或受控)与服务器的角色冲突。
+ 
+20.3.  ICE 选项
+ 
+   IANA已按照[RFC6336]中定义的程序，在“交互式连接建立(ICE)”注册表的“ICE选项”子注册表中注册了以下ICE选项。
+ 
+   ICE Option name:
+      ice2
+
+   Contact:
+      Name:    IESG
+      Email:   iesg@ietf.org
+
+   Change Controller:
+      IESG
+
+   Description:
+      ICE选项表示根据RFC 8445实施使用ICE选项的ICE代理。
+
+   Reference:
+      RFC 8445</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+21.  Changes from RFC 5245
+ 
+   此更新的ICE规范的目的是：
+ 
+   o  澄清RFC 5245中的程序。
+ 
+   o  根据RFC 5245中发现的缺陷以及实施和部署基于RFC 5245的ICE应用程序的社区的反馈，进行技术更改。
+ 
+   o  通过删除SIP和SDP程序，使这些程序独立于信令协议。特定于信令协议的程序将在单独的使用文档中定义。[ICE-SIP-SDP]使用SIP和SDP定义ICE的用法。
+ 
+   已做了以下技术更改：
+ 
+   o  激进的提名被取消。
+ 
+   o  修改了计算候选配对状态和计划连通性检查的过程。
+ 
+   o  修改了Ta和RTO的计算程序。
+ 
+   o  已删除活动核对表和冻结核对表定义。
+ 
+   o  添加了‘ice2’ICE选项。
+ 
+   o  修改了IPv6注意事项。
+ 
+   o  删除了Keepalives和与非ICE对等项的Keepalives的无操作使用率。
+ 
+22.  参考文献
+ 
+22.1.  规范性参考文献
+ 
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119,
+              DOI 10.17487/RFC2119, March 1997,
+              <https: www.rfc-editor.org="" info="" rfc2119="">.
+
+   [RFC4941]  Narten, T., Draves, R., and S. Krishnan, "Privacy
+              Extensions for Stateless Address Autoconfiguration in
+              IPv6", RFC 4941, DOI 10.17487/RFC4941, September 2007,
+              <https: www.rfc-editor.org="" info="" rfc4941="">.</https:></https:></pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   [RFC5389]  Rosenberg, J., Mahy, R., Matthews, P., and D. Wing,
+              "Session Traversal Utilities for NAT (STUN)", RFC 5389,
+              DOI 10.17487/RFC5389, October 2008,
+              <https: www.rfc-editor.org="" info="" rfc5389="">.
+
+   [RFC5766]  Mahy, R., Matthews, P., and J. Rosenberg, "Traversal Using
+              Relays around NAT (TURN): Relay Extensions to Session
+              Traversal Utilities for NAT (STUN)", RFC 5766,
+              DOI 10.17487/RFC5766, April 2010,
+              <https: www.rfc-editor.org="" info="" rfc5766="">.
+
+   [RFC6336]  Westerlund, M. and C. Perkins, "IANA Registry for
+              Interactive Connectivity Establishment (ICE) Options",
+              RFC 6336, DOI 10.17487/RFC6336, July 2011,
+              <https: www.rfc-editor.org="" info="" rfc6336="">.
+
+   [RFC6724]  Thaler, D., Ed., Draves, R., Matsumoto, A., and T. Chown,
+              "Default Address Selection for Internet Protocol Version 6
+              (IPv6)", RFC 6724, DOI 10.17487/RFC6724, September 2012,
+              <https: www.rfc-editor.org="" info="" rfc6724="">.
+
+   [RFC8174]  Leiba, B., "Ambiguity of Uppercase vs Lowercase in RFC
+              2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
+              May 2017, <https: www.rfc-editor.org="" info="" rfc8174="">.
+ 
+22.2.  信息性参考文献
+ 
+   [ICE-SIP-SDP]
+              Petit-Huguenin, M., Nandakumar, S., and A. Keranen,
+              "Session Description Protocol (SDP) Offer/Answer
+              procedures for Interactive Connectivity Establishment
+              (ICE)", Work in Progress,
+              draft-ietf-mmusic-ice-sip-sdp-21, June 2018.
+
+   [RFC1918]  Rekhter, Y., Moskowitz, B., Karrenberg, D., de Groot, G.,
+              and E. Lear, "Address Allocation for Private Internets",
+              BCP 5, RFC 1918, DOI 10.17487/RFC1918, February 1996,
+              <https: www.rfc-editor.org="" info="" rfc1918="">.
+
+   [RFC2475]  Blake, S., Black, D., Carlson, M., Davies, E., Wang, Z.,
+              and W. Weiss, "An Architecture for Differentiated
+              Services", RFC 2475, DOI 10.17487/RFC2475, December 1998,
+              <https: www.rfc-editor.org="" info="" rfc2475="">.
+
+   [RFC3102]  Borella, M., Lo, J., Grabelsky, D., and G. Montenegro,
+              "Realm Specific IP: Framework", RFC 3102,
+              DOI 10.17487/RFC3102, October 2001,
+              <https: www.rfc-editor.org="" info="" rfc3102="">.</https:></https:></https:></https:></https:></https:></https:></https:></pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   [RFC3103]  Borella, M., Grabelsky, D., Lo, J., and K. Taniguchi,
+              "Realm Specific IP: Protocol Specification", RFC 3103,
+              DOI 10.17487/RFC3103, October 2001,
+              <https: www.rfc-editor.org="" info="" rfc3103="">.
+
+   [RFC3235]  Senie, D., "Network Address Translator (NAT)-Friendly
+              Application Design Guidelines", RFC 3235,
+              DOI 10.17487/RFC3235, January 2002,
+              <https: www.rfc-editor.org="" info="" rfc3235="">.
+
+   [RFC3261]  Rosenberg, J., Schulzrinne, H., Camarillo, G., Johnston,
+              A., Peterson, J., Sparks, R., Handley, M., and E.
+              Schooler, "SIP: Session Initiation Protocol", RFC 3261,
+              DOI 10.17487/RFC3261, June 2002,
+              <https: www.rfc-editor.org="" info="" rfc3261="">.
+
+   [RFC3264]  Rosenberg, J. and H. Schulzrinne, "An Offer/Answer Model
+              with Session Description Protocol (SDP)", RFC 3264,
+              DOI 10.17487/RFC3264, June 2002,
+              <https: www.rfc-editor.org="" info="" rfc3264="">.
+
+   [RFC3303]  Srisuresh, P., Kuthan, J., Rosenberg, J., Molitor, A., and
+              A. Rayhan, "Middlebox communication architecture and
+              framework", RFC 3303, DOI 10.17487/RFC3303, August 2002,
+              <https: www.rfc-editor.org="" info="" rfc3303="">.
+
+   [RFC3424]  Daigle, L., Ed. and IAB, "IAB Considerations for
+              UNilateral Self-Address Fixing (UNSAF) Across Network
+              Address Translation", RFC 3424, DOI 10.17487/RFC3424,
+              November 2002, <https: www.rfc-editor.org="" info="" rfc3424="">.
+
+   [RFC3489]  Rosenberg, J., Weinberger, J., Huitema, C., and R. Mahy,
+              "STUN - Simple Traversal of User Datagram Protocol (UDP)
+              Through Network Address Translators (NATs)", RFC 3489,
+              DOI 10.17487/RFC3489, March 2003,
+              <https: www.rfc-editor.org="" info="" rfc3489="">.
+
+   [RFC3550]  Schulzrinne, H., Casner, S., Frederick, R., and V.
+              Jacobson, "RTP: A Transport Protocol for Real-Time
+              Applications", STD 64, RFC 3550, DOI 10.17487/RFC3550,
+              July 2003, <https: www.rfc-editor.org="" info="" rfc3550="">.
+
+   [RFC3605]  Huitema, C., "Real Time Control Protocol (RTCP) attribute
+              in Session Description Protocol (SDP)", RFC 3605,
+              DOI 10.17487/RFC3605, October 2003,
+              <https: www.rfc-editor.org="" info="" rfc3605="">.</https:></https:></https:></https:></https:></https:></https:></https:></https:></pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   [RFC3711]  Baugher, M., McGrew, D., Naslund, M., Carrara, E., and K.
+              Norrman, "The Secure Real-time Transport Protocol (SRTP)",
+              RFC 3711, DOI 10.17487/RFC3711, March 2004,
+              <https: www.rfc-editor.org="" info="" rfc3711="">.
+
+   [RFC3725]  Rosenberg, J., Peterson, J., Schulzrinne, H., and G.
+              Camarillo, "Best Current Practices for Third Party Call
+              Control (3pcc) in the Session Initiation Protocol (SIP)",
+              BCP 85, RFC 3725, DOI 10.17487/RFC3725, April 2004,
+              <https: www.rfc-editor.org="" info="" rfc3725="">.
+
+   [RFC3879]  Huitema, C. and B. Carpenter, "Deprecating Site Local
+              Addresses", RFC 3879, DOI 10.17487/RFC3879, September
+              2004, <https: www.rfc-editor.org="" info="" rfc3879="">.
+
+   [RFC4038]  Shin, M-K., Ed., Hong, Y-G., Hagino, J., Savola, P., and
+              E. Castro, "Application Aspects of IPv6 Transition",
+              RFC 4038, DOI 10.17487/RFC4038, March 2005,
+              <https: www.rfc-editor.org="" info="" rfc4038="">.
+
+   [RFC4091]  Camarillo, G. and J. Rosenberg, "The Alternative Network
+              Address Types (ANAT) Semantics for the Session Description
+              Protocol (SDP) Grouping Framework", RFC 4091,
+              DOI 10.17487/RFC4091, June 2005,
+              <https: www.rfc-editor.org="" info="" rfc4091="">.
+
+   [RFC4092]  Camarillo, G. and J. Rosenberg, "Usage of the Session
+              Description Protocol (SDP) Alternative Network Address
+              Types (ANAT) Semantics in the Session Initiation Protocol
+              (SIP)", RFC 4092, DOI 10.17487/RFC4092, June 2005,
+              <https: www.rfc-editor.org="" info="" rfc4092="">.
+
+   [RFC4103]  Hellstrom, G. and P. Jones, "RTP Payload for Text
+              Conversation", RFC 4103, DOI 10.17487/RFC4103, June 2005,
+              <https: www.rfc-editor.org="" info="" rfc4103="">.
+
+   [RFC4291]  Hinden, R. and S. Deering, "IP Version 6 Addressing
+              Architecture", RFC 4291, DOI 10.17487/RFC4291, February
+              2006, <https: www.rfc-editor.org="" info="" rfc4291="">.
+
+   [RFC4566]  Handley, M., Jacobson, V., and C. Perkins, "SDP: Session
+              Description Protocol", RFC 4566, DOI 10.17487/RFC4566,
+              July 2006, <https: www.rfc-editor.org="" info="" rfc4566="">.
+
+   [RFC4787]  Audet, F., Ed. and C. Jennings, "Network Address
+              Translation (NAT) Behavioral Requirements for Unicast
+              UDP", BCP 127, RFC 4787, DOI 10.17487/RFC4787, January
+              2007, <https: www.rfc-editor.org="" info="" rfc4787="">.</https:></https:></https:></https:></https:></https:></https:></https:></https:></https:></pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+   [RFC5245]  Rosenberg, J., "Interactive Connectivity Establishment
+              (ICE): A Protocol for Network Address Translator (NAT)
+              Traversal for Offer/Answer Protocols", RFC 5245,
+              DOI 10.17487/RFC5245, April 2010,
+              <https: www.rfc-editor.org="" info="" rfc5245="">.
+
+   [RFC5382]  Guha, S., Ed., Biswas, K., Ford, B., Sivakumar, S., and P.
+              Srisuresh, "NAT Behavioral Requirements for TCP", BCP 142,
+              RFC 5382, DOI 10.17487/RFC5382, October 2008,
+              <https: www.rfc-editor.org="" info="" rfc5382="">.
+
+   [RFC5761]  Perkins, C. and M. Westerlund, "Multiplexing RTP Data and
+              Control Packets on a Single Port", RFC 5761,
+              DOI 10.17487/RFC5761, April 2010,
+              <https: www.rfc-editor.org="" info="" rfc5761="">.
+
+   [RFC6080]  Petrie, D. and S. Channabasappa, Ed., "A Framework for
+              Session Initiation Protocol User Agent Profile Delivery",
+              RFC 6080, DOI 10.17487/RFC6080, March 2011,
+              <https: www.rfc-editor.org="" info="" rfc6080="">.
+
+   [RFC6146]  Bagnulo, M., Matthews, P., and I. van Beijnum, "Stateful
+              NAT64: Network Address and Protocol Translation from IPv6
+              Clients to IPv4 Servers", RFC 6146, DOI 10.17487/RFC6146,
+              April 2011, <https: www.rfc-editor.org="" info="" rfc6146="">.
+
+   [RFC6147]  Bagnulo, M., Sullivan, A., Matthews, P., and I. van
+              Beijnum, "DNS64: DNS Extensions for Network Address
+              Translation from IPv6 Clients to IPv4 Servers", RFC 6147,
+              DOI 10.17487/RFC6147, April 2011,
+              <https: www.rfc-editor.org="" info="" rfc6147="">.
+
+   [RFC6298]  Paxson, V., Allman, M., Chu, J., and M. Sargent,
+              "Computing TCP's Retransmission Timer", RFC 6298,
+              DOI 10.17487/RFC6298, June 2011,
+              <https: www.rfc-editor.org="" info="" rfc6298="">.
+
+   [RFC6544]  Rosenberg, J., Keranen, A., Lowekamp, B., and A. Roach,
+              "TCP Candidates with Interactive Connectivity
+              Establishment (ICE)", RFC 6544, DOI 10.17487/RFC6544,
+              March 2012, <https: www.rfc-editor.org="" info="" rfc6544="">.
+
+   [RFC6928]  Chu, J., Dukkipati, N., Cheng, Y., and M. Mathis,
+              "Increasing TCP's Initial Window", RFC 6928,
+              DOI 10.17487/RFC6928, April 2013,
+              <https: www.rfc-editor.org="" info="" rfc6928="">.</https:></https:></https:></https:></https:></https:></https:></https:></https:></pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   [RFC7050]  Savolainen, T., Korhonen, J., and D. Wing, "Discovery of
+              the IPv6 Prefix Used for IPv6 Address Synthesis",
+              RFC 7050, DOI 10.17487/RFC7050, November 2013,
+              <https: www.rfc-editor.org="" info="" rfc7050="">.
+
+   [RFC7721]  Cooper, A., Gont, F., and D. Thaler, "Security and Privacy
+              Considerations for IPv6 Address Generation Mechanisms",
+              RFC 7721, DOI 10.17487/RFC7721, March 2016,
+              <https: www.rfc-editor.org="" info="" rfc7721="">.
+
+   [RFC7825]  Goldberg, J., Westerlund, M., and T. Zeng, "A Network
+              Address Translator (NAT) Traversal Mechanism for Media
+              Controlled by the Real-Time Streaming Protocol (RTSP)",
+              RFC 7825, DOI 10.17487/RFC7825, December 2016,
+              <https: www.rfc-editor.org="" info="" rfc7825="">.
+
+   [RFC8421]  Martinsen, P., Reddy, T., and P. Patil, "Interactive
+              Connectivity Establishment (ICE) Multihomed and IPv4/IPv6
+              Dual-Stack Guidelines", RFC 8421, DOI 10.17487/RFC8421,
+              July 2018, <https: www.rfc-editor.org="" info="" rfc8421="">.
+
+   [WebRTC-IP-HANDLING]
+              Uberti, J. and G. Shieh, "WebRTC IP Address Handling
+              Requirements", Work in Progress, draft-ietf-rtcweb-ip-
+              handling-09, June 2018.</https:></https:></https:></https:></pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+附录A.精简版和完整版的实现。
+ 
+   ICE允许两种类型的实现。完整的实现支持会话中的控制和受控角色，还可以执行地址收集。相比之下，精简实现是一种最低限度的实现，除了响应STUN检查之外几乎不做任何事情，并且它只支持会话中的受控角色。
+ 
+   由于ICE需要两个终端都支持它才能给任何一个终端带来好处，因此ICE在网络中的增量部署更加复杂。许多会话涉及的端点本身并不在NAT之后，也不会担心NAT穿越。一种非常常见的情况是，一个需要NAT穿越的端点(如VoIP硬电话或软电话)呼叫这些设备之一。即使手机支持完整的ICE实现，如果另一台设备不支持ICE，也不会使用ICE。Lite实现为这些设备提供了一个低成本的入口点。一旦他们支持Lite实现，完整的实现就可以连接到他们并获得ICE的全部好处。
+ 
+   因此，精简实现仅适用于将“始终”连接到公共互联网并且具有公共IP地址的设备，在该公共IP地址上可以接收来自任何通信方的分组。如果将精简实施置于NAT之后，ICE将不起作用。
+ 
+   ICE允许精简实现具有单个候选IPv4主机和多个IPv6地址。在这种情况下，候选对由控制代理使用静态算法来选择，例如本规范推荐的RFC 6724中的算法。然而，静态地址选择机制总是容易出错，因为它们永远不能反映实际的拓扑或提供实际的连通性保证。它们总是启发式的。因此，如果ICE代理实施ICE只是为了在其IPv4和IPv6地址之间进行选择，并且其IP地址都不在NAT之后，则仍建议使用完全ICE，以便尽可能提供最健壮的地址选择形式。
+ 
+   重要的是要注意，本规范中添加了Lite实现，以提供全面实现的垫脚石。即使对于始终只使用单个IPv4地址连接到公共互联网的设备，如果可以实现，完全实施也是更可取的。完全实施还可以获得与NAT穿越无关的ICE的安全优势。最后，通常情况是，今天发现自己拥有公有地址的设备明天将被放置在网络中，它将位于NAT之后。很难确切地知道，在设备或产品的整个生命周期内，它是否会一直在公共互联网上使用。全面实施可确保通信始终正常工作。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+ 
+ 
+
+
+附录B：设计动机
+ 
+   ICE包含许多规范行为，这些行为本身可能很简单，但源自复杂或不明显的思考或用例，值得进一步讨论。由于这些设计动机不是为了实现目的而必须理解的，因此我们在这里讨论它们。本附录是非规范性的。
+ 
+B.1.  STUN 事务的节奏
+ 
+   用于收集候选对象和验证连接性的STUN事务以大约每Ta毫秒一个新事务的速度进行测量。每个事务又具有也是Ta的函数的重发定时器RT0。为什么这些交易是有节奏的，为什么使用这些公式？
+ 
+   发送这些STUN请求通常具有在客户端和STUN服务器之间的NAT设备上创建绑定的效果。经验表明，许多NAT设备创建新绑定的速率都有上限。IETF ICE工作组在此规范工作期间的讨论得出结论，每5毫秒一次得到了很好的支持。这就是为什么Ta的下限是5毫秒。此外，在网络上传输这些分组需要使用带宽，并且需要受ICE代理的速率限制。基于[RFC5245]早期草案版本的部署除了对网络造成负面影响外，往往会使速率受限的接入链路过载，整体性能不佳。因此，调整可确保NAT设备不会过载，并确保流量保持在合理的速率。
+ 
+   “合理”速率的定义是，一旦数据开始流动，STUN使用的带宽不得超过RTP本身将使用的带宽。Ta的公式是这样设计的，即如果每Ta秒发送一个STUN包，它将消耗与RTP包相同的带宽量，所有数据流的总和。当然，STUN也有转播功能，人们的愿望是也能对这些转播进行调整。出于这个原因，RTO被设置为使第一个事务的第一次重传发生在最后一个事务的第一个STUN请求发生时。插图：</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+              First Packets              Retransmits
+ 
+
+ 
+                    |                        |
+                    |                        |
+             -------+------           -------+------
+            /               \        /               \
+           /                 \      /                 \
+ 
+           +--+    +--+    +--+    +--+    +--+    +--+
+           |A1|    |B1|    |C1|    |A2|    |B2|    |C2|
+           +--+    +--+    +--+    +--+    +--+    +--+
+ 
+        ---+-------+-------+-------+-------+-------+------------ Time
+           0       Ta      2Ta     3Ta     4Ta     5Ta
+ 
+   在此图中，将发送三个事务(例如，在候选人聚集的情况下，有三个主机候选/STUN服务器对)。这些是事务A、B和C。重发定时器被设置为使得第一个事务(分组A2)的第一次重发在时间3Ta被发送。
+ 
+   第一次之后的后续重传将比间隔Ta毫秒的频率更低，因为STUN在其重传中使用指数退避。
+ 
+   这种全局最小起搏间隔为5ms的机制一般不适用于传输协议，但基于以下推理其适用于ICE。
+ 
+   o  从下列一般适用于传输协议的规则开始：
+ 
+      1.  设MaxBytes为启动时网络中允许的最大未完成字节数，应为14600，如[RFC6928]第 ；2节所定义。
+ 
+      2.  以HTO为事务超时时间，如果知道RTT，则为2*RTT，否则为500ms。这基于来自[RFC5389]的STUN消息的RTO和[RFC6298]中为1秒的TCP初始RTO。
+ 
+      3.  设MinPacing为事务之间的最小起搏间隔，为5ms(见上)。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   o  注意到代理通常不知道ICE事务的RTT(特别是连接检查)，这意味着HTO几乎总是500毫秒。
+ 
+   o  观察到5ms的MinPacing和500ms的HTO最多提供100Packets/HTO，对于小于120字节的典型ICE检查来说，这意味着网络中最多有12000个未完成的字节，这比规则1所表示的最大值要小。
+ 
+   o  因此，对于ICE，规则集减少到仅MinPacing规则，这相当于具有全局Ta值。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+B.2.  拥有多个基地的候选人
+ 
+   第5.1.3节讨论了删除具有相同传输地址和基地的候选人。然而，拥有相同传输地址但不同基地的候选人并不是多余的。ICE代理何时可以有两个IP地址和端口相同但基本地址不同的候选者？考虑图11的拓扑：
+ 
+          +----------+
+          | STUN Srvr|
+          +----------+
+               |
+               |
+             -----
+           //     \\
+          |         |
+         |  B:net10  |
+          |         |
+           \\     //
+             -----
+               |
+               |
+          +----------+
+          |   NAT    |
+          +----------+
+               |
+               |
+             -----
+           //     \\
+          |    A    |
+         |192.168/16 |
+          |         |
+           \\     //
+             -----
+               |
+               |
+               |192.168.1.100      -----
+          +----------+           //     \\             +----------+
+          |          |          |         |            |          |
+          | Initiator|---------|  C:net10  |-----------| Responder|
+          |          |10.0.1.100|         | 10.0.1.101 |          |
+          +----------+           \\     //             +----------+
+                                   -----
+
+           Figure 11: Identical Candidates with Different Bases</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   在这种情况下，发起代理是多宿主的。它在网络C上有一个IP地址10.0.1.100，该网络是一个网络10私有网络。响应代理位于同一网络上。发起代理还连接到网络A，网络A为192.168/16，IP地址为192.168.1.100。此网络上有一个NAT，它连接到网络B，这是另一个网络10专用网络，但没有连接到网络C。网络B上有一个STUN服务器。
+ 
+   发起代理在网络C上获取其IP地址上的候选主机(10.0.1.100：2498)，并在网络A上获取其IP地址上的候选主机(192.168.1.100：3344)。它从192.168.1.100：3344对其配置的STUN服务器执行STUN查询。该查询通过NAT，该NAT恰好分配了绑定10.0.1.100：2498。STUN服务器在STUN绑定响应中反映这一点。现在，发起代理已经获得了一个服务器自反候选者，其传输地址与主机候选者(10.0.1.100：2498)相同。但是，服务器自反候选的基数为192.168.1.100：3344，而主机候选的基数为10.0.1.100：2498。
+ 
+B.3.  相关地址和相关端口属性的用途
+ 
+   候选属性包含两个ICE本身根本不使用的值--相关地址和相关端口。他们为什么会出现？
+ 
+   它被纳入有两个动机。首先是诊断性的。了解不同类型的候选人之间的关系是非常有用的。通过包括它，ICE代理可以知道哪个中继候选与哪个反身候选相关联，而后者又与特定的宿主候选相关联。当对一个候选者的检查成功，而对其他候选者的检查不成功时，这将为网络中发生的情况提供有用的诊断。
+ 
+   第二个原因与路径外服务质量(Qos)机制有关。当ICE在PacketCable 2.0等环境中使用时，代理除了执行正常的SIP操作外，还将检查SIP消息中的SDP，并提取数据流量的IP地址和端口。然后，它们可以通过策略服务器与网络中的接入路由器交互，为数据流建立有保证的服务质量。通过基于5元组对RTP流量进行分类，然后为其提供有保证的速率，或者适当地标记其DSCP，来提供该服务质量。当存在住宅NAT，并且被转发的候选被选择用于数据时，该被转发的候选将是实际TURN服务器上的传输地址。该地址没有说明接入路由器中的实际传输地址，该地址将用于对分组进行分类以进行QoS处理。相反，需要面向 TURN 服务器的服务器反射候选者。 通过在 SDP 中承载转换，代理可以使用该传输地址从接入路由器请求 QoS。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+  
+ 
+B.4.  STUN用户名的重要性
+ 
+   ICE要求使用具有STUN的消息完整性，并使用其短期凭证功能。通过在候选交换中交换用户名片段来形成实际的短期凭证。对这一机制的需要不仅仅是安全；实际上，它是ICE正确运行的首要条件。
+ 
+   考虑 ICE 药物 L、R 和 Z。 L 和 R 位于私有企业 1 中，该企业使用 10.0.0.0/8。 Z 在私有企业 2 中，它也使用 10.0.0.0/8。 事实证明，R 和 Z 都有 IP 地址 10.0.1.1。 L 将候选项发送到 Z。 Z 使用其宿主候选项响应 L。 在本例中，这些候选项是 10.0.1.1：8866 和 10.0.1.1：8877。 事实证明，R 同时处于会话中，并且还使用 10.0.1.1：8866 和 10.0.1.1：8877 作为主机候选项。 这意味着 R 准备接受这些端口上的 STUN 消息，就像 Z 一样。 L 将向 10.0.1.1：8866 发送一个 STUN 请求，向 10.0.1.1：8877 发送另一个 STUN 请求。 但是，这些不会按预期转到 Z。 相反，他们去R！ 如果 R 只是回复他们，L 会认为它与 Z 有连接，而实际上它与完全不同的用户 R 有连接。 为了解决这个问题，使用了 STUN 短期凭证机制。 用户名片段足够随机;因此，R 极不可能使用与 Z 相同的值。 因此，R 将拒绝 STUN 请求，因为凭据无效。 实质上，STUN 用户名片段提供了一种瞬态主机标识符的形式，绑定到作为候选交换的一部分建立的特定会话。
+ 
+   IP地址的非唯一性的一个不幸后果是，在上面的例子中，R甚至可能不是ICE代理。它可以是任何主机，并且STUN分组被定向到的端口可以是该主机上的任何临时端口。如果有应用程序在此套接字上监听数据包，并且该应用程序不准备为正在使用的任何协议处理格式错误的数据包，则该应用程序的操作可能会受到影响。幸运的是，由于交换的端口是短暂的，并且通常来自动态或注册范围，因此该端口很有可能不是用于在主机R上运行服务器，而是某些协议的代理端。这降低了命中分配的端口的概率，这是由于该范围内的端口使用的暂时性。但是，出现问题的可能性确实存在，网络部署人员需要为此做好准备。请注意，这不是ICE特有的问题；任何类型的协议，特别是公共Internet上的协议，丢失的数据包都可能在任何时间到达端口。因此，这一要求只是重申了Internet应用程序的一般设计指南--为任何端口上的未知数据包做好准备。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+ 
+ 
+B.5.  候选对优先级公式
+ 
+   候选对的优先级具有奇数形式。 它是：
+ 
+      pair priority = 2^32*MIN(G,D) + 2*MAX(G,D) + (G&gt;D?1:0)
+ 
+   这是为什么？当根据此值对候选对进行排序时，结果排序具有Max/Min属性。这意味着首先基于两个优先级中的最小值的递减值对对进行排序。对于具有相同最小优先级值的对，使用最大优先级在它们之间进行排序。如果最大优先级和最小优先级相同，则控制代理的优先级在表达式的最后部分用作决胜局。由于单个候选的优先级始终小于2*32，因此使用2*32的系数，从而导致成对的优先级是两个分量优先级的“串联”。这将创建最大/最小排序。最大/最小确保对于特定ICE代理，在尝试了所有较高优先级的候选之前，永远不会使用较低优先级的候选。
+ 
+B.6.  为什么需要 Keepalives?
+ 
+   一旦数据开始在候选对上流动，仍有必要在会话期间保持中间NAT上的绑定有效。通常，数据流分组本身(例如，RTP)满足该目标。然而，有几个案例值得进一步讨论。首先，在一些RTP使用中，例如SIP，数据流可以被“搁置”。这是通过使用RFC 3264[RFC3264]中定义的SDP“sendonly”或“inactive”属性来实现的。RFC 3264指示实现在这些情况下停止数据传输。然而，这样做可能会导致NAT绑定超时，并且数据将无法脱离等待。
+ 
+   其次，一些RTP有效载荷格式，例如用于文本对话的有效载荷格式[RFC4103]，可能不频繁地发送分组，以致间隔超过NAT绑定超时。
+ 
+   第三，如果使用静默抑制，长时间的静默可能会导致数据传输停止足够长的时间，使NAT绑定超时。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+   由于这些原因，数据包本身是不可依赖的。  ICE定义了利用STUN 绑定指示的简单定期保持连接。 这使得其带宽要求具有高度可预测性，因此适合 QoS 预留。
+ 
+B.7.  为什么首选对等自反候选?
+ 
+   第5.1.2节介绍了根据候选人的类型和当地偏好计算其优先级的程序。该部分要求对等自反式候选者的类型首选项始终高于服务器自反式。为什么会这样呢？原因与第19节中的安全考虑因素有关。攻击者更容易导致ICE代理使用虚假的服务器自反候选者，而不是虚假的对等自反者候选者。因此，ICE通过倾向于对等自反式候选来挫败对具有绑定请求的地址收集的攻击。
+ 
+B.8.  为什么要对Keepalive使用绑定指示?
+ 
+   数据保持连接在第11节中介绍。当两个端点都支持ICE时，这些保持连接使用STUN。然而，Keepalive不使用绑定请求事务(生成响应)，而是使用指示。为什么会这样呢？
+ 
+   主要原因与网络的服务质量机制有关。一旦数据开始流动，网元将假定数据流具有相当规则的结构，使用固定间隔的周期性分组，可能会出现抖动。如果ICE代理正在发送数据分组，然后接收到绑定请求，则它将需要生成响应分组及其数据分组。这将增加承载数据分组的5元组的实际带宽需求，并在这些分组的传递中引入抖动。分析表明，在对数据使用相当严格的分组调度器的某些第2层接入网络中，这是一个令人担忧的问题。
+ 
+   此外，使用绑定指示可以禁用完整性，这可能会带来更好的性能。这对于大型终端非常有用，例如公共交换电话网(PSTN)网关和会话边界控制器(SBCS)。
+ 
+B.9.  选择候选人类型首选项
+ 
+   选择类型和本地首选项值的一个标准是使用诸如TURN服务器的数据中介、诸如VPN服务器或NAT的隧道服务。有了数据中介，如果数据被发送给该候选人，它将在接收之前首先通过数据中介。涉及数据中介的一种类型的候选人是被转播的候选人。另一种类型是从VPN接口获取的候选主机。当数据通过数据中介传输时，可能会对传输和接收之间的延迟产生积极或消极的影响。它可能会也可能不会增加分组丢失，因为可能需要额外的路由器跳数。这可能会增加提供服务的成本，因为数据将从提供商运行的数据中介来回路由。如果这些问题很重要，那么需要仔细选择中转候选人的类型偏好。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
+ 
+   选择首选项的另一个标准是 IP 地址系列。  ICE同时适用于IPv4和IPv6。 它提供了一种过渡机制，允许双堆栈主机首选连接而不是 IPv6，但在 v6 网络断开连接时回退到 IPv4。 实现应遵循 [RFC8421] 中的准则，以避免在存在断开的路径时在连接检查阶段出现过多延迟。
+ 
+   选择偏好的另一个标准是拓扑意识。这对利用中间人的候选是有利的。在这些情况下，如果ICE代理已经预先配置或动态发现了中介机构与其自身的拓扑接近程度的知识，它可以使用这一知识为从较近的中介机构获得的候选人分配更高的本地偏好。
+ 
+   选择首选项的另一个标准可能是安全或隐私。如果用户是远程工作者，并且因此连接到公司网络和本地家庭网络，则用户可能更喜欢通过VPN或类似隧道来路由他们的语音业务，以便当在企业内通信时将其保持在公司网络上，但是当与企业外部的用户通信时可以使用本地网络。在这种情况下，VPN地址将比任何其他地址具有更高的本地优先级。</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+附录C.连接-检查带宽
+ 
+   下表显示了对于IPv4和IPv6，使用不同的Ta值(以毫秒为单位)和不同的 ufrag 大小(以字节为单位)执行连接检查所需的带宽。
+ 
+   结果由 Jusin Uberti (Google) 于2016年4月11日提供。
+ 
+                     IP version: IPv4
+                     Packet len (bytes): 108 + ufrag
+                          |
+                       ms |     4     8    12    16
+                     -----|------------------------
+                      500 | 1.86k 1.98k 2.11k 2.24k
+                      200 | 4.64k 4.96k 5.28k  5.6k
+                      100 | 9.28k 9.92k 10.6k 11.2k
+                       50 | 18.6k 19.8k 21.1k 22.4k
+                       20 | 46.4k 49.6k 52.8k 56.0k
+                       10 | 92.8k 99.2k  105k  112k
+                        5 |  185k  198k  211k  224k
+                        2 |  464k  496k  528k  560k
+                        1 |  928k  992k 1.06M 1.12M
+
+                     IP version: IPv6
+                     Packet len (bytes): 128 + ufrag
+                          |
+                       ms |     4     8    12    16
+                     -----|------------------------
+                      500 | 2.18k  2.3k 2.43k 2.56k
+                      200 | 5.44k 5.76k 6.08k  6.4k
+                      100 | 10.9k 11.5k 12.2k 12.8k
+                       50 | 21.8k 23.0k 24.3k 25.6k
+                       20 | 54.4k 57.6k 60.8k 64.0k
+                       10 |  108k  115k  121k  128k
+                        5 |  217k  230k  243k  256k
+                        2 |  544k  576k  608k  640k
+                        1 | 1.09M 1.15M 1.22M 1.28M
+
+
+                  Figure 12: Connectivity-Check Bandwidth</pre>
+<hr class="noprint"><!--NewPage--><pre style="height: 840px; white-space: pre-wrap; font-size: 14px; font-family: 宋体;"> 
+
+Acknowledgements
+
+   Most of the text in this document comes from the original ICE
+   specification, RFC 5245.  The authors would like to thank everyone
+   who has contributed to that document.  For additional contributions
+   to this revision of the specification, we would like to thank Emil
+   Ivov, Paul Kyzivat, Pal-Erik Martinsen, Simon Perrault, Eric
+   Rescorla, Thomas Stach, Peter Thatcher, Martin Thomson, Justin
+   Uberti, Suhas Nandakumar, Taylor Brandstetter, Peter Saint-Andre,
+   Harald Alvestrand, and Roman Shpount.  Ben Campbell did the AD
+   review.  Stephen Farrell did the sec-dir review.  Stewart Bryant did
+   the gen-art review.  Qin We did the ops-dir review.  Magnus
+   Westerlund did the tsv-art review.
+
+Authors' Addresses
+
+   Ari Keranen
+   Ericsson
+   Hirsalantie 11
+   02420 Jorvas
+   Finland
+
+   Email: ari.keranen@ericsson.com
+
+
+   Christer Holmberg
+   Ericsson
+   Hirsalantie 11
+   02420 Jorvas
+   Finland
+
+   Email: christer.holmberg@ericsson.com
+
+
+   Jonathan Rosenberg
+   jdrosen.net
+   Monmouth, NJ
+   United States of America
+
+   Email: jdrosen@jdrosen.net
+   URI:   http://www.jdrosen.net
+ 
+
+ 
+
+</pre>
+
+
+
+
+</div>
